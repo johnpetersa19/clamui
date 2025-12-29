@@ -48,9 +48,9 @@ For other distributions:
 
 2. **Install system dependencies** (see Requirements above)
 
-3. **Install Python dependencies**:
+3. **Install Python dependencies with uv**:
    ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
 
 4. **Verify ClamAV installation**:
@@ -62,7 +62,7 @@ For other distributions:
 ## Running the Application
 
 ```bash
-python src/main.py
+uv run clamui
 ```
 
 ## Project Structure
@@ -81,14 +81,15 @@ clamui/
 │       ├── __init__.py
 │       ├── scanner.py       # ClamAV subprocess integration
 │       └── utils.py         # Utility functions
-├── requirements.txt
+├── pyproject.toml
+├── uv.lock
 ├── README.md
 └── .gitignore
 ```
 
 ## Usage
 
-1. Launch the application with `python src/main.py`
+1. Launch the application with `uv run clamui`
 2. Click the folder selection button to choose a file or directory to scan
 3. Click the "Scan" button to start the antivirus scan
 4. View the results in the results display area

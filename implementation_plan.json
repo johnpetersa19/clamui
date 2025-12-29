@@ -1,0 +1,27 @@
+{
+  "spec": "002-migrate-dependencies-to-pyproject-yml-with-uv",
+  "subtasks": [
+    {
+      "id": "subtask-1-1",
+      "title": "Create pyproject.toml with project metadata and dependencies",
+      "status": "completed"
+    },
+    {
+      "id": "subtask-1-2",
+      "title": "Remove requirements.txt after confirming uv setup",
+      "status": "completed"
+    }
+  ],
+  "qa_signoff": {
+    "status": "fixes_applied",
+    "timestamp": "2025-12-29T00:00:00Z",
+    "fix_session": 1,
+    "issues_fixed": [
+      {
+        "title": "Update README.md for uv workflow",
+        "fix_commit": "982bab1"
+      }
+    ],
+    "ready_for_qa_revalidation": true
+  }
+}
