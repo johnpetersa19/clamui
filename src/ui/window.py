@@ -30,7 +30,7 @@ class MainWindow(Adw.ApplicationWindow):
         # Set window properties
         self.set_title("ClamUI")
         self.set_default_size(800, 600)
-        self.set_size_request(400, 500)  # Minimum size to keep status bar visible
+        self.set_size_request(400, 600)  # Minimum size to keep ClamAV status bar visible
 
         # Create the main layout
         self._setup_ui()
