@@ -1,0 +1,9 @@
+{
+  "sourceType": "manual",
+  "category": "infrastructure",
+  "priority": "urgent",
+  "complexity": "complex",
+  "impact": "critical",
+  "model": "opus",
+  "thinkingLevel": "ultrathink"
+}

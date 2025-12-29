@@ -1,0 +1,66 @@
+{
+  "complexity": "standard",
+  "workflow_type": "feature",
+  "confidence": 0.85,
+  "reasoning": "Greenfield Linux desktop application with GUI framework selection and ClamAV CLI integration. Scope explicitly limited to 'basic UI and base setup', keeping complexity manageable. Standard workflow with research phase for GUI framework best practices.",
+
+  "analysis": {
+    "scope": {
+      "estimated_files": 8,
+      "estimated_services": 1,
+      "is_cross_cutting": false,
+      "notes": "Basic project setup: main app file, UI components, ClamAV integration module, config, package files. Single desktop application service."
+    },
+    "integrations": {
+      "external_services": ["ClamAV CLI"],
+      "new_dependencies": ["GUI framework (GTK/Qt/Electron)", "process execution utilities"],
+      "research_needed": true,
+      "notes": "ClamAV integration is via CLI subprocess execution (clamscan, freshclam). Well-documented CLI interface. GUI framework choice needs research for Linux desktop best practices."
+    },
+    "infrastructure": {
+      "docker_changes": false,
+      "database_changes": false,
+      "config_changes": true,
+      "notes": "Fresh project requires build configuration, package.json/pyproject.toml/CMakeLists, and basic project structure. No containers or databases needed."
+    },
+    "knowledge": {
+      "patterns_exist": false,
+      "research_required": true,
+      "unfamiliar_tech": ["Selected GUI framework patterns"],
+      "notes": "Greenfield project - no existing patterns. Research needed for GUI framework selection and Linux desktop app conventions. ClamAV CLI is straightforward."
+    },
+    "risk": {
+      "level": "low",
+      "concerns": ["GUI framework selection impact", "ClamAV availability on target system", "Permission handling for system scans"],
+      "notes": "New project with no existing functionality to break. User explicitly limited scope to basic implementation. Low risk of regressions."
+    }
+  },
+
+  "recommended_phases": [
+    "discovery",
+    "requirements",
+    "research",
+    "context",
+    "spec_writing",
+    "planning",
+    "validation"
+  ],
+
+  "flags": {
+    "needs_research": true,
+    "needs_self_critique": false,
+    "needs_infrastructure_setup": false
+  },
+
+  "validation_recommendations": {
+    "risk_level": "low",
+    "skip_validation": false,
+    "minimal_mode": true,
+    "test_types_required": ["unit"],
+    "security_scan_required": false,
+    "staging_deployment_required": false,
+    "reasoning": "Basic UI setup with limited scope. Greenfield project with no existing users or data at risk. ClamAV integration uses subprocess execution (not handling secrets). Minimal validation with basic unit tests for core functionality."
+  },
+
+  "created_at": "2025-12-29T12:30:00.000000"
+}

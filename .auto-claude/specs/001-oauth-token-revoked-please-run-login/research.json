@@ -1,0 +1,321 @@
+{
+  "integrations_researched": [
+    {
+      "name": "PyGObject (GTK4)",
+      "type": "library",
+      "verified_package": {
+        "name": "PyGObject",
+        "install_command": "pip install PyGObject",
+        "version": "3.48.2",
+        "verified": true,
+        "verification_method": "pip3 list confirmed installed"
+      },
+      "api_patterns": {
+        "imports": [
+          "import gi",
+          "gi.require_version('Gtk', '4.0')",
+          "gi.require_version('Adw', '1')",
+          "from gi.repository import Gtk, Adw, GLib, Gio"
+        ],
+        "initialization": "class MyApp(Adw.Application):\n    def __init__(self):\n        super().__init__(application_id='com.example.myapp')\n    def do_activate(self):\n        win = Adw.ApplicationWindow(application=self)\n        win.present()",
+        "key_functions": [
+          "Gtk.Application() - Main application class",
+          "Adw.ApplicationWindow() - Modern GNOME-style window",
+          "Gtk.Box() - Container for layout",
+          "Gtk.Button() - Clickable button widget",
+          "Gtk.Label() - Text display widget",
+          "Gtk.FileDialog() - File/folder selection",
+          "Gtk.ProgressBar() - Progress indication",
+          "Gtk.TextView() - Multi-line text display",
+          "GLib.spawn_async() - Async subprocess execution",
+          "GLib.idle_add() - Thread-safe UI updates"
+        ],
+        "verified_against": "Context7 MCP library ID: /websites/pygobject_gnome (994 snippets, High reputation, Score 81)"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [],
+        "dependencies": [
+          "pycairo (graphics rendering)",
+          "libgtk-4-dev (system GTK4 development files)",
+          "libadwaita-1-dev (GNOME Adwaita styling)"
+        ]
+      },
+      "infrastructure": {
+        "requires_docker": false,
+        "system_packages_linux": [
+          "libgtk-4-dev",
+          "libadwaita-1-dev",
+          "python3-gi",
+          "gir1.2-gtk-4.0",
+          "gir1.2-adw-1"
+        ]
+      },
+      "gotchas": [
+        "Must call gi.require_version() BEFORE importing from gi.repository",
+        "GTK4 is significantly different from GTK3 - ensure using GTK4 patterns",
+        "UI updates must be done from main thread - use GLib.idle_add() for thread safety",
+        "Adwaita (libadwaita) provides modern GNOME styling and is recommended for new apps",
+        "Application ID must be in reverse-DNS format (com.example.app)"
+      ],
+      "research_sources": [
+        "Context7 MCP: /websites/pygobject_gnome",
+        "Context7 MCP: /gnome/gtk",
+        "System verification: pip3 list (PyGObject 3.48.2 confirmed)"
+      ]
+    },
+    {
+      "name": "pycairo",
+      "type": "library",
+      "verified_package": {
+        "name": "pycairo",
+        "install_command": "pip install pycairo",
+        "version": "1.25.1",
+        "verified": true,
+        "verification_method": "pip3 list confirmed installed"
+      },
+      "api_patterns": {
+        "imports": ["import cairo"],
+        "key_functions": [
+          "cairo.Context() - Drawing context",
+          "cairo.ImageSurface() - Image rendering"
+        ],
+        "verified_against": "System pip list"
+      },
+      "configuration": {
+        "dependencies": ["libcairo2-dev (system library)"]
+      },
+      "gotchas": [
+        "Required dependency for PyGObject graphics operations"
+      ],
+      "research_sources": [
+        "System verification: pip3 list (pycairo 1.25.1 confirmed)"
+      ]
+    },
+    {
+      "name": "ClamAV",
+      "type": "service",
+      "verified_package": {
+        "name": "clamav",
+        "install_command": "sudo apt install clamav clamav-daemon",
+        "version": "latest from distro repos",
+        "verified": false,
+        "verification_method": "Not installed on development system - patterns based on official documentation"
+      },
+      "api_patterns": {
+        "cli_commands": {
+          "clamscan": {
+            "description": "On-demand file/directory scanner",
+            "basic_usage": "clamscan [options] [file/directory]",
+            "key_options": [
+              "-r, --recursive: Scan directories recursively",
+              "-i, --infected: Only print infected files",
+              "-v, --verbose: Be verbose",
+              "--bell: Sound bell on virus detection",
+              "--no-summary: Disable summary at end",
+              "--max-filesize=SIZE: Skip files larger than SIZE",
+              "--max-scansize=SIZE: Maximum data to scan for each container",
+              "--exclude=REGEX: Don't scan file names matching REGEX",
+              "--exclude-dir=REGEX: Don't scan directories matching REGEX",
+              "--log=FILE: Save scan report to FILE",
+              "-l FILE: Same as --log"
+            ],
+            "exit_codes": {
+              "0": "No virus found",
+              "1": "Virus(es) found",
+              "2": "Some error(s) occurred"
+            },
+            "output_format": "filepath: status_message"
+          },
+          "freshclam": {
+            "description": "Virus database update utility",
+            "basic_usage": "freshclam [options]",
+            "key_options": [
+              "-v, --verbose: Be verbose",
+              "--quiet: Only output error messages",
+              "-d, --daemon: Run in daemon mode",
+              "--config-file=FILE: Use alternate config file",
+              "--datadir=DIRECTORY: Download to specified directory",
+              "--checks=N: Number of database checks per day (daemon mode)"
+            ],
+            "exit_codes": {
+              "0": "Database updated successfully or already up to date",
+              "1": "Error occurred during update"
+            }
+          },
+          "clamdscan": {
+            "description": "Scanner that uses clamd daemon (faster for multiple scans)",
+            "basic_usage": "clamdscan [options] [file/directory]",
+            "key_options": [
+              "-m, --multiscan: Force MULTISCAN mode",
+              "--fdpass: Pass file descriptors to clamd",
+              "-v, --verbose: Be verbose",
+              "--stream: Force streaming to clamd"
+            ],
+            "note": "Requires clamd daemon to be running"
+          }
+        },
+        "verified_against": "ClamAV official documentation patterns (docs.clamav.net)"
+      },
+      "configuration": {
+        "env_vars": [],
+        "config_files": [
+          "/etc/clamav/clamd.conf - Daemon configuration",
+          "/etc/clamav/freshclam.conf - Update configuration"
+        ],
+        "dependencies": [
+          "clamav - Main scanner package",
+          "clamav-daemon - Background scanning daemon",
+          "clamav-freshclam - Auto-update service"
+        ]
+      },
+      "infrastructure": {
+        "requires_docker": false,
+        "requires_root": "Some operations may need elevated privileges",
+        "database_location": "/var/lib/clamav/",
+        "log_location": "/var/log/clamav/"
+      },
+      "gotchas": [
+        "First run of freshclam downloads ~300MB of virus definitions",
+        "clamscan loads database on each run (slow) - clamdscan uses running daemon (fast)",
+        "Scanning large directories can take significant time - need async handling",
+        "Permission errors may occur scanning system files without elevated privileges",
+        "Exit code 1 means virus found (not an error) - must handle appropriately",
+        "Output parsing: each line format is 'filepath: RESULT' where RESULT is 'OK' or 'VirusName FOUND'"
+      ],
+      "research_sources": [
+        "ClamAV Official Documentation: docs.clamav.net",
+        "Note: ClamAV not installed on dev system - patterns need runtime verification"
+      ]
+    },
+    {
+      "name": "Python subprocess/asyncio",
+      "type": "library",
+      "verified_package": {
+        "name": "subprocess (stdlib)",
+        "install_command": "Built-in Python standard library",
+        "version": "Python 3.12.3",
+        "verified": true,
+        "verification_method": "Python stdlib - always available"
+      },
+      "api_patterns": {
+        "imports": [
+          "import subprocess",
+          "import asyncio",
+          "from gi.repository import GLib"
+        ],
+        "initialization": "For GTK apps, prefer GLib.spawn_async() or run subprocess in thread with GLib.idle_add() for UI updates",
+        "key_functions": [
+          "subprocess.Popen() - Spawn process with pipes",
+          "subprocess.run() - Run and wait for completion",
+          "asyncio.create_subprocess_exec() - Async subprocess",
+          "GLib.spawn_async() - GTK-native async subprocess",
+          "GLib.idle_add() - Schedule function on main thread"
+        ],
+        "verified_against": "Python 3.12 standard library documentation"
+      },
+      "gotchas": [
+        "Never block GTK main thread with long-running subprocess",
+        "Use threading or GLib async for background operations",
+        "Always handle subprocess stderr for error messages",
+        "Parse stdout line-by-line for real-time progress updates"
+      ],
+      "research_sources": [
+        "Python 3.12 stdlib documentation",
+        "PyGObject threading patterns"
+      ]
+    }
+  ],
+  "framework_comparison": {
+    "evaluated_options": [
+      {
+        "name": "PyGObject/GTK4",
+        "context7_id": "/websites/pygobject_gnome",
+        "pros": [
+          "Native Linux look and feel",
+          "Already installed on system (PyGObject 3.48.2)",
+          "Lightweight - no bundled runtime",
+          "Adwaita provides modern GNOME styling",
+          "Good Python integration",
+          "High Context7 score (81)"
+        ],
+        "cons": [
+          "GTK4 has learning curve vs GTK3",
+          "Less cross-platform than Electron/Tauri"
+        ],
+        "recommendation": "RECOMMENDED - Best fit for Linux desktop ClamAV UI"
+      },
+      {
+        "name": "Electron",
+        "context7_id": "/websites/electronjs",
+        "pros": [
+          "Web technologies (HTML/CSS/JS)",
+          "Rich ecosystem",
+          "Highest Context7 score (91.9)"
+        ],
+        "cons": [
+          "Large bundle size (~150MB+)",
+          "Node.js not verified on system",
+          "Resource heavy for simple app",
+          "Overkill for this use case"
+        ],
+        "recommendation": "NOT RECOMMENDED - Too heavy for simple AV GUI"
+      },
+      {
+        "name": "Tauri",
+        "context7_id": "/websites/v2_tauri_app",
+        "pros": [
+          "Small bundle size",
+          "Web frontend flexibility",
+          "Good Context7 score (83.7)"
+        ],
+        "cons": [
+          "Rust toolchain not installed",
+          "Additional complexity",
+          "Requires both Rust and web skills"
+        ],
+        "recommendation": "NOT RECOMMENDED - Rust not available on system"
+      }
+    ],
+    "selected": "PyGObject/GTK4",
+    "rationale": "Already installed, native Linux integration, lightweight, and fits the 'pretty UI' requirement with Adwaita styling"
+  },
+  "unverified_claims": [
+    {
+      "claim": "ClamAV CLI commands and options",
+      "reason": "ClamAV not installed on development system - patterns documented from official docs but not runtime tested",
+      "risk_level": "low",
+      "mitigation": "Patterns are well-documented - verify at runtime with error handling"
+    },
+    {
+      "claim": "GTK4/Adwaita system libraries available",
+      "reason": "Could not verify system packages (dpkg blocked)",
+      "risk_level": "low",
+      "mitigation": "PyGObject pip package is installed - GTK libraries likely present"
+    }
+  ],
+  "recommendations": [
+    "Use PyGObject with GTK4 and Adwaita for modern GNOME-style UI",
+    "Implement async subprocess handling for ClamAV operations to avoid blocking UI",
+    "Add graceful handling for missing ClamAV installation",
+    "Parse ClamAV output line-by-line for real-time scan progress",
+    "Use GLib.idle_add() for thread-safe UI updates during scans",
+    "Consider clamdscan over clamscan for faster repeat scans (requires daemon setup)",
+    "Handle exit code 1 as 'virus found' not error condition"
+  ],
+  "development_environment": {
+    "python_version": "3.12.3",
+    "pip_version": "24.0",
+    "pygobject_version": "3.48.2",
+    "pycairo_version": "1.25.1",
+    "rust_available": false,
+    "node_available": "unknown (check blocked)"
+  },
+  "context7_libraries_used": [
+    "/websites/pygobject_gnome",
+    "/gnome/gtk",
+    "/websites/electronjs",
+    "/websites/v2_tauri_app"
+  ],
+  "created_at": "2025-01-10T12:00:00Z"
+}
