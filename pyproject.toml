@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clamui"
+version = "0.1.0"
+description = "A modern Linux desktop application that provides a graphical user interface for the ClamAV antivirus command-line tool."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "ClamUI Contributors" }
+]
+keywords = ["clamav", "antivirus", "gtk4", "adwaita", "gui", "linux"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: GTK",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+dependencies = [
+    "PyGObject>=3.48.0",
+    "pycairo>=1.25.0",
+]
+
+[project.scripts]
+clamui = "src.main:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/clamui"
+Repository = "https://github.com/yourusername/clamui"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+# System dependencies note:
+# ClamUI requires system packages for GTK4/PyGObject bindings:
+#
+# Ubuntu/Debian:
+#   sudo apt install libgirepository-2.0-dev libcairo2-dev pkg-config python3-dev
+#   (On Ubuntu < 24.04: use libgirepository1.0-dev instead)
+#
+# Runtime libraries:
+#   sudo apt install gir1.2-gtk-4.0 gir1.2-adw-1 libadwaita-1-dev
+#
+# Fedora:
+#   sudo dnf install python3-gobject-devel gtk4 libadwaita gobject-introspection-devel cairo-gobject-devel
+#
+# Arch:
+#   sudo pacman -S python-gobject gtk4 libadwaita
