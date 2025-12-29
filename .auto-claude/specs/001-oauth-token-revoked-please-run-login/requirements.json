@@ -1,4 +1,0 @@
-{
-  "task_description": "This is a fresh repository. Set this up with a linux desktop application. \n\nIt should be a UI for the clam-av antiviurs cli tool. Create a pretty UI. \n\nKeep on this session basic, implement basic UI and base setup",
-  "workflow_type": "infrastructure"
-}
