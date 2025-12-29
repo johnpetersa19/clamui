@@ -50,6 +50,46 @@ def check_clamav_installed() -> Tuple[bool, Optional[str]]:
         return (False, f"Error checking ClamAV: {str(e)}")
 
 
+def check_freshclam_installed() -> Tuple[bool, Optional[str]]:
+    """
+    Check if freshclam (ClamAV database updater) is installed and accessible.
+
+    Returns:
+        Tuple of (is_installed, version_or_error):
+        - (True, version_string) if freshclam is installed
+        - (False, error_message) if freshclam is not found or inaccessible
+    """
+    # First check if freshclam exists in PATH
+    freshclam_path = shutil.which("freshclam")
+
+    if freshclam_path is None:
+        return (False, "freshclam is not installed. Please install it with: sudo apt install clamav-freshclam")
+
+    # Try to get version to verify it's working
+    try:
+        result = subprocess.run(
+            ["freshclam", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            return (True, version)
+        else:
+            return (False, f"freshclam found but returned error: {result.stderr.strip()}")
+
+    except subprocess.TimeoutExpired:
+        return (False, "freshclam check timed out")
+    except FileNotFoundError:
+        return (False, "freshclam executable not found")
+    except PermissionError:
+        return (False, "Permission denied when accessing freshclam")
+    except Exception as e:
+        return (False, f"Error checking freshclam: {str(e)}")
+
+
 def validate_path(path: str) -> Tuple[bool, Optional[str]]:
     """
     Validate a path for scanning.
@@ -106,6 +146,16 @@ def get_clamav_path() -> Optional[str]:
         The full path to clamscan if found, None otherwise
     """
     return shutil.which("clamscan")
+
+
+def get_freshclam_path() -> Optional[str]:
+    """
+    Get the full path to the freshclam executable.
+
+    Returns:
+        The full path to freshclam if found, None otherwise
+    """
+    return shutil.which("freshclam")
 
 
 def format_scan_path(path: str) -> str:
