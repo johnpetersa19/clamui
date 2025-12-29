@@ -69,11 +69,57 @@ class MainWindow(Adw.ApplicationWindow):
         title_label.add_css_class("title")
         header_bar.set_title_widget(title_label)
 
+        # Add navigation buttons on the left
+        nav_box = self._create_navigation_buttons()
+        header_bar.pack_start(nav_box)
+
         # Add menu button on the right
         menu_button = self._create_menu_button()
         header_bar.pack_end(menu_button)
 
         return header_bar
+
+    def _create_navigation_buttons(self) -> Gtk.Box:
+        """
+        Create navigation buttons for switching between views.
+
+        Returns:
+            Gtk.Box containing the navigation toggle buttons
+        """
+        # Create a linked button box for navigation
+        nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        nav_box.add_css_class("linked")
+
+        # Scan button (default active)
+        self._scan_button = Gtk.ToggleButton()
+        self._scan_button.set_icon_name("folder-symbolic")
+        self._scan_button.set_tooltip_text("Scan Files")
+        self._scan_button.set_active(True)
+        self._scan_button.set_action_name("app.show-scan")
+        nav_box.append(self._scan_button)
+
+        # Database update button
+        self._database_button = Gtk.ToggleButton()
+        self._database_button.set_icon_name("software-update-available-symbolic")
+        self._database_button.set_tooltip_text("Update Database")
+        self._database_button.set_action_name("app.show-update")
+        nav_box.append(self._database_button)
+
+        return nav_box
+
+    def set_active_view(self, view_name: str):
+        """
+        Update the navigation button states based on the active view.
+
+        Args:
+            view_name: The name of the active view ('scan' or 'update')
+        """
+        if view_name == "scan":
+            self._scan_button.set_active(True)
+            self._database_button.set_active(False)
+        elif view_name == "update":
+            self._scan_button.set_active(False)
+            self._database_button.set_active(True)
 
     def _create_menu_button(self) -> Gtk.MenuButton:
         """
