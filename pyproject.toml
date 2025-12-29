@@ -30,6 +30,11 @@ dependencies = [
     "pycairo>=1.25.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
 [project.scripts]
 clamui = "src.main:main"
 
