@@ -26,6 +26,15 @@ class ScanStatus(Enum):
 
 
 @dataclass
+class ThreatDetail:
+    """Detailed information about a detected threat."""
+    file_path: str
+    threat_name: str
+    category: str
+    severity: str
+
+
+@dataclass
 class ScanResult:
     """Result of a scan operation."""
     status: ScanStatus
