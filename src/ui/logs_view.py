@@ -41,6 +41,9 @@ class LogsView(Gtk.Box):
         # Daemon log refresh timeout ID
         self._daemon_refresh_id: int | None = None
 
+        # Loading state for historical logs
+        self._is_loading = False
+
         # Set up the UI
         self._setup_ui()
 
@@ -88,7 +91,13 @@ class LogsView(Gtk.Box):
         refresh_button.set_tooltip_text("Refresh logs")
         refresh_button.add_css_class("flat")
         refresh_button.connect("clicked", self._on_refresh_clicked)
+        self._refresh_button = refresh_button
 
+        # Loading spinner (hidden by default)
+        self._logs_spinner = Gtk.Spinner()
+        self._logs_spinner.set_visible(False)
+
+        header_box.append(self._logs_spinner)
         header_box.append(refresh_button)
         header_box.append(clear_button)
         logs_group.set_header_suffix(header_box)
@@ -464,6 +473,29 @@ class LogsView(Gtk.Box):
     def _on_refresh_clicked(self, button: Gtk.Button):
         """Handle refresh button click."""
         self._load_logs()
+
+    def _set_loading_state(self, is_loading: bool):
+        """
+        Update UI to reflect loading state for historical logs.
+
+        Args:
+            is_loading: Whether logs are currently being loaded
+        """
+        self._is_loading = is_loading
+
+        if is_loading:
+            # Show loading state
+            self._logs_spinner.set_visible(True)
+            self._logs_spinner.start()
+            self._refresh_button.set_sensitive(False)
+            self._clear_button.set_sensitive(False)
+        else:
+            # Restore normal state
+            self._logs_spinner.stop()
+            self._logs_spinner.set_visible(False)
+            self._refresh_button.set_sensitive(True)
+            # Clear button sensitivity will be updated based on log count
+            # in the calling code after loading completes
 
     def _check_daemon_status(self) -> bool:
         """Check and display daemon status."""
