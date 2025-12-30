@@ -8,7 +8,7 @@ while the main application uses GTK4. GTK3 code is isolated to this module.
 """
 
 import logging
-from typing import Optional
+from typing import Callable, Optional
 
 # GTK3 imports for AppIndicator (isolated from GTK4 main app)
 import gi
@@ -91,6 +91,12 @@ class TrayIndicator:
         self._menu: Optional[Gtk3.Menu] = None
         self._current_status: str = "protected"
         self._icon_theme: Optional[Gtk3.IconTheme] = None
+
+        # Action callbacks (set via set_action_callbacks)
+        self._on_quick_scan: Optional[Callable[[], None]] = None
+        self._on_full_scan: Optional[Callable[[], None]] = None
+        self._on_update: Optional[Callable[[], None]] = None
+        self._on_quit: Optional[Callable[[], None]] = None
 
         # Create the indicator
         self._create_indicator()
@@ -194,31 +200,88 @@ class TrayIndicator:
         Build the GTK3 context menu for the indicator.
 
         Returns:
-            GTK3 Menu with placeholder items (actions connected in later subtask)
+            GTK3 Menu with action items connected to callbacks
         """
         menu = Gtk3.Menu()
 
-        # Placeholder items - actions will be connected in subtask 2-2
+        # Quick Scan item
         quick_scan_item = Gtk3.MenuItem(label="Quick Scan")
+        quick_scan_item.connect("activate", self._on_quick_scan_clicked)
         menu.append(quick_scan_item)
 
+        # Full Scan item
         full_scan_item = Gtk3.MenuItem(label="Full Scan")
+        full_scan_item.connect("activate", self._on_full_scan_clicked)
         menu.append(full_scan_item)
 
         menu.append(Gtk3.SeparatorMenuItem())
 
+        # Update Definitions item
         update_item = Gtk3.MenuItem(label="Update Definitions")
+        update_item.connect("activate", self._on_update_clicked)
         menu.append(update_item)
 
         menu.append(Gtk3.SeparatorMenuItem())
 
+        # Quit item
         quit_item = Gtk3.MenuItem(label="Quit")
+        quit_item.connect("activate", self._on_quit_clicked)
         menu.append(quit_item)
 
         # Show all menu items
         menu.show_all()
 
         return menu
+
+    def _on_quick_scan_clicked(self, menu_item) -> None:
+        """Handle Quick Scan menu item activation."""
+        if self._on_quick_scan:
+            self._on_quick_scan()
+        else:
+            logger.warning("Quick Scan callback not set")
+
+    def _on_full_scan_clicked(self, menu_item) -> None:
+        """Handle Full Scan menu item activation."""
+        if self._on_full_scan:
+            self._on_full_scan()
+        else:
+            logger.warning("Full Scan callback not set")
+
+    def _on_update_clicked(self, menu_item) -> None:
+        """Handle Update Definitions menu item activation."""
+        if self._on_update:
+            self._on_update()
+        else:
+            logger.warning("Update callback not set")
+
+    def _on_quit_clicked(self, menu_item) -> None:
+        """Handle Quit menu item activation."""
+        if self._on_quit:
+            self._on_quit()
+        else:
+            logger.warning("Quit callback not set")
+
+    def set_action_callbacks(
+        self,
+        on_quick_scan: Optional[Callable[[], None]] = None,
+        on_full_scan: Optional[Callable[[], None]] = None,
+        on_update: Optional[Callable[[], None]] = None,
+        on_quit: Optional[Callable[[], None]] = None
+    ) -> None:
+        """
+        Set callbacks for menu actions.
+
+        Args:
+            on_quick_scan: Callback for Quick Scan action
+            on_full_scan: Callback for Full Scan action
+            on_update: Callback for Update Definitions action
+            on_quit: Callback for Quit action
+        """
+        self._on_quick_scan = on_quick_scan
+        self._on_full_scan = on_full_scan
+        self._on_update = on_update
+        self._on_quit = on_quit
+        logger.debug("Tray action callbacks configured")
 
     def activate(self) -> None:
         """

@@ -4,6 +4,7 @@ Main Adwaita Application class for ClamUI.
 """
 
 import logging
+import os
 
 import gi
 gi.require_version('Gtk', '4.0')
@@ -181,6 +182,15 @@ class ClamUIApp(Adw.Application):
 
         try:
             self._tray_indicator = TrayIndicator()
+
+            # Connect tray menu actions to handler methods
+            self._tray_indicator.set_action_callbacks(
+                on_quick_scan=self._on_tray_quick_scan,
+                on_full_scan=self._on_tray_full_scan,
+                on_update=self._on_tray_update,
+                on_quit=self._on_tray_quit
+            )
+
             self._tray_indicator.activate()
             logger.info("Tray indicator initialized and activated")
         except Exception as e:
@@ -254,3 +264,110 @@ class ClamUIApp(Adw.Application):
         about.set_issue_url("https://github.com/clamui/clamui/issues")
         about.set_application_icon("security-high-symbolic")
         about.present(self.props.active_window)
+
+    # Tray indicator action handlers
+
+    def _on_tray_quick_scan(self) -> None:
+        """
+        Handle Quick Scan action from tray menu.
+
+        Presents the window, switches to scan view, sets the home directory
+        as the scan target, and starts the scan.
+        """
+        # Use GLib.idle_add to ensure GTK4 operations run on main thread
+        GLib.idle_add(self._do_tray_quick_scan)
+
+    def _do_tray_quick_scan(self) -> bool:
+        """Execute quick scan on main thread."""
+        # Activate the application (creates window if needed)
+        self.activate()
+
+        win = self.props.active_window
+        if win and self._scan_view:
+            # Switch to scan view
+            win.set_content_view(self._scan_view)
+            win.set_active_view("scan")
+            self._current_view = "scan"
+
+            # Set home directory as scan target and start scan
+            home_dir = os.path.expanduser("~")
+            self._scan_view._set_selected_path(home_dir)
+            self._scan_view._start_scan()
+
+            logger.info("Quick scan started from tray menu")
+
+        return False  # Don't repeat
+
+    def _on_tray_full_scan(self) -> None:
+        """
+        Handle Full Scan action from tray menu.
+
+        Presents the window and switches to scan view, allowing the user
+        to select a folder for scanning.
+        """
+        # Use GLib.idle_add to ensure GTK4 operations run on main thread
+        GLib.idle_add(self._do_tray_full_scan)
+
+    def _do_tray_full_scan(self) -> bool:
+        """Execute full scan setup on main thread."""
+        # Activate the application (creates window if needed)
+        self.activate()
+
+        win = self.props.active_window
+        if win and self._scan_view:
+            # Switch to scan view
+            win.set_content_view(self._scan_view)
+            win.set_active_view("scan")
+            self._current_view = "scan"
+
+            # Open folder selection dialog
+            self._scan_view._on_select_folder_clicked(None)
+
+            logger.info("Full scan folder selection opened from tray menu")
+
+        return False  # Don't repeat
+
+    def _on_tray_update(self) -> None:
+        """
+        Handle Update Definitions action from tray menu.
+
+        Presents the window, switches to update view, and starts the
+        database update process.
+        """
+        # Use GLib.idle_add to ensure GTK4 operations run on main thread
+        GLib.idle_add(self._do_tray_update)
+
+    def _do_tray_update(self) -> bool:
+        """Execute database update on main thread."""
+        # Activate the application (creates window if needed)
+        self.activate()
+
+        win = self.props.active_window
+        if win and self._update_view:
+            # Switch to update view
+            win.set_content_view(self._update_view)
+            win.set_active_view("update")
+            self._current_view = "update"
+
+            # Start the update if freshclam is available
+            if self._update_view._freshclam_available and not self._update_view._is_updating:
+                self._update_view._start_update()
+                logger.info("Database update started from tray menu")
+            else:
+                logger.info("Database update view opened from tray menu (update not started)")
+
+        return False  # Don't repeat
+
+    def _on_tray_quit(self) -> None:
+        """
+        Handle Quit action from tray menu.
+
+        Quits the application cleanly.
+        """
+        # Use GLib.idle_add to ensure GTK4 operations run on main thread
+        GLib.idle_add(self._do_tray_quit)
+
+    def _do_tray_quit(self) -> bool:
+        """Execute quit on main thread."""
+        self.quit()
+        return False  # Don't repeat
