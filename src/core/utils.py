@@ -90,6 +90,46 @@ def check_freshclam_installed() -> Tuple[bool, Optional[str]]:
         return (False, f"Error checking freshclam: {str(e)}")
 
 
+def check_clamdscan_installed() -> Tuple[bool, Optional[str]]:
+    """
+    Check if clamdscan (ClamAV daemon scanner) is installed and accessible.
+
+    Returns:
+        Tuple of (is_installed, version_or_error):
+        - (True, version_string) if clamdscan is installed
+        - (False, error_message) if clamdscan is not found or inaccessible
+    """
+    # First check if clamdscan exists in PATH
+    clamdscan_path = shutil.which("clamdscan")
+
+    if clamdscan_path is None:
+        return (False, "clamdscan is not installed. Please install it with: sudo apt install clamav-daemon")
+
+    # Try to get version to verify it's working
+    try:
+        result = subprocess.run(
+            ["clamdscan", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            return (True, version)
+        else:
+            return (False, f"clamdscan found but returned error: {result.stderr.strip()}")
+
+    except subprocess.TimeoutExpired:
+        return (False, "clamdscan check timed out")
+    except FileNotFoundError:
+        return (False, "clamdscan executable not found")
+    except PermissionError:
+        return (False, "Permission denied when accessing clamdscan")
+    except Exception as e:
+        return (False, f"Error checking clamdscan: {str(e)}")
+
+
 def validate_path(path: str) -> Tuple[bool, Optional[str]]:
     """
     Validate a path for scanning.
