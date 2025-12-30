@@ -296,7 +296,7 @@ class LogManager:
                 return (DaemonStatus.RUNNING, "clamd daemon is running")
             else:
                 return (DaemonStatus.STOPPED, "clamd daemon is not running")
-        except (subprocess.SubprocessError, FileNotFoundError):
+        except (subprocess.SubprocessError, FileNotFoundError, OSError):
             return (DaemonStatus.UNKNOWN, "Unable to determine daemon status")
 
     def get_daemon_log_path(self) -> Optional[str]:
