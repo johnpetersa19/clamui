@@ -211,3 +211,31 @@ class MainWindow(Adw.ApplicationWindow):
             The content area Gtk.Box
         """
         return self._content_area
+
+    def toggle_visibility(self) -> None:
+        """
+        Toggle the window's visibility.
+
+        If the window is visible, hide it. If hidden, show and present it.
+        """
+        if self.is_visible():
+            self.hide_window()
+        else:
+            self.show_window()
+
+    def show_window(self) -> None:
+        """
+        Show the window and bring it to front.
+
+        Restores the window from hidden state and presents it to the user.
+        """
+        self.set_visible(True)
+        self.present()
+
+    def hide_window(self) -> None:
+        """
+        Hide the window.
+
+        The window remains in memory but is not visible to the user.
+        """
+        self.set_visible(False)

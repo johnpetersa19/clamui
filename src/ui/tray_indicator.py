@@ -98,6 +98,11 @@ class TrayIndicator:
         self._on_update: Optional[Callable[[], None]] = None
         self._on_quit: Optional[Callable[[], None]] = None
 
+        # Window toggle callback (set via set_window_toggle_callback)
+        self._on_window_toggle: Optional[Callable[[], None]] = None
+        self._get_window_visible: Optional[Callable[[], bool]] = None
+        self._show_window_item: Optional[Gtk3.MenuItem] = None
+
         # Create the indicator
         self._create_indicator()
 
@@ -204,6 +209,13 @@ class TrayIndicator:
         """
         menu = Gtk3.Menu()
 
+        # Show/Hide Window item (at top for easy access)
+        self._show_window_item = Gtk3.MenuItem(label="Show Window")
+        self._show_window_item.connect("activate", self._on_window_toggle_clicked)
+        menu.append(self._show_window_item)
+
+        menu.append(Gtk3.SeparatorMenuItem())
+
         # Quick Scan item
         quick_scan_item = Gtk3.MenuItem(label="Quick Scan")
         quick_scan_item.connect("activate", self._on_quick_scan_clicked)
@@ -232,6 +244,13 @@ class TrayIndicator:
         menu.show_all()
 
         return menu
+
+    def _on_window_toggle_clicked(self, menu_item) -> None:
+        """Handle Show/Hide Window menu item activation."""
+        if self._on_window_toggle:
+            self._on_window_toggle()
+        else:
+            logger.warning("Window toggle callback not set")
 
     def _on_quick_scan_clicked(self, menu_item) -> None:
         """Handle Quick Scan menu item activation."""
@@ -282,6 +301,36 @@ class TrayIndicator:
         self._on_update = on_update
         self._on_quit = on_quit
         logger.debug("Tray action callbacks configured")
+
+    def set_window_toggle_callback(
+        self,
+        on_toggle: Callable[[], None],
+        get_visible: Callable[[], bool]
+    ) -> None:
+        """
+        Set the callback for window show/hide toggle.
+
+        Args:
+            on_toggle: Callback to invoke when toggling window visibility
+            get_visible: Callback to query current window visibility state
+        """
+        self._on_window_toggle = on_toggle
+        self._get_window_visible = get_visible
+        logger.debug("Window toggle callback configured")
+
+    def update_window_menu_label(self) -> None:
+        """
+        Update the Show/Hide Window menu item label based on current state.
+
+        Call this after window visibility changes to keep menu label in sync.
+        """
+        if self._show_window_item is None:
+            return
+
+        if self._get_window_visible and self._get_window_visible():
+            self._show_window_item.set_label("Hide Window")
+        else:
+            self._show_window_item.set_label("Show Window")
 
     def activate(self) -> None:
         """
@@ -357,6 +406,9 @@ class TrayIndicator:
         self._menu = None
         self._indicator = None
         self._icon_theme = None
+        self._show_window_item = None
+        self._on_window_toggle = None
+        self._get_window_visible = None
         logger.debug("Tray indicator cleaned up")
 
     @property
