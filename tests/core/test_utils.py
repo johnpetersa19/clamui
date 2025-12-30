@@ -6,6 +6,10 @@ from unittest import mock
 
 import pytest
 
+# Store original gi modules to restore later (if they exist)
+_original_gi = sys.modules.get("gi")
+_original_gi_repository = sys.modules.get("gi.repository")
+
 # Mock gi module before importing src.core to avoid GTK dependencies in tests
 sys.modules["gi"] = mock.MagicMock()
 sys.modules["gi.repository"] = mock.MagicMock()
@@ -20,6 +24,16 @@ from src.core.utils import (
     get_path_info,
     validate_path,
 )
+
+# Restore original gi modules after imports are done
+if _original_gi is not None:
+    sys.modules["gi"] = _original_gi
+else:
+    del sys.modules["gi"]
+if _original_gi_repository is not None:
+    sys.modules["gi.repository"] = _original_gi_repository
+else:
+    del sys.modules["gi.repository"]
 
 
 class TestCheckClamdscanInstalled:
