@@ -421,8 +421,9 @@ def categorize_threat(threat_name: str) -> str:
 
     name_lower = threat_name.lower()
 
-    # Check for specific categories in order of specificity
-    category_patterns = [
+    # High-priority specific categories (more specific than generic PUA/PUP/Virus)
+    # Within each tier, we use position-based matching (earliest match wins)
+    high_priority_patterns = [
         ('ransomware', 'Ransomware'),
         ('ransom', 'Ransomware'),
         ('rootkit', 'Rootkit'),
@@ -434,20 +435,41 @@ def categorize_threat(threat_name: str) -> str:
         ('adware', 'Adware'),
         ('spyware', 'Spyware'),
         ('keylogger', 'Spyware'),
-        ('pua', 'PUA'),
-        ('pup', 'PUA'),
         ('eicar', 'Test'),
         ('test-signature', 'Test'),
         ('test.file', 'Test'),
-        ('virus', 'Virus'),
         ('macro', 'Macro'),
         ('phish', 'Phishing'),
         ('heuristic', 'Heuristic'),
     ]
 
-    for pattern, category in category_patterns:
-        if pattern in name_lower:
-            return category
+    # Low-priority generic categories (used only if no specific category found)
+    low_priority_patterns = [
+        ('pua', 'PUA'),
+        ('pup', 'PUA'),
+        ('virus', 'Virus'),
+    ]
+
+    # First, check high-priority patterns by position
+    matches = []
+    for pattern, category in high_priority_patterns:
+        pos = name_lower.find(pattern)
+        if pos != -1:
+            matches.append((pos, category))
+
+    if matches:
+        matches.sort(key=lambda x: x[0])
+        return matches[0][1]
+
+    # If no high-priority match, check low-priority patterns
+    for pattern, category in low_priority_patterns:
+        pos = name_lower.find(pattern)
+        if pos != -1:
+            matches.append((pos, category))
+
+    if matches:
+        matches.sort(key=lambda x: x[0])
+        return matches[0][1]
 
     # Default to "Virus" for unrecognized threats (conservative assumption)
     return "Virus"
