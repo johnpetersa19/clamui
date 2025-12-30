@@ -3,6 +3,9 @@
 Scan interface component for ClamUI with folder picker, scan button, and results display.
 """
 
+import os
+import tempfile
+
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -10,6 +13,10 @@ from gi.repository import Gtk, Adw, Gio, GLib
 
 from ..core.scanner import Scanner, ScanResult, ScanStatus
 from ..core.utils import format_scan_path, check_clamav_installed
+
+# EICAR test string - industry-standard antivirus test pattern
+# This is NOT malware - it's a safe test string recognized by all AV software
+EICAR_TEST_STRING = r"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 
 
 class ScanView(Gtk.Box):
@@ -39,6 +46,9 @@ class ScanView(Gtk.Box):
 
         # Scanning state
         self._is_scanning = False
+
+        # Temp file path for EICAR test (for cleanup)
+        self._eicar_temp_path: str = ""
 
         # Set up the UI
         self._setup_ui()
@@ -135,9 +145,19 @@ class ScanView(Gtk.Box):
         self._cancel_button.set_visible(False)
         self._cancel_button.connect("clicked", self._on_cancel_clicked)
 
+        # Test ClamAV button
+        self._test_clamav_button = Gtk.Button()
+        self._test_clamav_button.set_label("Test ClamAV")
+        self._test_clamav_button.add_css_class("pill")
+        self._test_clamav_button.set_tooltip_text(
+            "Scan an EICAR test file to verify ClamAV is working correctly"
+        )
+        self._test_clamav_button.connect("clicked", self._on_test_clamav_clicked)
+
         scan_box.append(self._scan_spinner)
         scan_box.append(self._scan_button)
         scan_box.append(self._cancel_button)
+        scan_box.append(self._test_clamav_button)
 
         self.append(scan_box)
 
@@ -342,9 +362,10 @@ class ScanView(Gtk.Box):
             self._scan_spinner.start()
             self._cancel_button.set_visible(True)
 
-            # Disable path selection
+            # Disable path selection and test button
             self._select_folder_btn.set_sensitive(False)
             self._select_file_btn.set_sensitive(False)
+            self._test_clamav_button.set_sensitive(False)
         else:
             # Restore normal state
             self._scan_button.set_label("Scan")
@@ -353,9 +374,10 @@ class ScanView(Gtk.Box):
             self._scan_spinner.set_visible(False)
             self._cancel_button.set_visible(False)
 
-            # Enable path selection
+            # Enable path selection and test button
             self._select_folder_btn.set_sensitive(True)
             self._select_file_btn.set_sensitive(True)
+            self._test_clamav_button.set_sensitive(True)
 
     def _on_scan_complete(self, result: ScanResult):
         """
@@ -471,3 +493,162 @@ class ScanView(Gtk.Box):
             The Scanner instance used by this view
         """
         return self._scanner
+
+    def _on_test_clamav_clicked(self, button):
+        """Handle Test ClamAV button click."""
+        self._start_eicar_test()
+
+    def _start_eicar_test(self):
+        """Start the EICAR test scan."""
+        # Create a temporary file with EICAR test string
+        try:
+            # Create temp file in a secure manner
+            fd, temp_path = tempfile.mkstemp(suffix=".com", prefix="eicar_test_")
+            self._eicar_temp_path = temp_path
+
+            # Write the EICAR test string
+            with os.fdopen(fd, 'w') as f:
+                f.write(EICAR_TEST_STRING)
+
+        except OSError as e:
+            # Show error if temp file creation fails
+            buffer = self._results_text.get_buffer()
+            buffer.set_text(f"Failed to create test file: {e}")
+            self._status_banner.set_title("Test failed - could not create test file")
+            self._status_banner.add_css_class("error")
+            self._status_banner.remove_css_class("success")
+            self._status_banner.remove_css_class("warning")
+            self._status_banner.set_revealed(True)
+            return
+
+        self._set_scanning_state(True)
+        self._clear_results()
+
+        # Update results text
+        buffer = self._results_text.get_buffer()
+        buffer.set_text(
+            "Testing ClamAV with EICAR test file...\n\n"
+            "The EICAR test file is an industry-standard antivirus test pattern.\n"
+            "If ClamAV is working correctly, it should detect this as infected.\n\n"
+            "Please wait..."
+        )
+
+        # Hide any previous status banner
+        self._status_banner.set_revealed(False)
+
+        # Start async scan with EICAR-specific callback
+        self._scanner.scan_async(
+            self._eicar_temp_path,
+            callback=self._on_eicar_scan_complete
+        )
+
+    def _on_eicar_scan_complete(self, result: ScanResult):
+        """
+        Handle EICAR test scan completion.
+
+        Args:
+            result: The scan result from the scanner
+        """
+        # Clean up temp file first (always, regardless of result)
+        self._cleanup_eicar_temp_file()
+
+        self._set_scanning_state(False)
+        self._display_eicar_results(result)
+        return False  # Don't repeat GLib.idle_add
+
+    def _cleanup_eicar_temp_file(self):
+        """Clean up the temporary EICAR test file."""
+        if self._eicar_temp_path and os.path.exists(self._eicar_temp_path):
+            try:
+                os.remove(self._eicar_temp_path)
+            except OSError:
+                pass  # Ignore cleanup errors
+        self._eicar_temp_path = ""
+
+    def _display_eicar_results(self, result: ScanResult):
+        """
+        Display EICAR test results in the UI.
+
+        Args:
+            result: The scan result to display
+        """
+        # Determine if the test was successful (EICAR detected)
+        test_passed = result.status == ScanStatus.INFECTED
+
+        # Update status banner
+        if test_passed:
+            self._status_banner.set_title("ClamAV is working correctly!")
+            self._status_banner.add_css_class("success")
+            self._status_banner.remove_css_class("error")
+            self._status_banner.remove_css_class("warning")
+        elif result.status == ScanStatus.CANCELLED:
+            self._status_banner.set_title("Test cancelled")
+            self._status_banner.add_css_class("warning")
+            self._status_banner.remove_css_class("success")
+            self._status_banner.remove_css_class("error")
+        elif result.status == ScanStatus.ERROR:
+            self._status_banner.set_title(result.error_message or "Test error occurred")
+            self._status_banner.add_css_class("error")
+            self._status_banner.remove_css_class("success")
+            self._status_banner.remove_css_class("warning")
+        else:
+            # CLEAN status means EICAR wasn't detected - this is a problem
+            self._status_banner.set_title("Warning: ClamAV did not detect test file")
+            self._status_banner.add_css_class("warning")
+            self._status_banner.remove_css_class("success")
+            self._status_banner.remove_css_class("error")
+
+        self._status_banner.set_button_label(None)
+        self._status_banner.set_revealed(True)
+
+        # Build results text
+        lines = []
+
+        if test_passed:
+            lines.append("CLAMAV TEST PASSED")
+            lines.append("=" * 50)
+            lines.append("")
+            lines.append("ClamAV correctly detected the EICAR test file as infected.")
+            lines.append("Your antivirus installation is working properly.")
+        elif result.status == ScanStatus.CANCELLED:
+            lines.append("TEST CANCELLED")
+            lines.append("=" * 50)
+        elif result.status == ScanStatus.ERROR:
+            lines.append("TEST ERROR")
+            lines.append("=" * 50)
+            lines.append("")
+            if result.error_message:
+                lines.append(f"Error: {result.error_message}")
+        else:
+            lines.append("CLAMAV TEST WARNING")
+            lines.append("=" * 50)
+            lines.append("")
+            lines.append("ClamAV did NOT detect the EICAR test file.")
+            lines.append("This may indicate a problem with your ClamAV installation")
+            lines.append("or virus database.")
+
+        lines.append("")
+
+        # Detection details if infected
+        if result.infected_files:
+            lines.append("Detection Details:")
+            for infected_file in result.infected_files:
+                lines.append(f"  - {infected_file}")
+            lines.append("")
+
+        # Raw output section
+        if result.stdout:
+            lines.append("-" * 50)
+            lines.append("ClamAV Output:")
+            lines.append("-" * 50)
+            lines.append(result.stdout)
+
+        if result.stderr and result.status == ScanStatus.ERROR:
+            lines.append("-" * 50)
+            lines.append("Error Output:")
+            lines.append("-" * 50)
+            lines.append(result.stderr)
+
+        # Update the text view
+        buffer = self._results_text.get_buffer()
+        buffer.set_text("\n".join(lines))
