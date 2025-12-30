@@ -364,27 +364,43 @@ class ScanView(Gtk.Box):
         self._status_banner.set_revealed(False)
         results_box.append(self._status_banner)
 
-        # Results text view in a scrolled window
+        # Scrolled window for threat cards ListBox
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_min_content_height(200)
         scrolled.set_vexpand(True)
         scrolled.add_css_class("card")
 
-        self._results_text = Gtk.TextView()
-        self._results_text.set_editable(False)
-        self._results_text.set_cursor_visible(False)
-        self._results_text.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        self._results_text.set_left_margin(12)
-        self._results_text.set_right_margin(12)
-        self._results_text.set_top_margin(12)
-        self._results_text.set_bottom_margin(12)
-        self._results_text.add_css_class("monospace")
+        # Container for ListBox and placeholder
+        self._results_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
-        # Set placeholder text
-        buffer = self._results_text.get_buffer()
-        buffer.set_text("No scan results yet.\n\nSelect a folder or file and click 'Scan' to begin.")
+        # Threats ListBox for threat cards display
+        self._threats_listbox = Gtk.ListBox()
+        self._threats_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._threats_listbox.add_css_class("boxed-list")
+        self._threats_listbox.set_visible(False)  # Hidden until threats are found
+        self._results_container.append(self._threats_listbox)
 
-        scrolled.set_child(self._results_text)
+        # Placeholder label (shown when no results)
+        self._results_placeholder = Gtk.Label()
+        self._results_placeholder.set_text("No scan results yet.\n\nSelect a folder or file and click 'Scan' to begin.")
+        self._results_placeholder.set_wrap(True)
+        self._results_placeholder.set_justify(Gtk.Justification.CENTER)
+        self._results_placeholder.add_css_class("dim-label")
+        self._results_placeholder.set_margin_top(24)
+        self._results_placeholder.set_margin_bottom(24)
+        self._results_placeholder.set_margin_start(12)
+        self._results_placeholder.set_margin_end(12)
+        self._results_placeholder.set_vexpand(True)
+        self._results_placeholder.set_valign(Gtk.Align.CENTER)
+        self._results_container.append(self._results_placeholder)
+
+        # Store raw output for fullscreen dialog
+        self._raw_output: str = ""
+
+        # Store current result for export functionality
+        self._current_result: ScanResult | None = None
+
+        scrolled.set_child(self._results_container)
         results_box.append(scrolled)
 
         results_group.add(results_box)
@@ -518,9 +534,8 @@ class ScanView(Gtk.Box):
         self._set_scanning_state(True)
         self._clear_results()
 
-        # Update results text
-        buffer = self._results_text.get_buffer()
-        buffer.set_text(f"Scanning: {self._selected_path}\n\nPlease wait...")
+        # Update placeholder to show scanning status
+        self._results_placeholder.set_text(f"Scanning: {self._selected_path}\n\nPlease wait...")
 
         # Hide any previous status banner
         self._status_banner.set_revealed(False)
@@ -578,8 +593,22 @@ class ScanView(Gtk.Box):
 
     def _clear_results(self):
         """Clear the results display."""
-        buffer = self._results_text.get_buffer()
-        buffer.set_text("")
+        # Clear the threats ListBox
+        while True:
+            row = self._threats_listbox.get_row_at_index(0)
+            if row is None:
+                break
+            self._threats_listbox.remove(row)
+
+        # Hide ListBox and show placeholder
+        self._threats_listbox.set_visible(False)
+        self._results_placeholder.set_visible(True)
+        self._results_placeholder.set_text("No scan results yet.\n\nSelect a folder or file and click 'Scan' to begin.")
+
+        # Clear raw output and current result
+        self._raw_output = ""
+        self._current_result = None
+
         self._status_banner.set_revealed(False)
 
     def _display_results(self, result: ScanResult):
@@ -589,6 +618,12 @@ class ScanView(Gtk.Box):
         Args:
             result: The scan result to display
         """
+        # Store raw output for fullscreen dialog
+        self._raw_output = result.output
+
+        # Store the current result for export functionality
+        self._current_result = result
+
         # Update status banner based on result
         if result.status == ScanStatus.CLEAN:
             self._status_banner.set_title("No threats found")
@@ -609,9 +644,79 @@ class ScanView(Gtk.Box):
         self._status_banner.set_button_label(None)
         self._status_banner.set_revealed(True)
 
-        # Display detailed results in text view
-        buffer = self._results_text.get_buffer()
-        buffer.set_text(result.output)
+        # Clear previous results from ListBox
+        while True:
+            row = self._threats_listbox.get_row_at_index(0)
+            if row is None:
+                break
+            self._threats_listbox.remove(row)
+
+        # Display results based on status
+        if result.status == ScanStatus.INFECTED and result.threat_details:
+            # Hide placeholder, show ListBox with threat cards
+            self._results_placeholder.set_visible(False)
+            self._threats_listbox.set_visible(True)
+
+            # Add threat cards for each detected threat
+            for threat_detail in result.threat_details:
+                threat_card = self._create_threat_card(threat_detail)
+                self._threats_listbox.append(threat_card)
+
+            # Add clean files summary row at the end
+            clean_count = result.scanned_files - result.infected_count
+            if clean_count > 0:
+                summary_row = self._create_clean_files_summary_row(
+                    clean_count, result.scanned_files, result.scanned_dirs
+                )
+                self._threats_listbox.append(summary_row)
+
+        elif result.status == ScanStatus.CLEAN:
+            # Show ListBox with clean files summary only
+            self._results_placeholder.set_visible(False)
+            self._threats_listbox.set_visible(True)
+
+            summary_row = self._create_clean_files_summary_row(
+                result.scanned_files, result.scanned_files, result.scanned_dirs
+            )
+            self._threats_listbox.append(summary_row)
+
+        else:
+            # ERROR status - show error message in placeholder
+            self._threats_listbox.set_visible(False)
+            self._results_placeholder.set_visible(True)
+            self._results_placeholder.set_text(
+                f"Scan failed: {result.error_message}\n\nPlease check the fullscreen log for details."
+            )
+
+    def _create_clean_files_summary_row(
+        self, clean_count: int, total_files: int, total_dirs: int
+    ) -> Adw.ActionRow:
+        """
+        Create a summary row showing clean file count (not individual files).
+
+        Args:
+            clean_count: Number of clean files
+            total_files: Total number of files scanned
+            total_dirs: Total number of directories scanned
+
+        Returns:
+            Adw.ActionRow widget showing the summary
+        """
+        summary_row = Adw.ActionRow()
+        summary_row.set_title("Scan Summary")
+
+        # Build subtitle with scan statistics
+        subtitle_parts = []
+        subtitle_parts.append(f"{clean_count} clean file(s)")
+        if total_dirs > 0:
+            subtitle_parts.append(f"{total_dirs} directories scanned")
+        subtitle_parts.append(f"{total_files} total files checked")
+        summary_row.set_subtitle(" • ".join(subtitle_parts))
+
+        summary_row.set_icon_name("emblem-ok-symbolic")
+        summary_row.add_css_class("success")
+
+        return summary_row
 
     def _on_test_clamav_clicked(self, button):
         """Handle test ClamAV button click."""
@@ -631,8 +736,8 @@ class ScanView(Gtk.Box):
 
     def _on_fullscreen_results_clicked(self, button):
         """Handle fullscreen results button click."""
-        buffer = self._results_text.get_buffer()
-        text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), False)
+        # Use stored raw output for fullscreen view
+        text = self._raw_output if self._raw_output else "No scan results available."
 
         dialog = FullscreenLogDialog(
             transient_for=self.get_root(),
