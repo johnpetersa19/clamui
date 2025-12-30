@@ -13,7 +13,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
+
+from gi.repository import GLib
 
 from .utils import which_host_command, wrap_host_command
 
@@ -197,6 +199,32 @@ class LogManager:
         # Sort by timestamp (newest first) and apply limit
         entries.sort(key=lambda e: e.timestamp, reverse=True)
         return entries[:limit]
+
+    def get_logs_async(
+        self,
+        callback: Callable[[list["LogEntry"]], None],
+        limit: int = 100,
+        log_type: Optional[str] = None
+    ) -> None:
+        """
+        Retrieve stored log entries asynchronously.
+
+        The log retrieval runs in a background thread and the callback is invoked
+        on the main GTK thread via GLib.idle_add when complete.
+
+        Args:
+            callback: Function to call with list of LogEntry objects when loading completes
+            limit: Maximum number of entries to return
+            log_type: Optional filter by type ("scan" or "update")
+        """
+        def _load_logs_thread():
+            entries = self.get_logs(limit=limit, log_type=log_type)
+            # Schedule callback on main thread
+            GLib.idle_add(callback, entries)
+
+        thread = threading.Thread(target=_load_logs_thread)
+        thread.daemon = True
+        thread.start()
 
     def get_log_by_id(self, log_id: str) -> Optional[LogEntry]:
         """

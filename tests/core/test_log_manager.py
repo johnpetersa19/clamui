@@ -4,6 +4,7 @@
 import json
 import os
 import tempfile
+import threading
 import time
 from pathlib import Path
 from unittest import mock
@@ -537,6 +538,182 @@ class TestDaemonStatus:
         assert DaemonStatus.STOPPED.value == "stopped"
         assert DaemonStatus.NOT_INSTALLED.value == "not_installed"
         assert DaemonStatus.UNKNOWN.value == "unknown"
+
+
+class TestLogManagerAsync:
+    """Tests for async log retrieval in LogManager."""
+
+    @pytest.fixture
+    def temp_log_dir(self):
+        """Create a temporary directory for log storage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def log_manager(self, temp_log_dir):
+        """Create a LogManager with a temporary directory."""
+        return LogManager(log_dir=temp_log_dir)
+
+    def test_get_logs_async_calls_callback_with_entries(self, log_manager):
+        """Test that get_logs_async calls callback with log entries."""
+        # Create some test entries
+        entry1 = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Test scan 1",
+            details="Details 1",
+        )
+        entry2 = LogEntry.create(
+            log_type="update",
+            status="success",
+            summary="Test update 1",
+            details="Details 2",
+        )
+        log_manager.save_log(entry1)
+        log_manager.save_log(entry2)
+
+        # Track callback invocation
+        callback_results = []
+        callback_event = threading.Event()
+
+        def mock_callback(entries):
+            callback_results.append(entries)
+            callback_event.set()
+
+        # Mock GLib.idle_add to call the callback directly
+        with mock.patch("src.core.log_manager.GLib") as mock_glib:
+            # Make idle_add call the function immediately
+            mock_glib.idle_add.side_effect = lambda func, *args: func(*args)
+
+            log_manager.get_logs_async(mock_callback)
+
+            # Wait for background thread to complete
+            callback_event.wait(timeout=5)
+
+        assert len(callback_results) == 1
+        assert len(callback_results[0]) == 2
+
+    def test_get_logs_async_empty_logs(self, log_manager):
+        """Test get_logs_async with no stored logs."""
+        callback_results = []
+        callback_event = threading.Event()
+
+        def mock_callback(entries):
+            callback_results.append(entries)
+            callback_event.set()
+
+        with mock.patch("src.core.log_manager.GLib") as mock_glib:
+            mock_glib.idle_add.side_effect = lambda func, *args: func(*args)
+
+            log_manager.get_logs_async(mock_callback)
+            callback_event.wait(timeout=5)
+
+        assert len(callback_results) == 1
+        assert callback_results[0] == []
+
+    def test_get_logs_async_respects_limit(self, log_manager):
+        """Test that get_logs_async respects the limit parameter."""
+        # Create more entries than the limit
+        for i in range(10):
+            entry = LogEntry.create(
+                log_type="scan",
+                status="clean",
+                summary=f"Scan {i}",
+                details="",
+            )
+            log_manager.save_log(entry)
+
+        callback_results = []
+        callback_event = threading.Event()
+
+        def mock_callback(entries):
+            callback_results.append(entries)
+            callback_event.set()
+
+        with mock.patch("src.core.log_manager.GLib") as mock_glib:
+            mock_glib.idle_add.side_effect = lambda func, *args: func(*args)
+
+            log_manager.get_logs_async(mock_callback, limit=5)
+            callback_event.wait(timeout=5)
+
+        assert len(callback_results) == 1
+        assert len(callback_results[0]) == 5
+
+    def test_get_logs_async_filters_by_type(self, log_manager):
+        """Test that get_logs_async filters by log type."""
+        # Create entries of different types
+        scan_entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Scan entry",
+            details="",
+        )
+        update_entry = LogEntry.create(
+            log_type="update",
+            status="success",
+            summary="Update entry",
+            details="",
+        )
+        log_manager.save_log(scan_entry)
+        log_manager.save_log(update_entry)
+
+        callback_results = []
+        callback_event = threading.Event()
+
+        def mock_callback(entries):
+            callback_results.append(entries)
+            callback_event.set()
+
+        with mock.patch("src.core.log_manager.GLib") as mock_glib:
+            mock_glib.idle_add.side_effect = lambda func, *args: func(*args)
+
+            log_manager.get_logs_async(mock_callback, log_type="scan")
+            callback_event.wait(timeout=5)
+
+        assert len(callback_results) == 1
+        assert len(callback_results[0]) == 1
+        assert callback_results[0][0].type == "scan"
+
+    def test_get_logs_async_uses_glib_idle_add(self, log_manager):
+        """Test that get_logs_async schedules callback via GLib.idle_add."""
+        callback_event = threading.Event()
+
+        def mock_callback(entries):
+            callback_event.set()
+
+        with mock.patch("src.core.log_manager.GLib") as mock_glib:
+            # Track calls to idle_add without executing
+            mock_glib.idle_add.side_effect = lambda func, *args: (func(*args), callback_event.set())
+
+            log_manager.get_logs_async(mock_callback)
+            callback_event.wait(timeout=5)
+
+            # Verify GLib.idle_add was called
+            assert mock_glib.idle_add.called
+
+    def test_get_logs_async_runs_in_daemon_thread(self, log_manager):
+        """Test that get_logs_async runs in a daemon thread."""
+        thread_info = {}
+        callback_event = threading.Event()
+
+        def mock_callback(entries):
+            callback_event.set()
+
+        # Patch Thread.start to capture thread properties right before start
+        original_start = threading.Thread.start
+
+        def patched_start(self):
+            thread_info["daemon"] = self.daemon
+            original_start(self)
+
+        with mock.patch("src.core.log_manager.GLib") as mock_glib:
+            mock_glib.idle_add.side_effect = lambda func, *args: func(*args)
+
+            with mock.patch.object(threading.Thread, "start", patched_start):
+                log_manager.get_logs_async(mock_callback)
+                callback_event.wait(timeout=5)
+
+        assert thread_info.get("daemon") is True
 
 
 class TestLogManagerThreadSafety:
