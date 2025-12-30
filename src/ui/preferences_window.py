@@ -18,6 +18,7 @@ from src.core.clamav_config import (
     write_config_with_elevation,
     backup_config,
 )
+from src.core.scheduler import Scheduler, ScheduleFrequency
 
 
 class PreferencesWindow(Adw.PreferencesWindow):
@@ -56,9 +57,13 @@ class PreferencesWindow(Adw.PreferencesWindow):
         # Store references to form widgets for later access
         self._freshclam_widgets = {}
         self._clamd_widgets = {}
+        self._scheduled_widgets = {}
 
         # Track if clamd.conf exists
         self._clamd_available = False
+
+        # Initialize scheduler for scheduled scans
+        self._scheduler = Scheduler()
 
         # Store loaded configurations
         self._freshclam_config = None
@@ -84,6 +89,9 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Create Scanner Settings page (clamd.conf)
         self._create_scanner_page()
+
+        # Create Scheduled Scans page
+        self._create_scheduled_scans_page()
 
         # Create Save & Apply page
         self._create_save_page()
@@ -616,6 +624,390 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         page.add(group)
 
+    def _create_scheduled_scans_page(self):
+        """
+        Create the Scheduled Scans page for automatic scanning configuration.
+
+        Contains settings for:
+        - Enable/disable scheduled scans
+        - Schedule frequency (daily, weekly, monthly)
+        - Time of day for scans
+        - Day of week/month selection
+        - Target directories to scan
+        - Battery skip option
+        - Auto-quarantine option
+        """
+        import os
+
+        page = Adw.PreferencesPage()
+        page.set_title("Scheduled Scans")
+        page.set_icon_name("alarm-symbolic")
+
+        # Create scheduler status group
+        self._create_scheduler_status_group(page)
+
+        # Create schedule configuration group
+        self._create_schedule_config_group(page)
+
+        # Create scan targets group
+        self._create_scan_targets_group(page)
+
+        # Create scan options group
+        self._create_scheduled_options_group(page)
+
+        self.add(page)
+
+    def _create_scheduler_status_group(self, page: Adw.PreferencesPage):
+        """
+        Create the scheduler status and enable/disable group.
+
+        Shows the current scheduler backend (systemd/cron) and provides
+        a switch to enable or disable scheduled scanning.
+
+        Args:
+            page: The preferences page to add the group to
+        """
+        group = Adw.PreferencesGroup()
+        group.set_title("Scheduled Scanning")
+        group.set_description("Automatically scan your system at scheduled times")
+
+        # Backend status row
+        backend_row = Adw.ActionRow()
+        backend_row.set_title("Scheduler Backend")
+
+        if self._scheduler.is_available:
+            backend_name = self._scheduler.get_backend_name()
+            backend_row.set_subtitle(f"Using {backend_name}")
+            backend_row.set_icon_name("emblem-ok-symbolic")
+        else:
+            backend_row.set_subtitle("No scheduler available (install systemd or cron)")
+            backend_row.set_icon_name("dialog-warning-symbolic")
+            backend_row.add_css_class("warning")
+
+        backend_row.add_css_class("property")
+        group.add(backend_row)
+
+        # Enable scheduled scans switch
+        enable_row = Adw.SwitchRow()
+        enable_row.set_title("Enable Scheduled Scans")
+        enable_row.set_subtitle("Run antivirus scans automatically at scheduled times")
+        enable_row.set_sensitive(self._scheduler.is_available)
+        self._scheduled_widgets['enabled'] = enable_row
+        group.add(enable_row)
+
+        page.add(group)
+
+    def _create_schedule_config_group(self, page: Adw.PreferencesPage):
+        """
+        Create the schedule configuration group.
+
+        Contains settings for:
+        - Frequency (daily, weekly, monthly)
+        - Time of day (HH:MM)
+        - Day of week (for weekly scans)
+        - Day of month (for monthly scans)
+
+        Args:
+            page: The preferences page to add the group to
+        """
+        group = Adw.PreferencesGroup()
+        group.set_title("Schedule Configuration")
+        group.set_description("Configure when scheduled scans should run")
+
+        # Frequency combo row
+        frequency_row = Adw.ComboRow()
+        frequency_row.set_title("Frequency")
+        frequency_row.set_subtitle("How often to run scheduled scans")
+
+        # Create string list for frequency options
+        frequency_model = Gtk.StringList()
+        frequency_model.append("Daily")
+        frequency_model.append("Weekly")
+        frequency_model.append("Monthly")
+        frequency_row.set_model(frequency_model)
+        frequency_row.connect("notify::selected", self._on_frequency_changed)
+        self._scheduled_widgets['frequency'] = frequency_row
+        group.add(frequency_row)
+
+        # Time entry row
+        time_row = Adw.EntryRow()
+        time_row.set_title("Time")
+        time_row.set_text("02:00")
+        time_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
+        time_row.set_show_apply_button(False)
+
+        # Add clock icon as prefix
+        time_icon = Gtk.Image.new_from_icon_name("preferences-system-time-symbolic")
+        time_icon.set_margin_start(6)
+        time_row.add_prefix(time_icon)
+
+        # Add hint label as suffix
+        time_hint = Gtk.Label()
+        time_hint.set_text("HH:MM (24-hour)")
+        time_hint.add_css_class("dim-label")
+        time_hint.set_margin_end(6)
+        time_row.add_suffix(time_hint)
+
+        self._scheduled_widgets['time'] = time_row
+        group.add(time_row)
+
+        # Day of week combo row (for weekly scans)
+        day_of_week_row = Adw.ComboRow()
+        day_of_week_row.set_title("Day of Week")
+        day_of_week_row.set_subtitle("Which day to run weekly scans")
+
+        # Create string list for days
+        days_model = Gtk.StringList()
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        for day in days:
+            days_model.append(day)
+        day_of_week_row.set_model(days_model)
+        day_of_week_row.set_visible(False)  # Hidden by default (show only for weekly)
+        self._scheduled_widgets['day_of_week'] = day_of_week_row
+        group.add(day_of_week_row)
+
+        # Day of month spin row (for monthly scans)
+        day_of_month_row = Adw.SpinRow.new_with_range(1, 28, 1)
+        day_of_month_row.set_title("Day of Month")
+        day_of_month_row.set_subtitle("Which day to run monthly scans (1-28)")
+        day_of_month_row.set_numeric(True)
+        day_of_month_row.set_snap_to_ticks(True)
+        day_of_month_row.set_visible(False)  # Hidden by default (show only for monthly)
+        self._scheduled_widgets['day_of_month'] = day_of_month_row
+        group.add(day_of_month_row)
+
+        page.add(group)
+
+    def _on_frequency_changed(self, combo_row, param_spec):
+        """
+        Handle frequency selection change.
+
+        Shows/hides the day of week or day of month widgets based on
+        the selected frequency.
+
+        Args:
+            combo_row: The Adw.ComboRow that changed
+            param_spec: The parameter specification (unused)
+        """
+        selected = combo_row.get_selected()
+
+        day_of_week_row = self._scheduled_widgets.get('day_of_week')
+        day_of_month_row = self._scheduled_widgets.get('day_of_month')
+
+        if day_of_week_row:
+            # Show only for weekly (index 1)
+            day_of_week_row.set_visible(selected == 1)
+
+        if day_of_month_row:
+            # Show only for monthly (index 2)
+            day_of_month_row.set_visible(selected == 2)
+
+    def _create_scan_targets_group(self, page: Adw.PreferencesPage):
+        """
+        Create the scan targets configuration group.
+
+        Allows users to add/remove directories to scan during scheduled scans.
+
+        Args:
+            page: The preferences page to add the group to
+        """
+        group = Adw.PreferencesGroup()
+        group.set_title("Scan Targets")
+        group.set_description("Directories to scan during scheduled scans")
+
+        # Targets list box
+        self._targets_listbox = Gtk.ListBox()
+        self._targets_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._targets_listbox.add_css_class("boxed-list")
+
+        # Placeholder row for empty list
+        self._empty_targets_row = Adw.ActionRow()
+        self._empty_targets_row.set_title("No targets configured")
+        self._empty_targets_row.set_subtitle("Add directories to scan using the button below")
+        self._empty_targets_row.set_icon_name("folder-symbolic")
+        self._empty_targets_row.add_css_class("property")
+        self._targets_listbox.append(self._empty_targets_row)
+
+        group.add(self._targets_listbox)
+
+        # Add target button row
+        add_row = Adw.ActionRow()
+        add_row.set_title("Add Target Directory")
+        add_row.set_subtitle("Select a directory to include in scheduled scans")
+        add_row.set_icon_name("list-add-symbolic")
+        add_row.set_activatable(True)
+        add_row.connect("activated", self._on_add_target_clicked)
+
+        # Add chevron icon as suffix
+        chevron = Gtk.Image.new_from_icon_name("go-next-symbolic")
+        chevron.add_css_class("dim-label")
+        add_row.add_suffix(chevron)
+
+        group.add(add_row)
+
+        # Store widget references
+        self._scheduled_widgets['targets_listbox'] = self._targets_listbox
+
+        page.add(group)
+
+    def _on_add_target_clicked(self, row):
+        """
+        Handle add target button click.
+
+        Opens a file chooser dialog to select a directory to add to
+        the scan targets list.
+
+        Args:
+            row: The ActionRow that was clicked
+        """
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Select Directory to Scan")
+        dialog.set_modal(True)
+
+        # We need to select folders
+        dialog.select_folder(self, None, self._on_target_folder_selected)
+
+    def _on_target_folder_selected(self, dialog, result):
+        """
+        Handle folder selection result.
+
+        Adds the selected folder to the targets list.
+
+        Args:
+            dialog: The file dialog
+            result: The async result
+        """
+        try:
+            folder = dialog.select_folder_finish(result)
+            if folder:
+                path = folder.get_path()
+                if path:
+                    self._add_target_to_list(path)
+        except GLib.Error:
+            # User cancelled the dialog
+            pass
+
+    def _add_target_to_list(self, path: str):
+        """
+        Add a target directory to the list.
+
+        Creates a new row for the target with a remove button.
+
+        Args:
+            path: The directory path to add
+        """
+        import os
+
+        # Check if already exists
+        for row in self._get_target_rows():
+            if hasattr(row, 'target_path') and row.target_path == path:
+                return  # Already in list
+
+        # Hide empty placeholder if visible
+        self._empty_targets_row.set_visible(False)
+
+        # Create new target row
+        target_row = Adw.ActionRow()
+        target_row.set_title(os.path.basename(path) or path)
+        target_row.set_subtitle(path)
+        target_row.set_subtitle_selectable(True)
+        target_row.target_path = path  # Store path for later retrieval
+
+        # Add folder icon as prefix
+        folder_icon = Gtk.Image.new_from_icon_name("folder-symbolic")
+        folder_icon.set_margin_start(6)
+        target_row.add_prefix(folder_icon)
+
+        # Add warning if directory doesn't exist
+        if not os.path.isdir(path):
+            warning_icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+            warning_icon.set_tooltip_text("Directory does not exist")
+            warning_icon.add_css_class("warning")
+            target_row.add_prefix(warning_icon)
+
+        # Add remove button as suffix
+        remove_button = Gtk.Button()
+        remove_button.set_icon_name("user-trash-symbolic")
+        remove_button.set_valign(Gtk.Align.CENTER)
+        remove_button.add_css_class("flat")
+        remove_button.add_css_class("circular")
+        remove_button.set_tooltip_text("Remove from scan targets")
+        remove_button.connect("clicked", lambda btn: self._remove_target_row(target_row))
+        target_row.add_suffix(remove_button)
+
+        # Insert before the empty row
+        self._targets_listbox.insert(target_row, 0)
+
+    def _remove_target_row(self, row):
+        """
+        Remove a target row from the list.
+
+        Args:
+            row: The row to remove
+        """
+        self._targets_listbox.remove(row)
+
+        # Show empty placeholder if no targets left
+        if not self._get_target_rows():
+            self._empty_targets_row.set_visible(True)
+
+    def _get_target_rows(self):
+        """
+        Get all target rows (excluding the empty placeholder).
+
+        Returns:
+            List of target rows
+        """
+        rows = []
+        child = self._targets_listbox.get_first_child()
+        while child:
+            if hasattr(child, 'target_path'):
+                rows.append(child)
+            child = child.get_next_sibling()
+        return rows
+
+    def _get_targets_list(self) -> list:
+        """
+        Get the list of target paths from the UI.
+
+        Returns:
+            List of directory path strings
+        """
+        return [row.target_path for row in self._get_target_rows()]
+
+    def _create_scheduled_options_group(self, page: Adw.PreferencesPage):
+        """
+        Create the scheduled scan options group.
+
+        Contains settings for:
+        - Skip scan when on battery power
+        - Automatically quarantine detected threats
+
+        Args:
+            page: The preferences page to add the group to
+        """
+        group = Adw.PreferencesGroup()
+        group.set_title("Scan Options")
+        group.set_description("Configure scheduled scan behavior")
+
+        # Skip on battery switch
+        battery_row = Adw.SwitchRow()
+        battery_row.set_title("Skip When on Battery")
+        battery_row.set_subtitle("Don't run scheduled scans when running on battery power")
+        battery_row.set_active(True)  # Default to True
+        self._scheduled_widgets['skip_on_battery'] = battery_row
+        group.add(battery_row)
+
+        # Auto-quarantine switch
+        quarantine_row = Adw.SwitchRow()
+        quarantine_row.set_title("Auto-Quarantine Threats")
+        quarantine_row.set_subtitle("Automatically move detected threats to quarantine")
+        quarantine_row.set_active(False)  # Default to False for safety
+        self._scheduled_widgets['auto_quarantine'] = quarantine_row
+        group.add(quarantine_row)
+
+        page.add(group)
+
     def _create_save_page(self):
         """
         Create the Save & Apply page for saving configuration changes.
@@ -793,6 +1185,13 @@ class PreferencesWindow(Adw.PreferencesWindow):
                         GLib.idle_add(self._set_saving_state, False)
                         return
                     errors.append(f"clamd.conf: {error}")
+
+        # Save scheduled scan settings (no elevation required)
+        if self._settings_manager is not None:
+            # Save scheduled settings in UI thread
+            GLib.idle_add(self._save_scheduled_settings)
+            # Small delay to ensure UI thread processes the update
+            time.sleep(0.05)
 
         # Show result in UI thread
         if errors:
@@ -1021,7 +1420,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
         Load ClamAV configuration files and populate form fields.
 
         Loads both freshclam.conf and clamd.conf (if available) and populates
-        the corresponding form widgets with the parsed values.
+        the corresponding form widgets with the parsed values. Also loads
+        scheduled scan settings from the settings manager.
         """
         # Load freshclam.conf
         config, error = parse_config(self._freshclam_conf_path)
@@ -1035,6 +1435,10 @@ class PreferencesWindow(Adw.PreferencesWindow):
             if config is not None:
                 self._clamd_config = config
                 self._populate_clamd_widgets(config)
+
+        # Load scheduled scan settings from settings manager
+        if self._settings_manager is not None:
+            self._populate_scheduled_widgets()
 
     def _populate_freshclam_widgets(self, config: ClamAVConfig):
         """
@@ -1113,3 +1517,138 @@ class PreferencesWindow(Adw.PreferencesWindow):
                 value = config.get_int(key)
                 if value is not None:
                     self._clamd_widgets[key].set_value(float(value))
+
+    def _populate_scheduled_widgets(self):
+        """
+        Populate scheduled scan widgets from settings manager.
+
+        Loads saved schedule configuration and populates the UI widgets.
+        """
+        if self._settings_manager is None:
+            return
+
+        # Populate enable switch
+        if 'enabled' in self._scheduled_widgets:
+            enabled = self._settings_manager.get('scheduled_scans_enabled', False)
+            self._scheduled_widgets['enabled'].set_active(enabled)
+
+        # Populate frequency combo
+        if 'frequency' in self._scheduled_widgets:
+            frequency = self._settings_manager.get('schedule_frequency', 'weekly')
+            frequency_map = {'daily': 0, 'weekly': 1, 'monthly': 2}
+            index = frequency_map.get(frequency, 1)
+            self._scheduled_widgets['frequency'].set_selected(index)
+
+            # Trigger visibility update for day of week/month
+            self._on_frequency_changed(self._scheduled_widgets['frequency'], None)
+
+        # Populate time entry
+        if 'time' in self._scheduled_widgets:
+            time_value = self._settings_manager.get('schedule_time', '02:00')
+            self._scheduled_widgets['time'].set_text(time_value)
+
+        # Populate day of week combo
+        if 'day_of_week' in self._scheduled_widgets:
+            day_of_week = self._settings_manager.get('schedule_day_of_week', 0)
+            self._scheduled_widgets['day_of_week'].set_selected(day_of_week)
+
+        # Populate day of month spin
+        if 'day_of_month' in self._scheduled_widgets:
+            day_of_month = self._settings_manager.get('schedule_day_of_month', 1)
+            self._scheduled_widgets['day_of_month'].set_value(float(day_of_month))
+
+        # Populate targets
+        targets = self._settings_manager.get('schedule_targets', [])
+        for target in targets:
+            self._add_target_to_list(target)
+
+        # Populate skip on battery switch
+        if 'skip_on_battery' in self._scheduled_widgets:
+            skip_on_battery = self._settings_manager.get('schedule_skip_on_battery', True)
+            self._scheduled_widgets['skip_on_battery'].set_active(skip_on_battery)
+
+        # Populate auto-quarantine switch
+        if 'auto_quarantine' in self._scheduled_widgets:
+            auto_quarantine = self._settings_manager.get('schedule_auto_quarantine', False)
+            self._scheduled_widgets['auto_quarantine'].set_active(auto_quarantine)
+
+    def _save_scheduled_settings(self) -> bool:
+        """
+        Save scheduled scan settings to settings manager.
+
+        Reads values from UI widgets and saves them to the settings manager.
+        Also enables/disables the schedule with the system scheduler.
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        if self._settings_manager is None:
+            return False
+
+        # Get enabled state
+        enabled = False
+        if 'enabled' in self._scheduled_widgets:
+            enabled = self._scheduled_widgets['enabled'].get_active()
+        self._settings_manager.set('scheduled_scans_enabled', enabled)
+
+        # Get frequency
+        frequency = 'weekly'
+        if 'frequency' in self._scheduled_widgets:
+            selected = self._scheduled_widgets['frequency'].get_selected()
+            frequency_map = {0: 'daily', 1: 'weekly', 2: 'monthly'}
+            frequency = frequency_map.get(selected, 'weekly')
+        self._settings_manager.set('schedule_frequency', frequency)
+
+        # Get time
+        time_value = '02:00'
+        if 'time' in self._scheduled_widgets:
+            time_value = self._scheduled_widgets['time'].get_text() or '02:00'
+        self._settings_manager.set('schedule_time', time_value)
+
+        # Get day of week
+        day_of_week = 0
+        if 'day_of_week' in self._scheduled_widgets:
+            day_of_week = self._scheduled_widgets['day_of_week'].get_selected()
+        self._settings_manager.set('schedule_day_of_week', day_of_week)
+
+        # Get day of month
+        day_of_month = 1
+        if 'day_of_month' in self._scheduled_widgets:
+            day_of_month = int(self._scheduled_widgets['day_of_month'].get_value())
+        self._settings_manager.set('schedule_day_of_month', day_of_month)
+
+        # Get targets
+        targets = self._get_targets_list()
+        self._settings_manager.set('schedule_targets', targets)
+
+        # Get skip on battery
+        skip_on_battery = True
+        if 'skip_on_battery' in self._scheduled_widgets:
+            skip_on_battery = self._scheduled_widgets['skip_on_battery'].get_active()
+        self._settings_manager.set('schedule_skip_on_battery', skip_on_battery)
+
+        # Get auto-quarantine
+        auto_quarantine = False
+        if 'auto_quarantine' in self._scheduled_widgets:
+            auto_quarantine = self._scheduled_widgets['auto_quarantine'].get_active()
+        self._settings_manager.set('schedule_auto_quarantine', auto_quarantine)
+
+        # Enable or disable the schedule with the system scheduler
+        if enabled and self._scheduler.is_available:
+            success, error = self._scheduler.enable_schedule(
+                frequency=frequency,
+                time=time_value,
+                targets=targets,
+                day_of_week=day_of_week,
+                day_of_month=day_of_month,
+                skip_on_battery=skip_on_battery,
+                auto_quarantine=auto_quarantine
+            )
+            if not success:
+                return False
+        elif not enabled and self._scheduler.is_available:
+            success, error = self._scheduler.disable_schedule()
+            if not success:
+                return False
+
+        return self._settings_manager.save()
