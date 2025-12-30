@@ -105,6 +105,9 @@ class ScanView(Gtk.Box):
         drop_target.connect('drop', self._on_drop)
         drop_target.connect('enter', self._on_drag_enter)
         drop_target.connect('leave', self._on_drag_leave)
+        # Set propagation phase to CAPTURE so events are intercepted before
+        # reaching child widgets (like TextView) that might swallow them
+        drop_target.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         # Add drop target to the entire ScanView widget
         self.add_controller(drop_target)
 
