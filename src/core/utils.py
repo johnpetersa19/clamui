@@ -6,9 +6,13 @@ Utility functions for ClamUI including ClamAV detection and path validation.
 import os
 import shutil
 import subprocess
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .scanner import ScanResult
 
 
 class ThreatSeverity(Enum):
@@ -554,3 +558,117 @@ def get_path_info(path: str) -> dict:
         pass
 
     return info
+
+
+def format_results_as_text(result: 'ScanResult', timestamp: Optional[str] = None) -> str:
+    """
+    Format scan results as human-readable text for export or clipboard.
+
+    Creates a formatted text report including:
+    - Header with scan timestamp and path
+    - Summary statistics (files scanned, threats found)
+    - Detailed threat list with file path, threat name, category, and severity
+    - Status indicator
+
+    Args:
+        result: The ScanResult object to format
+        timestamp: Optional timestamp string. If not provided, uses current time.
+
+    Returns:
+        Formatted text string suitable for export to file or clipboard
+
+    Example output:
+        ═══════════════════════════════════════════════════════════════
+        ClamUI Scan Report
+        ═══════════════════════════════════════════════════════════════
+        Scan Date: 2024-01-15 14:30:45
+        Scanned Path: /home/user/Downloads
+        Status: INFECTED
+
+        ───────────────────────────────────────────────────────────────
+        Summary
+        ───────────────────────────────────────────────────────────────
+        Files Scanned: 150
+        Directories Scanned: 25
+        Threats Found: 2
+
+        ───────────────────────────────────────────────────────────────
+        Detected Threats
+        ───────────────────────────────────────────────────────────────
+
+        [1] CRITICAL - Ransomware
+            File: /home/user/Downloads/malware.exe
+            Threat: Win.Ransomware.Locky
+
+        [2] HIGH - Trojan
+            File: /home/user/Downloads/suspicious.doc
+            Threat: Win.Trojan.Agent
+
+        ═══════════════════════════════════════════════════════════════
+    """
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    lines = []
+
+    # Header
+    header_line = "═" * 65
+    sub_header_line = "─" * 65
+
+    lines.append(header_line)
+    lines.append("ClamUI Scan Report")
+    lines.append(header_line)
+    lines.append(f"Scan Date: {timestamp}")
+    lines.append(f"Scanned Path: {result.path}")
+    lines.append(f"Status: {result.status.value.upper()}")
+    lines.append("")
+
+    # Summary section
+    lines.append(sub_header_line)
+    lines.append("Summary")
+    lines.append(sub_header_line)
+    lines.append(f"Files Scanned: {result.scanned_files}")
+    lines.append(f"Directories Scanned: {result.scanned_dirs}")
+    lines.append(f"Threats Found: {result.infected_count}")
+    lines.append("")
+
+    # Threat details section
+    if result.threat_details:
+        lines.append(sub_header_line)
+        lines.append("Detected Threats")
+        lines.append(sub_header_line)
+        lines.append("")
+
+        for i, threat in enumerate(result.threat_details, 1):
+            severity_upper = threat.severity.upper()
+            lines.append(f"[{i}] {severity_upper} - {threat.category}")
+            lines.append(f"    File: {threat.file_path}")
+            lines.append(f"    Threat: {threat.threat_name}")
+            lines.append("")
+    elif result.status.value == "clean":
+        lines.append(sub_header_line)
+        lines.append("No Threats Detected")
+        lines.append(sub_header_line)
+        lines.append("")
+        lines.append("✓ All scanned files are clean.")
+        lines.append("")
+    elif result.status.value == "error":
+        lines.append(sub_header_line)
+        lines.append("Scan Error")
+        lines.append(sub_header_line)
+        lines.append("")
+        if result.error_message:
+            lines.append(f"Error: {result.error_message}")
+        lines.append("")
+    elif result.status.value == "cancelled":
+        lines.append(sub_header_line)
+        lines.append("Scan Cancelled")
+        lines.append(sub_header_line)
+        lines.append("")
+        lines.append("The scan was cancelled before completion.")
+        lines.append("")
+
+    # Footer
+    lines.append(header_line)
+
+    return "\n".join(lines)
