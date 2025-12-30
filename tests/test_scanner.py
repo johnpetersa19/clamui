@@ -14,7 +14,7 @@ _original_gi_repository = sys.modules.get("gi.repository")
 sys.modules["gi"] = mock.MagicMock()
 sys.modules["gi.repository"] = mock.MagicMock()
 
-from src.core.scanner import Scanner, ScanResult, ScanStatus
+from src.core.scanner import Scanner, ScanResult, ScanStatus, ThreatDetail
 
 # Restore original gi modules after imports are done
 if _original_gi is not None:
@@ -154,6 +154,7 @@ class TestScanResult:
             scanned_dirs=1,
             infected_count=0,
             error_message=None,
+            threat_details=[],
         )
         assert result.is_clean is True
         assert result.has_threats is False
@@ -171,6 +172,7 @@ class TestScanResult:
             scanned_dirs=1,
             infected_count=1,
             error_message=None,
+            threat_details=[],
         )
         assert result.is_clean is False
         assert result.has_threats is True
@@ -188,6 +190,7 @@ class TestScanResult:
             scanned_dirs=0,
             infected_count=0,
             error_message="ClamAV error",
+            threat_details=[],
         )
         assert result.is_clean is False
         assert result.has_threats is False
@@ -205,6 +208,7 @@ class TestScanResult:
             scanned_dirs=0,
             infected_count=0,
             error_message="Scan cancelled by user",
+            threat_details=[],
         )
         assert result.is_clean is False
         assert result.has_threats is False
@@ -301,3 +305,120 @@ Infected files: 3
         assert result.status == ScanStatus.INFECTED
         assert result.infected_count == 3
         assert len(result.infected_files) == 3
+
+    def test_parse_results_clean_has_empty_threat_details(self):
+        """Test _parse_results returns empty threat_details for clean scans."""
+        scanner = Scanner()
+
+        stdout = """
+/home/user/test.txt: OK
+
+----------- SCAN SUMMARY -----------
+Scanned files: 10
+Infected files: 0
+"""
+        result = scanner._parse_results("/home/user", stdout, "", 0)
+
+        assert result.status == ScanStatus.CLEAN
+        assert len(result.threat_details) == 0
+
+    def test_parse_results_extracts_threat_details(self):
+        """Test _parse_results extracts ThreatDetail objects with correct data."""
+        scanner = Scanner()
+
+        stdout = """
+/home/user/test/virus.txt: Eicar-Test-Signature FOUND
+
+----------- SCAN SUMMARY -----------
+Scanned files: 5
+Infected files: 1
+"""
+        result = scanner._parse_results("/home/user/test", stdout, "", 1)
+
+        assert len(result.threat_details) == 1
+        threat = result.threat_details[0]
+        assert threat.file_path == "/home/user/test/virus.txt"
+        assert threat.threat_name == "Eicar-Test-Signature"
+        assert threat.category == "Test"
+        assert threat.severity == "low"
+
+    def test_parse_results_multiple_threats_with_classification(self):
+        """Test _parse_results correctly classifies multiple threats."""
+        scanner = Scanner()
+
+        stdout = """
+/home/user/eicar.txt: Eicar-Test-Signature FOUND
+/home/user/trojan.exe: Win.Trojan.Agent FOUND
+/home/user/ransom.exe: Ransomware.Locky FOUND
+
+----------- SCAN SUMMARY -----------
+Scanned files: 100
+Infected files: 3
+"""
+        result = scanner._parse_results("/home/user", stdout, "", 1)
+
+        assert len(result.threat_details) == 3
+
+        # EICAR - Test category, low severity
+        assert result.threat_details[0].threat_name == "Eicar-Test-Signature"
+        assert result.threat_details[0].category == "Test"
+        assert result.threat_details[0].severity == "low"
+
+        # Trojan - Trojan category, high severity
+        assert result.threat_details[1].threat_name == "Win.Trojan.Agent"
+        assert result.threat_details[1].category == "Trojan"
+        assert result.threat_details[1].severity == "high"
+
+        # Ransomware - Ransomware category, critical severity
+        assert result.threat_details[2].threat_name == "Ransomware.Locky"
+        assert result.threat_details[2].category == "Ransomware"
+        assert result.threat_details[2].severity == "critical"
+
+    def test_classify_threat_severity(self):
+        """Test _classify_threat_severity returns correct severity levels."""
+        scanner = Scanner()
+
+        # Critical threats
+        assert scanner._classify_threat_severity("Ransomware.Locky") == "critical"
+        assert scanner._classify_threat_severity("Win.Rootkit.Agent") == "critical"
+        assert scanner._classify_threat_severity("Bootkit.MBR") == "critical"
+        assert scanner._classify_threat_severity("CryptoLocker.A") == "critical"
+
+        # High threats
+        assert scanner._classify_threat_severity("Trojan.Banker") == "high"
+        assert scanner._classify_threat_severity("Worm.Mydoom") == "high"
+        assert scanner._classify_threat_severity("Backdoor.IRC") == "high"
+        assert scanner._classify_threat_severity("Exploit.CVE2021") == "high"
+        assert scanner._classify_threat_severity("Downloader.Agent") == "high"
+
+        # Medium threats
+        assert scanner._classify_threat_severity("PUA.Adware.Generic") == "medium"
+        assert scanner._classify_threat_severity("Spyware.Keylogger") == "high"  # keylogger = high
+        assert scanner._classify_threat_severity("Coinminer.Generic") == "medium"
+        assert scanner._classify_threat_severity("Unknown.Malware") == "medium"
+
+        # Low threats
+        assert scanner._classify_threat_severity("Eicar-Test-Signature") == "low"
+        assert scanner._classify_threat_severity("Heuristic.Generic") == "low"
+
+        # Edge cases
+        assert scanner._classify_threat_severity("") == "medium"
+
+    def test_categorize_threat(self):
+        """Test _categorize_threat extracts correct category from threat name."""
+        scanner = Scanner()
+
+        # Specific categories
+        assert scanner._categorize_threat("Win.Trojan.Agent") == "Trojan"
+        assert scanner._categorize_threat("Worm.Mydoom") == "Worm"
+        assert scanner._categorize_threat("Ransomware.Locky") == "Ransomware"
+        assert scanner._categorize_threat("Win.Rootkit.Agent") == "Rootkit"
+        assert scanner._categorize_threat("Backdoor.IRC") == "Backdoor"
+        assert scanner._categorize_threat("Exploit.PDF") == "Exploit"
+        assert scanner._categorize_threat("PUA.Adware.Generic") == "Adware"
+        assert scanner._categorize_threat("Eicar-Test-Signature") == "Test"
+        assert scanner._categorize_threat("Phishing.Email") == "Phishing"
+
+        # Default category for unknown
+        assert scanner._categorize_threat("Unknown.Malware") == "Virus"
+        assert scanner._categorize_threat("") == "Unknown"
