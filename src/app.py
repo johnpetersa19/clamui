@@ -13,6 +13,8 @@ from .ui.scan_view import ScanView
 from .ui.update_view import UpdateView
 from .ui.logs_view import LogsView
 from .ui.components_view import ComponentsView
+from .core.settings_manager import SettingsManager
+from .core.notification_manager import NotificationManager
 
 
 class ClamUIApp(Adw.Application):
@@ -34,6 +36,10 @@ class ClamUIApp(Adw.Application):
         self._app_name = "ClamUI"
         self._version = "0.1.0"
 
+        # Settings and notification management
+        self._settings_manager = SettingsManager()
+        self._notification_manager = NotificationManager(self._settings_manager)
+
         # View management
         self._scan_view = None
         self._update_view = None
@@ -50,6 +56,16 @@ class ClamUIApp(Adw.Application):
     def version(self) -> str:
         """Get the application version."""
         return self._version
+
+    @property
+    def notification_manager(self) -> NotificationManager:
+        """Get the notification manager instance."""
+        return self._notification_manager
+
+    @property
+    def settings_manager(self) -> SettingsManager:
+        """Get the settings manager instance."""
+        return self._settings_manager
 
     def do_activate(self):
         """
@@ -87,6 +103,9 @@ class ClamUIApp(Adw.Application):
         before any windows are created.
         """
         Adw.Application.do_startup(self)
+
+        # Set application reference for notification manager
+        self._notification_manager.set_application(self)
 
         # Set up application actions
         self._setup_actions()
