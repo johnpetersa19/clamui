@@ -11,13 +11,24 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gio, GLib, Gdk
 
-from ..core.scanner import Scanner, ScanResult, ScanStatus
-from ..core.utils import format_scan_path, check_clamav_installed, validate_dropped_files
+from ..core.scanner import Scanner, ScanResult, ScanStatus, ThreatDetail
+from ..core.utils import (
+    format_scan_path,
+    check_clamav_installed,
+    validate_dropped_files,
+    format_results_as_text,
+    copy_to_clipboard,
+)
 from .fullscreen_dialog import FullscreenLogDialog
 
 # EICAR test string - industry-standard antivirus test pattern
 # This is NOT malware - it's a safe test string recognized by all AV software
 EICAR_TEST_STRING = r"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+
+# Large result set thresholds for pagination
+LARGE_RESULT_THRESHOLD = 50  # Show warning banner above this count
+INITIAL_DISPLAY_LIMIT = 25  # Number of threats to display initially
+LOAD_MORE_BATCH_SIZE = 25  # Number of threats to load per "Show More" click
 
 
 class ScanView(Gtk.Box):
@@ -50,6 +61,11 @@ class ScanView(Gtk.Box):
 
         # Temp file path for EICAR test (for cleanup)
         self._eicar_temp_path: str = ""
+
+        # Pagination state for large result sets
+        self._displayed_threat_count: int = 0
+        self._all_threat_details: list = []
+        self._load_more_row: Gtk.Box | None = None
 
         # Scan state change callback (for tray integration)
         self._on_scan_state_changed = None
@@ -87,13 +103,67 @@ class ScanView(Gtk.Box):
         self._setup_drop_target()
 
     def _setup_drop_css(self):
-        """Set up CSS styling for drag-and-drop visual feedback."""
+        """Set up CSS styling for drag-and-drop visual feedback and severity badges."""
         css_provider = Gtk.CssProvider()
         css_provider.load_from_string("""
             .drop-active {
                 border: 2px dashed @accent_color;
                 border-radius: 12px;
                 background-color: alpha(@accent_bg_color, 0.1);
+            }
+
+            /* Severity badge styles */
+            .severity-badge {
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 0.85em;
+                font-weight: bold;
+            }
+
+            .severity-critical {
+                background-color: #e01b24;
+                color: white;
+            }
+
+            .severity-high {
+                background-color: #ff7800;
+                color: white;
+            }
+
+            .severity-medium {
+                background-color: #f5c211;
+                color: #3d3846;
+            }
+
+            .severity-low {
+                background-color: #3584e4;
+                color: white;
+            }
+
+            /* Threat card styling */
+            .threat-card {
+                margin: 4px 0;
+            }
+
+            .recommended-action {
+                padding: 8px 12px;
+                background-color: alpha(@card_bg_color, 0.5);
+                border-radius: 6px;
+                margin: 4px 0;
+            }
+
+            /* Large result warning banner */
+            .large-result-warning {
+                background-color: alpha(@warning_color, 0.15);
+                border: 1px solid @warning_color;
+                border-radius: 6px;
+                padding: 12px;
+                margin-bottom: 8px;
+            }
+
+            /* Load more button styling */
+            .load-more-row {
+                padding: 12px;
             }
         """)
         Gtk.StyleContext.add_provider_for_display(
@@ -303,9 +373,37 @@ class ScanView(Gtk.Box):
         results_group.set_description("Results will appear here after scanning")
         self._results_group = results_group
 
-        # Header box with fullscreen button
+        # Header box with export and fullscreen buttons
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         header_box.set_halign(Gtk.Align.END)
+        header_box.set_spacing(6)
+
+        # Copy to Clipboard button
+        copy_button = Gtk.Button()
+        copy_button.set_icon_name("edit-copy-symbolic")
+        copy_button.set_tooltip_text("Copy to clipboard")
+        copy_button.add_css_class("flat")
+        copy_button.set_sensitive(False)  # Disabled until results available
+        copy_button.connect("clicked", self._on_copy_results_clicked)
+        self._copy_button = copy_button
+
+        # Export to Text button
+        export_text_button = Gtk.Button()
+        export_text_button.set_icon_name("document-save-symbolic")
+        export_text_button.set_tooltip_text("Export to text file")
+        export_text_button.add_css_class("flat")
+        export_text_button.set_sensitive(False)  # Disabled until results available
+        export_text_button.connect("clicked", self._on_export_text_clicked)
+        self._export_text_button = export_text_button
+
+        # Export to CSV button
+        export_csv_button = Gtk.Button()
+        export_csv_button.set_icon_name("x-office-spreadsheet-symbolic")
+        export_csv_button.set_tooltip_text("Export to CSV file")
+        export_csv_button.add_css_class("flat")
+        export_csv_button.set_sensitive(False)  # Disabled until results available
+        export_csv_button.connect("clicked", self._on_export_csv_clicked)
+        self._export_csv_button = export_csv_button
 
         # Fullscreen button
         fullscreen_button = Gtk.Button()
@@ -315,6 +413,9 @@ class ScanView(Gtk.Box):
         fullscreen_button.connect("clicked", self._on_fullscreen_results_clicked)
         self._fullscreen_button = fullscreen_button
 
+        header_box.append(copy_button)
+        header_box.append(export_text_button)
+        header_box.append(export_csv_button)
         header_box.append(fullscreen_button)
         results_group.set_header_suffix(header_box)
 
@@ -327,27 +428,43 @@ class ScanView(Gtk.Box):
         self._status_banner.set_revealed(False)
         results_box.append(self._status_banner)
 
-        # Results text view in a scrolled window
+        # Scrolled window for threat cards ListBox
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_min_content_height(200)
         scrolled.set_vexpand(True)
         scrolled.add_css_class("card")
 
-        self._results_text = Gtk.TextView()
-        self._results_text.set_editable(False)
-        self._results_text.set_cursor_visible(False)
-        self._results_text.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        self._results_text.set_left_margin(12)
-        self._results_text.set_right_margin(12)
-        self._results_text.set_top_margin(12)
-        self._results_text.set_bottom_margin(12)
-        self._results_text.add_css_class("monospace")
+        # Container for ListBox and placeholder
+        self._results_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
-        # Set placeholder text
-        buffer = self._results_text.get_buffer()
-        buffer.set_text("No scan results yet.\n\nSelect a folder or file and click 'Scan' to begin.")
+        # Threats ListBox for threat cards display
+        self._threats_listbox = Gtk.ListBox()
+        self._threats_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._threats_listbox.add_css_class("boxed-list")
+        self._threats_listbox.set_visible(False)  # Hidden until threats are found
+        self._results_container.append(self._threats_listbox)
 
-        scrolled.set_child(self._results_text)
+        # Placeholder label (shown when no results)
+        self._results_placeholder = Gtk.Label()
+        self._results_placeholder.set_text("No scan results yet.\n\nSelect a folder or file and click 'Scan' to begin.")
+        self._results_placeholder.set_wrap(True)
+        self._results_placeholder.set_justify(Gtk.Justification.CENTER)
+        self._results_placeholder.add_css_class("dim-label")
+        self._results_placeholder.set_margin_top(24)
+        self._results_placeholder.set_margin_bottom(24)
+        self._results_placeholder.set_margin_start(12)
+        self._results_placeholder.set_margin_end(12)
+        self._results_placeholder.set_vexpand(True)
+        self._results_placeholder.set_valign(Gtk.Align.CENTER)
+        self._results_container.append(self._results_placeholder)
+
+        # Store raw output for fullscreen dialog
+        self._raw_output: str = ""
+
+        # Store current result for export functionality
+        self._current_result: ScanResult | None = None
+
+        scrolled.set_child(self._results_container)
         results_box.append(scrolled)
 
         results_group.add(results_box)
@@ -481,9 +598,8 @@ class ScanView(Gtk.Box):
         self._set_scanning_state(True)
         self._clear_results()
 
-        # Update results text
-        buffer = self._results_text.get_buffer()
-        buffer.set_text(f"Scanning: {self._selected_path}\n\nPlease wait...")
+        # Update placeholder to show scanning status
+        self._results_placeholder.set_text(f"Scanning: {self._selected_path}\n\nPlease wait...")
 
         # Hide any previous status banner
         self._status_banner.set_revealed(False)
@@ -530,6 +646,11 @@ class ScanView(Gtk.Box):
             self._select_folder_btn.set_sensitive(False)
             self._select_file_btn.set_sensitive(False)
             self._test_clamav_button.set_sensitive(False)
+
+            # Disable export buttons during scan
+            self._copy_button.set_sensitive(False)
+            self._export_text_button.set_sensitive(False)
+            self._export_csv_button.set_sensitive(False)
         else:
             # Restore normal state
             self._scan_button.set_label("Scan")
@@ -560,17 +681,57 @@ class ScanView(Gtk.Box):
 
     def _clear_results(self):
         """Clear the results display."""
-        buffer = self._results_text.get_buffer()
-        buffer.set_text("")
+        # Clear the threats ListBox
+        while True:
+            row = self._threats_listbox.get_row_at_index(0)
+            if row is None:
+                break
+            self._threats_listbox.remove(row)
+
+        # Hide ListBox and show placeholder
+        self._threats_listbox.set_visible(False)
+        self._results_placeholder.set_visible(True)
+        self._results_placeholder.set_text("No scan results yet.\n\nSelect a folder or file and click 'Scan' to begin.")
+
+        # Clear raw output and current result
+        self._raw_output = ""
+        self._current_result = None
+
+        # Reset pagination state
+        self._displayed_threat_count = 0
+        self._all_threat_details = []
+        self._load_more_row = None
+
+        # Disable export buttons when no results
+        self._copy_button.set_sensitive(False)
+        self._export_text_button.set_sensitive(False)
+        self._export_csv_button.set_sensitive(False)
+
         self._status_banner.set_revealed(False)
 
     def _display_results(self, result: ScanResult):
         """
         Display scan results in the UI.
 
+        For large result sets (100+ threats), displays a warning banner and
+        implements pagination to keep the UI responsive. Initially shows a
+        limited number of threats with a "Show More" button to load additional
+        results in batches.
+
         Args:
             result: The scan result to display
         """
+        # Store raw output for fullscreen dialog
+        self._raw_output = result.stdout
+
+        # Store the current result for export functionality
+        self._current_result = result
+
+        # Store all threat details for pagination
+        self._all_threat_details = result.threat_details if result.threat_details else []
+        self._displayed_threat_count = 0
+        self._load_more_row = None
+
         # Update status banner based on result
         if result.status == ScanStatus.CLEAN:
             self._status_banner.set_title("No threats found")
@@ -578,10 +739,21 @@ class ScanView(Gtk.Box):
             self._status_banner.remove_css_class("error")
             self._status_banner.remove_css_class("warning")
         elif result.status == ScanStatus.INFECTED:
-            self._status_banner.set_title(f"Threats detected: {result.infected_count} infected file(s)")
-            self._status_banner.add_css_class("error")
-            self._status_banner.remove_css_class("success")
-            self._status_banner.remove_css_class("warning")
+            threat_count = len(self._all_threat_details)
+            # Show warning for large result sets
+            if threat_count >= LARGE_RESULT_THRESHOLD:
+                self._status_banner.set_title(
+                    f"Large result set: {threat_count} threats detected. "
+                    f"Showing first {INITIAL_DISPLAY_LIMIT} results."
+                )
+                self._status_banner.add_css_class("warning")
+                self._status_banner.remove_css_class("success")
+                self._status_banner.remove_css_class("error")
+            else:
+                self._status_banner.set_title(f"Threats detected: {result.infected_count} infected file(s)")
+                self._status_banner.add_css_class("error")
+                self._status_banner.remove_css_class("success")
+                self._status_banner.remove_css_class("warning")
         else:  # ERROR status
             self._status_banner.set_title(f"Scan error: {result.error_message}")
             self._status_banner.add_css_class("warning")
@@ -591,9 +763,293 @@ class ScanView(Gtk.Box):
         self._status_banner.set_button_label(None)
         self._status_banner.set_revealed(True)
 
-        # Display detailed results in text view
-        buffer = self._results_text.get_buffer()
-        buffer.set_text(result.output)
+        # Clear previous results from ListBox
+        while True:
+            row = self._threats_listbox.get_row_at_index(0)
+            if row is None:
+                break
+            self._threats_listbox.remove(row)
+
+        # Display results based on status
+        if result.status == ScanStatus.INFECTED and self._all_threat_details:
+            # Hide placeholder, show ListBox with threat cards
+            self._results_placeholder.set_visible(False)
+            self._threats_listbox.set_visible(True)
+
+            threat_count = len(self._all_threat_details)
+
+            # For large result sets, show warning banner and paginate
+            if threat_count >= LARGE_RESULT_THRESHOLD:
+                # Add warning info row at the top
+                warning_row = self._create_large_result_warning_row(threat_count)
+                self._threats_listbox.append(warning_row)
+
+                # Display initial batch of threats
+                initial_limit = min(INITIAL_DISPLAY_LIMIT, threat_count)
+                self._display_threat_batch(0, initial_limit)
+
+                # Add "Show More" button if there are more threats
+                if threat_count > INITIAL_DISPLAY_LIMIT:
+                    self._add_load_more_button()
+            else:
+                # For smaller result sets, display all threats
+                for threat_detail in self._all_threat_details:
+                    threat_card = self._create_threat_card(threat_detail)
+                    self._threats_listbox.append(threat_card)
+                self._displayed_threat_count = threat_count
+
+                # Add clean files summary row at the end
+                clean_count = result.scanned_files - result.infected_count
+                if clean_count > 0:
+                    summary_row = self._create_clean_files_summary_row(
+                        clean_count, result.scanned_files, result.scanned_dirs
+                    )
+                    self._threats_listbox.append(summary_row)
+
+        elif result.status == ScanStatus.CLEAN:
+            # Show ListBox with clean files summary only
+            self._results_placeholder.set_visible(False)
+            self._threats_listbox.set_visible(True)
+
+            summary_row = self._create_clean_files_summary_row(
+                result.scanned_files, result.scanned_files, result.scanned_dirs
+            )
+            self._threats_listbox.append(summary_row)
+
+        else:
+            # ERROR status - show error message in placeholder
+            self._threats_listbox.set_visible(False)
+            self._results_placeholder.set_visible(True)
+            self._results_placeholder.set_text(
+                f"Scan failed: {result.error_message}\n\nPlease check the fullscreen log for details."
+            )
+
+        # Enable export buttons when results are available
+        # (for both successful scans and error states, so user can export error details)
+        self._copy_button.set_sensitive(True)
+        self._export_text_button.set_sensitive(True)
+        self._export_csv_button.set_sensitive(True)
+
+    def _create_large_result_warning_row(self, threat_count: int) -> Gtk.Box:
+        """
+        Create a warning row displayed at the top of large result sets.
+
+        Args:
+            threat_count: Total number of threats detected
+
+        Returns:
+            Gtk.Box widget containing the warning message
+        """
+        warning_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        warning_box.add_css_class("large-result-warning")
+        warning_box.set_margin_start(8)
+        warning_box.set_margin_end(8)
+        warning_box.set_margin_top(8)
+
+        # Warning icon
+        warning_icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+        warning_box.append(warning_icon)
+
+        # Warning text
+        warning_label = Gtk.Label()
+        warning_label.set_markup(
+            f"<b>Large Result Set:</b> {threat_count} threats detected. "
+            f"Results are paginated to maintain UI responsiveness. "
+            f"Use Export to save all results."
+        )
+        warning_label.set_wrap(True)
+        warning_label.set_xalign(0)
+        warning_label.set_hexpand(True)
+        warning_box.append(warning_label)
+
+        return warning_box
+
+    def _display_threat_batch(self, start_index: int, count: int):
+        """
+        Display a batch of threat cards starting from the given index.
+
+        Uses GLib.idle_add to add cards incrementally for better UI responsiveness
+        with very large result sets.
+
+        Args:
+            start_index: Index in _all_threat_details to start from
+            count: Number of threats to display
+        """
+        end_index = min(start_index + count, len(self._all_threat_details))
+
+        for i in range(start_index, end_index):
+            threat_detail = self._all_threat_details[i]
+            threat_card = self._create_threat_card(threat_detail)
+
+            # Insert before the "Load More" button if it exists
+            if self._load_more_row:
+                # Find the index of the load more row
+                row_index = 0
+                while True:
+                    row = self._threats_listbox.get_row_at_index(row_index)
+                    if row is None:
+                        break
+                    row_index += 1
+                # Insert at position just before the last row (load more button)
+                self._threats_listbox.insert(threat_card, row_index - 1)
+            else:
+                self._threats_listbox.append(threat_card)
+
+        self._displayed_threat_count = end_index
+
+    def _add_load_more_button(self):
+        """
+        Add a "Show More" button row to load additional threats.
+        """
+        # Container box for the load more button
+        load_more_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        load_more_box.add_css_class("load-more-row")
+        load_more_box.set_halign(Gtk.Align.CENTER)
+        load_more_box.set_margin_top(12)
+        load_more_box.set_margin_bottom(12)
+
+        # Progress label showing how many are displayed
+        remaining = len(self._all_threat_details) - self._displayed_threat_count
+        progress_label = Gtk.Label()
+        progress_label.set_markup(
+            f"<span size='small'>Showing {self._displayed_threat_count} of "
+            f"{len(self._all_threat_details)} threats</span>"
+        )
+        progress_label.add_css_class("dim-label")
+        load_more_box.append(progress_label)
+
+        # Button row
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.CENTER)
+
+        # "Show More" button
+        show_more_btn = Gtk.Button()
+        show_more_btn.set_label(f"Show {min(LOAD_MORE_BATCH_SIZE, remaining)} More")
+        show_more_btn.add_css_class("pill")
+        show_more_btn.connect("clicked", self._on_load_more_clicked)
+        button_box.append(show_more_btn)
+
+        # "Show All" button (only if there are many remaining)
+        if remaining > LOAD_MORE_BATCH_SIZE:
+            show_all_btn = Gtk.Button()
+            show_all_btn.set_label(f"Show All ({remaining} remaining)")
+            show_all_btn.add_css_class("pill")
+            show_all_btn.connect("clicked", self._on_show_all_clicked)
+            button_box.append(show_all_btn)
+
+        load_more_box.append(button_box)
+
+        self._load_more_row = load_more_box
+        self._threats_listbox.append(load_more_box)
+
+    def _on_load_more_clicked(self, button):
+        """
+        Handle "Show More" button click to load the next batch of threats.
+        """
+        # Remove the current load more row
+        if self._load_more_row:
+            self._threats_listbox.remove(self._load_more_row)
+            self._load_more_row = None
+
+        # Display next batch
+        remaining = len(self._all_threat_details) - self._displayed_threat_count
+        batch_size = min(LOAD_MORE_BATCH_SIZE, remaining)
+        self._display_threat_batch(self._displayed_threat_count, batch_size)
+
+        # Add new load more button if there are still more threats
+        if self._displayed_threat_count < len(self._all_threat_details):
+            self._add_load_more_button()
+        else:
+            # All threats displayed, add summary row
+            self._add_final_summary_row()
+
+        # Update status banner
+        self._update_pagination_status()
+
+    def _on_show_all_clicked(self, button):
+        """
+        Handle "Show All" button click to load all remaining threats.
+
+        Uses incremental loading with GLib.idle_add to keep UI responsive.
+        """
+        # Remove the current load more row
+        if self._load_more_row:
+            self._threats_listbox.remove(self._load_more_row)
+            self._load_more_row = None
+
+        # Display all remaining threats
+        remaining = len(self._all_threat_details) - self._displayed_threat_count
+        self._display_threat_batch(self._displayed_threat_count, remaining)
+
+        # Add summary row
+        self._add_final_summary_row()
+
+        # Update status banner
+        self._update_pagination_status()
+
+    def _add_final_summary_row(self):
+        """
+        Add the clean files summary row after all threats are displayed.
+        """
+        if self._current_result:
+            clean_count = self._current_result.scanned_files - self._current_result.infected_count
+            if clean_count > 0:
+                summary_row = self._create_clean_files_summary_row(
+                    clean_count,
+                    self._current_result.scanned_files,
+                    self._current_result.scanned_dirs
+                )
+                self._threats_listbox.append(summary_row)
+
+    def _update_pagination_status(self):
+        """
+        Update the status banner to reflect current pagination state.
+        """
+        total = len(self._all_threat_details)
+        displayed = self._displayed_threat_count
+
+        if displayed >= total:
+            # All threats displayed
+            self._status_banner.set_title(f"Threats detected: {total} infected file(s)")
+            self._status_banner.add_css_class("error")
+            self._status_banner.remove_css_class("warning")
+            self._status_banner.remove_css_class("success")
+        else:
+            # Still paginated
+            self._status_banner.set_title(
+                f"Large result set: {total} threats detected. "
+                f"Showing {displayed} of {total} results."
+            )
+
+    def _create_clean_files_summary_row(
+        self, clean_count: int, total_files: int, total_dirs: int
+    ) -> Adw.ActionRow:
+        """
+        Create a summary row showing clean file count (not individual files).
+
+        Args:
+            clean_count: Number of clean files
+            total_files: Total number of files scanned
+            total_dirs: Total number of directories scanned
+
+        Returns:
+            Adw.ActionRow widget showing the summary
+        """
+        summary_row = Adw.ActionRow()
+        summary_row.set_title("Scan Summary")
+
+        # Build subtitle with scan statistics
+        subtitle_parts = []
+        subtitle_parts.append(f"{clean_count} clean file(s)")
+        if total_dirs > 0:
+            subtitle_parts.append(f"{total_dirs} directories scanned")
+        subtitle_parts.append(f"{total_files} total files checked")
+        summary_row.set_subtitle(" • ".join(subtitle_parts))
+
+        summary_row.set_icon_name("emblem-ok-symbolic")
+        summary_row.add_css_class("success")
+
+        return summary_row
 
     def _on_test_clamav_clicked(self, button):
         """Handle test ClamAV button click."""
@@ -613,8 +1069,8 @@ class ScanView(Gtk.Box):
 
     def _on_fullscreen_results_clicked(self, button):
         """Handle fullscreen results button click."""
-        buffer = self._results_text.get_buffer()
-        text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), False)
+        # Use stored raw output for fullscreen view
+        text = self._raw_output if self._raw_output else "No scan results available."
 
         dialog = FullscreenLogDialog(
             transient_for=self.get_root(),
@@ -622,3 +1078,412 @@ class ScanView(Gtk.Box):
             text=text
         )
         dialog.present()
+
+    def _create_threat_card(self, threat_detail: ThreatDetail) -> Adw.ExpanderRow:
+        """
+        Create an expandable threat card widget for a detected threat.
+
+        The card displays:
+        - File path as title (with tooltip for long paths)
+        - Threat name and category as subtitle
+        - Color-coded severity badge
+        - Expandable section with recommended actions
+
+        Args:
+            threat_detail: ThreatDetail object containing threat information
+
+        Returns:
+            Adw.ExpanderRow widget configured as a threat card
+        """
+        # Create the expander row
+        expander = Adw.ExpanderRow()
+        expander.add_css_class("threat-card")
+
+        # Format file path for display (truncate if too long)
+        file_path = threat_detail.file_path
+        display_path = file_path
+        if len(file_path) > 60:
+            # Show first 20 and last 35 characters
+            display_path = file_path[:20] + "..." + file_path[-35:]
+
+        expander.set_title(display_path)
+        expander.set_tooltip_text(file_path)  # Full path in tooltip
+
+        # Subtitle with threat name and category
+        subtitle = f"{threat_detail.threat_name} ({threat_detail.category})"
+        expander.set_subtitle(subtitle)
+
+        # Set icon based on severity
+        severity_icons = {
+            "critical": "dialog-error-symbolic",
+            "high": "dialog-warning-symbolic",
+            "medium": "emblem-important-symbolic",
+            "low": "dialog-information-symbolic"
+        }
+        icon_name = severity_icons.get(threat_detail.severity, "emblem-important-symbolic")
+        expander.set_icon_name(icon_name)
+
+        # Create severity badge
+        severity_badge = Gtk.Label()
+        severity_badge.set_label(threat_detail.severity.upper())
+        severity_badge.add_css_class("severity-badge")
+        severity_badge.add_css_class(f"severity-{threat_detail.severity}")
+        severity_badge.set_valign(Gtk.Align.CENTER)
+
+        # Add badge as prefix
+        expander.add_prefix(severity_badge)
+
+        # Create expanded content with recommended actions
+        action_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        action_box.set_margin_start(12)
+        action_box.set_margin_end(12)
+        action_box.set_margin_top(8)
+        action_box.set_margin_bottom(8)
+
+        # Recommended action label
+        action_header = Gtk.Label()
+        action_header.set_markup("<b>Recommended Action:</b>")
+        action_header.set_halign(Gtk.Align.START)
+        action_box.append(action_header)
+
+        # Get and display the recommended action
+        recommended_action = self._get_recommended_action(threat_detail)
+        action_label = Gtk.Label()
+        action_label.set_text(recommended_action)
+        action_label.set_wrap(True)
+        action_label.set_halign(Gtk.Align.START)
+        action_label.add_css_class("recommended-action")
+        action_box.append(action_label)
+
+        # Add file path details row
+        path_row = Adw.ActionRow()
+        path_row.set_title("Full Path")
+        path_row.set_subtitle(file_path)
+        path_row.set_subtitle_selectable(True)
+        action_box.append(path_row)
+
+        expander.add_row(action_box)
+
+        return expander
+
+    def _get_recommended_action(self, threat_detail: ThreatDetail) -> str:
+        """
+        Get the recommended action for a threat based on its severity and category.
+
+        Args:
+            threat_detail: ThreatDetail object containing threat information
+
+        Returns:
+            String describing the recommended action for this threat
+        """
+        severity = threat_detail.severity
+        category = threat_detail.category
+
+        # Actions based on category first (more specific)
+        if category == "Test":
+            return (
+                "This is a test file (EICAR) used to verify antivirus functionality. "
+                "It is safe and can be deleted. No action required unless it appeared unexpectedly."
+            )
+
+        if category == "Ransomware":
+            return (
+                "URGENT: Disconnect from network immediately. Do not pay any ransom. "
+                "Delete the infected file, run a full system scan, and restore affected files "
+                "from backup. Consider professional assistance."
+            )
+
+        if category == "Rootkit":
+            return (
+                "CRITICAL: This threat can hide itself and other malware. "
+                "Boot from a clean rescue disk and run a full scan. "
+                "Consider reinstalling the operating system if compromise is confirmed."
+            )
+
+        if category == "Trojan" or category == "Backdoor":
+            return (
+                "Delete the infected file immediately. Run a full system scan to check for "
+                "additional compromises. Change passwords for sensitive accounts and monitor "
+                "for unauthorized access."
+            )
+
+        if category == "Worm":
+            return (
+                "Delete the infected file and run a full system scan. "
+                "Check network-connected devices for infection. "
+                "Update all software and operating system patches."
+            )
+
+        if category == "Exploit":
+            return (
+                "Delete the infected file. Update all software to the latest versions. "
+                "Apply security patches immediately. Check for signs of successful exploitation."
+            )
+
+        if category in ["Adware", "PUA"]:
+            return (
+                "This is a Potentially Unwanted Application. Delete the file if not intentionally "
+                "installed. Review installed programs and browser extensions for unwanted additions."
+            )
+
+        if category == "Spyware":
+            return (
+                "Delete the infected file immediately. Change passwords for all accounts. "
+                "Check for keyloggers and review recent account activity for unauthorized access."
+            )
+
+        # Fall back to severity-based recommendations
+        if severity == "critical":
+            return (
+                "URGENT: Delete the infected file immediately and isolate this system. "
+                "Run a full system scan and consider professional security assistance."
+            )
+
+        if severity == "high":
+            return (
+                "Delete the infected file and run a full system scan. "
+                "Monitor for unusual system behavior and review security logs."
+            )
+
+        if severity == "medium":
+            return (
+                "Delete the infected file if not needed. Run a targeted scan on the affected "
+                "directory. Review how this file arrived on your system."
+            )
+
+        # Low severity or default
+        return (
+            "Review the file and delete if not recognized or needed. "
+            "This is likely a low-risk detection but should still be investigated."
+        )
+
+    def _on_copy_results_clicked(self, button):
+        """
+        Handle copy to clipboard button click.
+
+        Formats the current scan results as human-readable text and copies
+        them to the system clipboard. Shows a success or error banner.
+        """
+        if self._current_result is None:
+            self._status_banner.set_title("No results to copy")
+            self._status_banner.add_css_class("warning")
+            self._status_banner.remove_css_class("success")
+            self._status_banner.remove_css_class("error")
+            self._status_banner.set_button_label(None)
+            self._status_banner.set_revealed(True)
+            return
+
+        # Format the results as text
+        formatted_text = format_results_as_text(self._current_result)
+
+        # Copy to clipboard
+        success = copy_to_clipboard(formatted_text)
+
+        if success:
+            self._status_banner.set_title("Results copied to clipboard")
+            self._status_banner.add_css_class("success")
+            self._status_banner.remove_css_class("error")
+            self._status_banner.remove_css_class("warning")
+        else:
+            self._status_banner.set_title("Failed to copy to clipboard")
+            self._status_banner.add_css_class("error")
+            self._status_banner.remove_css_class("success")
+            self._status_banner.remove_css_class("warning")
+
+        self._status_banner.set_button_label(None)
+        self._status_banner.set_revealed(True)
+
+    def _on_export_text_clicked(self, button):
+        """
+        Handle export to text file button click.
+
+        Opens a file save dialog to let the user choose a location,
+        then writes the formatted scan results to a text file.
+        """
+        if self._current_result is None:
+            self._status_banner.set_title("No results to export")
+            self._status_banner.add_css_class("warning")
+            self._status_banner.remove_css_class("success")
+            self._status_banner.remove_css_class("error")
+            self._status_banner.set_button_label(None)
+            self._status_banner.set_revealed(True)
+            return
+
+        # Create save dialog
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Export Scan Results")
+
+        # Generate default filename with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dialog.set_initial_name(f"clamui_scan_{timestamp}.txt")
+
+        # Set up file filter for text files
+        text_filter = Gtk.FileFilter()
+        text_filter.set_name("Text Files")
+        text_filter.add_mime_type("text/plain")
+        text_filter.add_pattern("*.txt")
+
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(text_filter)
+        dialog.set_filters(filters)
+        dialog.set_default_filter(text_filter)
+
+        # Get the parent window
+        window = self.get_root()
+
+        # Open save dialog
+        dialog.save(window, None, self._on_text_export_file_selected)
+
+    def _on_text_export_file_selected(self, dialog, result):
+        """
+        Handle text export file selection result.
+
+        Writes the formatted scan results to the selected file.
+
+        Args:
+            dialog: The FileDialog that was used
+            result: The async result from the save dialog
+        """
+        try:
+            file = dialog.save_finish(result)
+            if file is None:
+                return  # User cancelled
+
+            file_path = file.get_path()
+            if file_path is None:
+                self._show_export_error("Invalid file path selected")
+                return
+
+            # Ensure .txt extension
+            if not file_path.endswith('.txt'):
+                file_path += '.txt'
+
+            # Format the results as text
+            formatted_text = format_results_as_text(self._current_result)
+
+            # Write to file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(formatted_text)
+
+            # Show success feedback
+            self._status_banner.set_title(f"Results exported to {os.path.basename(file_path)}")
+            self._status_banner.add_css_class("success")
+            self._status_banner.remove_css_class("error")
+            self._status_banner.remove_css_class("warning")
+            self._status_banner.set_button_label(None)
+            self._status_banner.set_revealed(True)
+
+        except GLib.Error:
+            # User cancelled the dialog
+            pass
+        except PermissionError:
+            self._show_export_error("Permission denied - cannot write to selected location")
+        except OSError as e:
+            self._show_export_error(f"Error writing file: {str(e)}")
+
+    def _show_export_error(self, message: str):
+        """
+        Display an error message for export failures.
+
+        Args:
+            message: The error message to display
+        """
+        self._status_banner.set_title(message)
+        self._status_banner.add_css_class("error")
+        self._status_banner.remove_css_class("success")
+        self._status_banner.remove_css_class("warning")
+        self._status_banner.set_button_label(None)
+        self._status_banner.set_revealed(True)
+
+    def _on_export_csv_clicked(self, button):
+        """
+        Handle export to CSV file button click.
+
+        Opens a file save dialog to let the user choose a location,
+        then writes the scan results in CSV format for spreadsheet analysis.
+        """
+        if self._current_result is None:
+            self._status_banner.set_title("No results to export")
+            self._status_banner.add_css_class("warning")
+            self._status_banner.remove_css_class("success")
+            self._status_banner.remove_css_class("error")
+            self._status_banner.set_button_label(None)
+            self._status_banner.set_revealed(True)
+            return
+
+        # Create save dialog
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Export Scan Results as CSV")
+
+        # Generate default filename with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dialog.set_initial_name(f"clamui_scan_{timestamp}.csv")
+
+        # Set up file filter for CSV files
+        csv_filter = Gtk.FileFilter()
+        csv_filter.set_name("CSV Files")
+        csv_filter.add_mime_type("text/csv")
+        csv_filter.add_pattern("*.csv")
+
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(csv_filter)
+        dialog.set_filters(filters)
+        dialog.set_default_filter(csv_filter)
+
+        # Get the parent window
+        window = self.get_root()
+
+        # Open save dialog
+        dialog.save(window, None, self._on_csv_export_file_selected)
+
+    def _on_csv_export_file_selected(self, dialog, result):
+        """
+        Handle CSV export file selection result.
+
+        Writes the scan results in CSV format to the selected file.
+
+        Args:
+            dialog: The FileDialog that was used
+            result: The async result from the save dialog
+        """
+        try:
+            file = dialog.save_finish(result)
+            if file is None:
+                return  # User cancelled
+
+            file_path = file.get_path()
+            if file_path is None:
+                self._show_export_error("Invalid file path selected")
+                return
+
+            # Ensure .csv extension
+            if not file_path.endswith('.csv'):
+                file_path += '.csv'
+
+            # Import the CSV formatting utility
+            from ..core.utils import format_results_as_csv
+
+            # Format the results as CSV
+            csv_content = format_results_as_csv(self._current_result)
+
+            # Write to file
+            with open(file_path, 'w', encoding='utf-8', newline='') as f:
+                f.write(csv_content)
+
+            # Show success feedback
+            self._status_banner.set_title(f"Results exported to {os.path.basename(file_path)}")
+            self._status_banner.add_css_class("success")
+            self._status_banner.remove_css_class("error")
+            self._status_banner.remove_css_class("warning")
+            self._status_banner.set_button_label(None)
+            self._status_banner.set_revealed(True)
+
+        except GLib.Error:
+            # User cancelled the dialog
+            pass
+        except PermissionError:
+            self._show_export_error("Permission denied - cannot write to selected location")
+        except OSError as e:
+            self._show_export_error(f"Error writing file: {str(e)}")

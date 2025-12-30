@@ -3,11 +3,26 @@
 Utility functions for ClamUI including ClamAV detection and path validation.
 """
 
+import csv
+import io
 import os
 import shutil
 import subprocess
+from datetime import datetime
+from enum import Enum
 from pathlib import Path
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .scanner import ScanResult
+
+
+class ThreatSeverity(Enum):
+    """Severity level of a detected threat."""
+    CRITICAL = "critical"     # Ransomware, Rootkit, Bootkit
+    HIGH = "high"             # Trojan, Worm, Backdoor, Exploit
+    MEDIUM = "medium"         # Adware, PUA, Spyware, Unknown
+    LOW = "low"               # Test signatures (EICAR), Generic detections
 
 
 # Flatpak detection cache (None = not checked, True/False = result)
@@ -364,6 +379,161 @@ def format_scan_path(path: str) -> str:
         return path
 
 
+def categorize_threat(threat_name: str) -> str:
+    """
+    Extract the category of a threat from its name.
+
+    ClamAV threat names typically follow patterns that indicate the threat type.
+    This function analyzes the threat name to extract a human-readable category.
+
+    Categories returned:
+    - Ransomware: Ransomware, CryptoLocker variants
+    - Rootkit: Rootkits and bootkits
+    - Trojan: Trojan horse malware
+    - Worm: Self-replicating worms
+    - Backdoor: Backdoor access tools
+    - Exploit: Vulnerability exploits
+    - Adware: Advertising software
+    - Spyware: Spyware and keyloggers
+    - PUA: Potentially Unwanted Applications
+    - Test: Test signatures (EICAR)
+    - Virus: Generic viruses
+    - Macro: Macro viruses
+    - Phishing: Phishing attempts
+    - Heuristic: Heuristic detections
+    - Unknown: Cannot determine category
+
+    Args:
+        threat_name: The threat name from ClamAV output (e.g., "Win.Trojan.Agent")
+
+    Returns:
+        Category as string (e.g., 'Virus', 'Trojan', 'Worm', etc.)
+
+    Example:
+        >>> categorize_threat("Win.Trojan.Agent")
+        'Trojan'
+
+        >>> categorize_threat("Eicar-Test-Signature")
+        'Test'
+    """
+    if not threat_name:
+        return "Unknown"
+
+    name_lower = threat_name.lower()
+
+    # High-priority specific categories (more specific than generic PUA/PUP/Virus)
+    # Within each tier, we use position-based matching (earliest match wins)
+    high_priority_patterns = [
+        ('ransomware', 'Ransomware'),
+        ('ransom', 'Ransomware'),
+        ('rootkit', 'Rootkit'),
+        ('bootkit', 'Rootkit'),
+        ('trojan', 'Trojan'),
+        ('worm', 'Worm'),
+        ('backdoor', 'Backdoor'),
+        ('exploit', 'Exploit'),
+        ('adware', 'Adware'),
+        ('spyware', 'Spyware'),
+        ('keylogger', 'Spyware'),
+        ('eicar', 'Test'),
+        ('test-signature', 'Test'),
+        ('test.file', 'Test'),
+        ('macro', 'Macro'),
+        ('phish', 'Phishing'),
+        ('heuristic', 'Heuristic'),
+    ]
+
+    # Low-priority generic categories (used only if no specific category found)
+    low_priority_patterns = [
+        ('pua', 'PUA'),
+        ('pup', 'PUA'),
+        ('virus', 'Virus'),
+    ]
+
+    # First, check high-priority patterns by position
+    matches = []
+    for pattern, category in high_priority_patterns:
+        pos = name_lower.find(pattern)
+        if pos != -1:
+            matches.append((pos, category))
+
+    if matches:
+        matches.sort(key=lambda x: x[0])
+        return matches[0][1]
+
+    # If no high-priority match, check low-priority patterns
+    for pattern, category in low_priority_patterns:
+        pos = name_lower.find(pattern)
+        if pos != -1:
+            matches.append((pos, category))
+
+    if matches:
+        matches.sort(key=lambda x: x[0])
+        return matches[0][1]
+
+    # Default to "Virus" for unrecognized threats (conservative assumption)
+    return "Virus"
+
+
+def classify_threat_severity(threat_name: str) -> ThreatSeverity:
+    """
+    Classify the severity level of a threat based on its name.
+
+    ClamAV threat names typically follow patterns that indicate the threat type.
+    This function analyzes the threat name to determine the severity level.
+
+    Severity levels:
+    - CRITICAL: Ransomware, Rootkit, Bootkit (most dangerous, can cause data loss or system compromise)
+    - HIGH: Trojan, Worm, Backdoor, Exploit (serious threats requiring immediate attention)
+    - MEDIUM: Adware, PUA, Spyware (less severe but still concerning)
+    - LOW: Test signatures (EICAR), Generic/Heuristic detections
+
+    Args:
+        threat_name: The threat name from ClamAV output (e.g., "Win.Trojan.Agent")
+
+    Returns:
+        ThreatSeverity enum value
+
+    Example:
+        >>> classify_threat_severity("Win.Ransomware.Locky")
+        ThreatSeverity.CRITICAL
+
+        >>> classify_threat_severity("Eicar-Test-Signature")
+        ThreatSeverity.LOW
+    """
+    if not threat_name:
+        return ThreatSeverity.MEDIUM
+
+    name_lower = threat_name.lower()
+
+    # Critical: Most dangerous threats - ransomware, rootkits, bootkits
+    critical_patterns = ['ransom', 'rootkit', 'bootkit', 'cryptolocker', 'wannacry']
+    for pattern in critical_patterns:
+        if pattern in name_lower:
+            return ThreatSeverity.CRITICAL
+
+    # High: Serious threats requiring immediate attention
+    high_patterns = ['trojan', 'worm', 'backdoor', 'exploit', 'downloader', 'dropper', 'keylogger']
+    for pattern in high_patterns:
+        if pattern in name_lower:
+            return ThreatSeverity.HIGH
+
+    # Medium: Less severe but still concerning threats
+    medium_patterns = ['adware', 'pua', 'pup', 'spyware', 'miner', 'coinminer']
+    for pattern in medium_patterns:
+        if pattern in name_lower:
+            return ThreatSeverity.MEDIUM
+
+    # Low: Test files and generic/heuristic detections
+    low_patterns = ['eicar', 'test-signature', 'test.file', 'heuristic', 'generic']
+    for pattern in low_patterns:
+        if pattern in name_lower:
+            return ThreatSeverity.LOW
+
+    # Default to medium for unknown threats
+    return ThreatSeverity.MEDIUM
+
+
 def get_path_info(path: str) -> dict:
     """
     Get information about a path for scanning.
@@ -412,3 +582,215 @@ def get_path_info(path: str) -> dict:
         pass
 
     return info
+
+
+def format_results_as_text(result: 'ScanResult', timestamp: Optional[str] = None) -> str:
+    """
+    Format scan results as human-readable text for export or clipboard.
+
+    Creates a formatted text report including:
+    - Header with scan timestamp and path
+    - Summary statistics (files scanned, threats found)
+    - Detailed threat list with file path, threat name, category, and severity
+    - Status indicator
+
+    Args:
+        result: The ScanResult object to format
+        timestamp: Optional timestamp string. If not provided, uses current time.
+
+    Returns:
+        Formatted text string suitable for export to file or clipboard
+
+    Example output:
+        ═══════════════════════════════════════════════════════════════
+        ClamUI Scan Report
+        ═══════════════════════════════════════════════════════════════
+        Scan Date: 2024-01-15 14:30:45
+        Scanned Path: /home/user/Downloads
+        Status: INFECTED
+
+        ───────────────────────────────────────────────────────────────
+        Summary
+        ───────────────────────────────────────────────────────────────
+        Files Scanned: 150
+        Directories Scanned: 25
+        Threats Found: 2
+
+        ───────────────────────────────────────────────────────────────
+        Detected Threats
+        ───────────────────────────────────────────────────────────────
+
+        [1] CRITICAL - Ransomware
+            File: /home/user/Downloads/malware.exe
+            Threat: Win.Ransomware.Locky
+
+        [2] HIGH - Trojan
+            File: /home/user/Downloads/suspicious.doc
+            Threat: Win.Trojan.Agent
+
+        ═══════════════════════════════════════════════════════════════
+    """
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    lines = []
+
+    # Header
+    header_line = "═" * 65
+    sub_header_line = "─" * 65
+
+    lines.append(header_line)
+    lines.append("ClamUI Scan Report")
+    lines.append(header_line)
+    lines.append(f"Scan Date: {timestamp}")
+    lines.append(f"Scanned Path: {result.path}")
+    lines.append(f"Status: {result.status.value.upper()}")
+    lines.append("")
+
+    # Summary section
+    lines.append(sub_header_line)
+    lines.append("Summary")
+    lines.append(sub_header_line)
+    lines.append(f"Files Scanned: {result.scanned_files}")
+    lines.append(f"Directories Scanned: {result.scanned_dirs}")
+    lines.append(f"Threats Found: {result.infected_count}")
+    lines.append("")
+
+    # Threat details section
+    if result.threat_details:
+        lines.append(sub_header_line)
+        lines.append("Detected Threats")
+        lines.append(sub_header_line)
+        lines.append("")
+
+        for i, threat in enumerate(result.threat_details, 1):
+            severity_upper = threat.severity.upper()
+            lines.append(f"[{i}] {severity_upper} - {threat.category}")
+            lines.append(f"    File: {threat.file_path}")
+            lines.append(f"    Threat: {threat.threat_name}")
+            lines.append("")
+    elif result.status.value == "clean":
+        lines.append(sub_header_line)
+        lines.append("No Threats Detected")
+        lines.append(sub_header_line)
+        lines.append("")
+        lines.append("✓ All scanned files are clean.")
+        lines.append("")
+    elif result.status.value == "error":
+        lines.append(sub_header_line)
+        lines.append("Scan Error")
+        lines.append(sub_header_line)
+        lines.append("")
+        if result.error_message:
+            lines.append(f"Error: {result.error_message}")
+        lines.append("")
+    elif result.status.value == "cancelled":
+        lines.append(sub_header_line)
+        lines.append("Scan Cancelled")
+        lines.append(sub_header_line)
+        lines.append("")
+        lines.append("The scan was cancelled before completion.")
+        lines.append("")
+
+    # Footer
+    lines.append(header_line)
+
+    return "\n".join(lines)
+
+
+def copy_to_clipboard(text: str) -> bool:
+    """
+    Copy text to the system clipboard using GTK 4 clipboard API.
+
+    Uses the default display's clipboard to copy text content.
+    This works in both regular desktop and Flatpak environments.
+
+    Args:
+        text: The text content to copy to the clipboard
+
+    Returns:
+        True if the text was successfully copied, False otherwise
+
+    Example:
+        >>> copy_to_clipboard("Hello, World!")
+        True
+
+        >>> copy_to_clipboard("")
+        False
+    """
+    if not text:
+        return False
+
+    try:
+        # Import GTK/GDK for clipboard access
+        import gi
+        gi.require_version('Gdk', '4.0')
+        from gi.repository import Gdk, GLib
+
+        # Get the default display
+        display = Gdk.Display.get_default()
+        if display is None:
+            return False
+
+        # Get the clipboard
+        clipboard = display.get_clipboard()
+        if clipboard is None:
+            return False
+
+        # Set the text content
+        clipboard.set(text)
+
+        return True
+
+    except Exception:
+        return False
+
+
+def format_results_as_csv(result: 'ScanResult', timestamp: Optional[str] = None) -> str:
+    """
+    Format scan results as CSV for export to spreadsheet applications.
+
+    Creates a CSV formatted string with the following columns:
+    - File Path: The path to the infected file
+    - Threat Name: The name of the detected threat from ClamAV
+    - Category: The threat category (Ransomware, Trojan, etc.)
+    - Severity: The severity level (critical, high, medium, low)
+    - Timestamp: When the scan was performed
+
+    Uses Python's csv module for proper escaping of special characters
+    (commas, quotes, newlines) in file paths and threat names.
+
+    Args:
+        result: The ScanResult object to format
+        timestamp: Optional timestamp string. If not provided, uses current time.
+
+    Returns:
+        CSV formatted string suitable for export to .csv file
+
+    Example output:
+        File Path,Threat Name,Category,Severity,Timestamp
+        /home/user/malware.exe,Win.Ransomware.Locky,Ransomware,critical,2024-01-15 14:30:45
+        /home/user/suspicious.doc,Win.Trojan.Agent,Trojan,high,2024-01-15 14:30:45
+    """
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Use StringIO to write CSV to a string
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+
+    # Write header row
+    writer.writerow(["File Path", "Threat Name", "Category", "Severity", "Timestamp"])
+
+    # Write threat details
+    if result.threat_details:
+        for threat in result.threat_details:
+            writer.writerow([
+                threat.file_path,
+                threat.threat_name,
+                threat.category,
+                threat.severity,
+                timestamp
+            ])
+
+    return output.getvalue()

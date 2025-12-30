@@ -26,6 +26,15 @@ class ScanStatus(Enum):
 
 
 @dataclass
+class ThreatDetail:
+    """Detailed information about a detected threat."""
+    file_path: str
+    threat_name: str
+    category: str
+    severity: str
+
+
+@dataclass
 class ScanResult:
     """Result of a scan operation."""
     status: ScanStatus
@@ -38,6 +47,7 @@ class ScanResult:
     scanned_dirs: int
     infected_count: int
     error_message: Optional[str]
+    threat_details: list[ThreatDetail]
 
     @property
     def is_clean(self) -> bool:
@@ -108,7 +118,8 @@ class Scanner:
                 scanned_files=0,
                 scanned_dirs=0,
                 infected_count=0,
-                error_message=error
+                error_message=error,
+                threat_details=[]
             )
             duration = time.monotonic() - start_time
             self._save_scan_log(result, duration)
@@ -127,7 +138,8 @@ class Scanner:
                 scanned_files=0,
                 scanned_dirs=0,
                 infected_count=0,
-                error_message=version_or_error
+                error_message=version_or_error,
+                threat_details=[]
             )
             duration = time.monotonic() - start_time
             self._save_scan_log(result, duration)
@@ -161,7 +173,8 @@ class Scanner:
                     scanned_files=0,
                     scanned_dirs=0,
                     infected_count=0,
-                    error_message="Scan cancelled by user"
+                    error_message="Scan cancelled by user",
+                    threat_details=[]
                 )
                 duration = time.monotonic() - start_time
                 self._save_scan_log(result, duration)
@@ -184,7 +197,8 @@ class Scanner:
                 scanned_files=0,
                 scanned_dirs=0,
                 infected_count=0,
-                error_message="ClamAV executable not found"
+                error_message="ClamAV executable not found",
+                threat_details=[]
             )
             duration = time.monotonic() - start_time
             self._save_scan_log(result, duration)
@@ -200,7 +214,8 @@ class Scanner:
                 scanned_files=0,
                 scanned_dirs=0,
                 infected_count=0,
-                error_message=f"Permission denied: {e}"
+                error_message=f"Permission denied: {e}",
+                threat_details=[]
             )
             duration = time.monotonic() - start_time
             self._save_scan_log(result, duration)
@@ -216,7 +231,8 @@ class Scanner:
                 scanned_files=0,
                 scanned_dirs=0,
                 infected_count=0,
-                error_message=f"Scan failed: {e}"
+                error_message=f"Scan failed: {e}",
+                threat_details=[]
             )
             duration = time.monotonic() - start_time
             self._save_scan_log(result, duration)
@@ -291,6 +307,105 @@ class Scanner:
         # Wrap with flatpak-spawn if running inside Flatpak sandbox
         return wrap_host_command(cmd)
 
+    def _classify_threat_severity(self, threat_name: str) -> str:
+        """
+        Classify the severity level of a threat based on its name.
+
+        Severity levels:
+        - critical: Ransomware, Rootkit, Bootkit
+        - high: Trojan, Worm, Backdoor, Exploit
+        - medium: Adware, PUA (Potentially Unwanted Application), Spyware, Unknown
+        - low: Test signatures (EICAR), Generic/Heuristic detections (when standalone)
+
+        Args:
+            threat_name: The threat name from ClamAV output
+
+        Returns:
+            Severity level as string: 'critical', 'high', 'medium', or 'low'
+        """
+        if not threat_name:
+            return "medium"
+
+        name_lower = threat_name.lower()
+
+        # Critical: Most dangerous threats
+        critical_patterns = ['ransom', 'rootkit', 'bootkit', 'cryptolocker', 'wannacry']
+        for pattern in critical_patterns:
+            if pattern in name_lower:
+                return "critical"
+
+        # High: Serious threats
+        high_patterns = ['trojan', 'worm', 'backdoor', 'exploit', 'downloader', 'dropper', 'keylogger']
+        for pattern in high_patterns:
+            if pattern in name_lower:
+                return "high"
+
+        # Medium: Less severe but still concerning
+        medium_patterns = ['adware', 'pua', 'pup', 'spyware', 'miner', 'coinminer']
+        for pattern in medium_patterns:
+            if pattern in name_lower:
+                return "medium"
+
+        # Low: Test files and generic/heuristic detections
+        low_patterns = ['eicar', 'test-signature', 'test.file', 'heuristic', 'generic']
+        for pattern in low_patterns:
+            if pattern in name_lower:
+                return "low"
+
+        # Default to medium for unknown threats
+        return "medium"
+
+    def _categorize_threat(self, threat_name: str) -> str:
+        """
+        Extract the category of a threat from its name.
+
+        ClamAV threat names typically follow patterns like:
+        - "Win.Trojan.Agent" -> "Trojan"
+        - "Eicar-Test-Signature" -> "Test"
+        - "PUA.Win.Adware.Generic" -> "Adware"
+
+        Args:
+            threat_name: The threat name from ClamAV output
+
+        Returns:
+            Category as string (e.g., 'Virus', 'Trojan', 'Worm', etc.)
+        """
+        if not threat_name:
+            return "Unknown"
+
+        name_lower = threat_name.lower()
+
+        # Check for specific categories in order of specificity
+        category_patterns = [
+            ('ransomware', 'Ransomware'),
+            ('ransom', 'Ransomware'),
+            ('rootkit', 'Rootkit'),
+            ('bootkit', 'Rootkit'),
+            ('trojan', 'Trojan'),
+            ('worm', 'Worm'),
+            ('backdoor', 'Backdoor'),
+            ('exploit', 'Exploit'),
+            ('adware', 'Adware'),
+            ('spyware', 'Spyware'),
+            ('keylogger', 'Spyware'),
+            ('pua', 'PUA'),
+            ('pup', 'PUA'),
+            ('eicar', 'Test'),
+            ('test-signature', 'Test'),
+            ('test.file', 'Test'),
+            ('virus', 'Virus'),
+            ('macro', 'Macro'),
+            ('phish', 'Phishing'),
+            ('heuristic', 'Heuristic'),
+        ]
+
+        for pattern, category in category_patterns:
+            if pattern in name_lower:
+                return category
+
+        # Default to "Virus" for unrecognized threats (conservative assumption)
+        return "Virus"
+
     def _parse_results(
         self,
         path: str,
@@ -316,6 +431,7 @@ class Scanner:
             Parsed ScanResult
         """
         infected_files = []
+        threat_details = []
         scanned_files = 0
         scanned_dirs = 0
         infected_count = 0
@@ -326,10 +442,25 @@ class Scanner:
 
             # Look for infected file lines (format: "/path/to/file: Virus.Name FOUND")
             if line.endswith("FOUND"):
-                # Extract the file path (everything before the colon)
+                # Extract file path and threat name
+                # Format: "/path/to/file: ThreatName FOUND"
                 parts = line.rsplit(":", 1)
-                if len(parts) >= 1:
-                    infected_files.append(parts[0].strip())
+                if len(parts) == 2:
+                    file_path = parts[0].strip()
+                    # Extract threat name (remove " FOUND" suffix)
+                    threat_part = parts[1].strip()
+                    threat_name = threat_part.rsplit(" ", 1)[0].strip() if " FOUND" in threat_part else threat_part
+
+                    infected_files.append(file_path)
+
+                    # Create ThreatDetail with classification
+                    threat_detail = ThreatDetail(
+                        file_path=file_path,
+                        threat_name=threat_name,
+                        category=self._categorize_threat(threat_name),
+                        severity=self._classify_threat_severity(threat_name)
+                    )
+                    threat_details.append(threat_detail)
 
             # Parse summary statistics
             if line.startswith("Scanned files:"):
@@ -369,7 +500,8 @@ class Scanner:
             scanned_files=scanned_files,
             scanned_dirs=scanned_dirs,
             infected_count=infected_count,
-            error_message=error_message
+            error_message=error_message,
+            threat_details=threat_details
         )
 
     def _save_scan_log(self, result: ScanResult, duration: float) -> None:
