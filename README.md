@@ -40,6 +40,43 @@ For other distributions:
 
 ## Installation
 
+### Option 1: System Installation (Recommended)
+
+The install script registers ClamUI with your system, including application menu entry and file manager context menu integration.
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/clamui.git
+   cd clamui
+   ```
+
+2. **Install system dependencies** (see Requirements above)
+
+3. **Run the installer**:
+   ```bash
+   ./install.sh
+   ```
+
+   For system-wide installation (requires root):
+   ```bash
+   sudo ./install.sh --system
+   ```
+
+4. **Verify the installation**:
+   ```bash
+   # Check if ClamUI is accessible
+   which clamui
+
+   # Verify ClamAV is installed
+   clamscan --version
+   ```
+
+After installation, ClamUI will appear in your application menu and the context menu in supported file managers.
+
+### Option 2: Development Setup
+
+For running from source without system installation:
+
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/yourusername/clamui.git
@@ -53,16 +90,88 @@ For other distributions:
    uv sync
    ```
 
-4. **Verify ClamAV installation**:
+4. **Run from source**:
    ```bash
-   which clamscan
-   clamscan --version
+   uv run clamui
    ```
+
+### Uninstallation
+
+To remove ClamUI from your system:
+
+```bash
+# User-local uninstall
+./uninstall.sh
+
+# System-wide uninstall (if installed with --system)
+sudo ./uninstall.sh --system
+```
+
+## Context Menu Integration
+
+ClamUI integrates with file managers to provide a "Scan with ClamUI" option in the right-click context menu.
+
+### Supported File Managers
+
+- **Nemo** (Linux Mint, Cinnamon): Full support via `.nemo_action` file
+- **Other file managers**: Desktop entry action provides basic integration
+
+### Using the Context Menu
+
+1. Right-click on any file or folder in your file manager
+2. Select **"Scan with ClamUI"** from the context menu
+3. ClamUI opens with the selected files queued for scanning
+4. Click "Scan" to start the antivirus scan
+
+You can select multiple files or folders before right-clicking to scan them all at once.
+
+### Verifying Context Menu Installation
+
+After running `install.sh`, verify the context menu files are installed:
+
+```bash
+# Check desktop entry (application menu)
+ls ~/.local/share/applications/com.github.clamui.desktop
+
+# Check icon
+ls ~/.local/share/icons/hicolor/scalable/apps/com.github.clamui.svg
+
+# Check Nemo action (context menu)
+ls ~/.local/share/nemo/actions/com.github.clamui.nemo_action
+```
+
+If files are missing, you may need to:
+1. Log out and back in
+2. Manually refresh the desktop database:
+   ```bash
+   update-desktop-database ~/.local/share/applications
+   gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
+   ```
+
+### Flatpak vs Native Installation
+
+ClamUI can be installed either as a native application or via Flatpak. Both methods support context menu integration.
+
+| Feature | Native Install | Flatpak |
+|---------|---------------|---------|
+| Installation | `./install.sh` | `flatpak install` |
+| Context Menu Location | `~/.local/share/nemo/actions/` | Sandbox-managed |
+| ClamAV Access | Direct system access | Requires permissions |
+| Updates | Manual | Via Flatpak |
+
+**Note**: Native and Flatpak installations can coexist. The file manager will show both options if both are installed.
 
 ## Running the Application
 
 ```bash
+# After system installation
+clamui
+
+# From source (development)
 uv run clamui
+
+# With file arguments (from context menu or command line)
+clamui /path/to/file1 /path/to/folder
 ```
 
 ## Project Structure
