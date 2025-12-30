@@ -93,6 +93,60 @@ for arg in "$@"; do
 done
 
 #
+# Directory and Path Setup
+#
+
+# Get the script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Package configuration
+PACKAGE_NAME="clamui"
+ARCHITECTURE="all"
+
+#
+# Version Extraction Function
+#
+
+# Extract version from pyproject.toml
+extract_version() {
+    log_info "Extracting version from pyproject.toml..."
+
+    PYPROJECT_FILE="$PROJECT_ROOT/pyproject.toml"
+
+    # Check if pyproject.toml exists
+    if [ ! -f "$PYPROJECT_FILE" ]; then
+        log_error "pyproject.toml not found at $PYPROJECT_FILE"
+        log_info "Please run this script from the project repository."
+        return 1
+    fi
+
+    # Extract version using grep and sed
+    # Matches: version = "X.Y.Z" or version = 'X.Y.Z'
+    VERSION=$(grep -E '^version\s*=' "$PYPROJECT_FILE" | head -n1 | sed -E 's/^version\s*=\s*["\x27]([^"\x27]+)["\x27].*/\1/')
+
+    # Validate version was extracted
+    if [ -z "$VERSION" ]; then
+        log_error "Could not extract version from pyproject.toml"
+        log_info "Ensure pyproject.toml contains: version = \"X.Y.Z\""
+        return 1
+    fi
+
+    # Validate version format (should be X.Y.Z or similar)
+    if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+'; then
+        log_warning "Version '$VERSION' may not follow semantic versioning (X.Y.Z)"
+    fi
+
+    log_success "Version: $VERSION"
+
+    # Export for use in package naming
+    DEB_FILENAME="${PACKAGE_NAME}_${VERSION}_${ARCHITECTURE}.deb"
+    log_info "Package will be: $DEB_FILENAME"
+
+    return 0
+}
+
+#
 # Prerequisites Checking Functions
 #
 
@@ -166,6 +220,16 @@ main() {
     # Check all prerequisites first
     check_prerequisites
 
+    # Extract version from pyproject.toml
+    log_info "=== Extracting Package Version ==="
+    echo
+
+    if ! extract_version; then
+        log_error "Version extraction failed."
+        exit 1
+    fi
+
+    echo
     log_success "Prerequisites check passed. Ready to build package."
     log_info "(Full build functionality will be added in subsequent subtasks)"
 }
