@@ -1,0 +1,42 @@
+#!/bin/bash
+# ClamUI post-installation script
+# Updates desktop database and icon cache after package installation
+
+set -e
+
+# postinst script for clamui
+#
+# See https://www.debian.org/doc/debian-policy/ for policy details
+#
+# Actions:
+#   configure       - Package is being configured
+#   abort-upgrade   - Failed upgrade, reverting
+#   abort-remove    - Failed removal during upgrade
+#   abort-deconfigure - Dependency issue during deconfigure
+
+case "$1" in
+    configure)
+        # Update desktop file database
+        # This registers the .desktop file with the system
+        if command -v update-desktop-database > /dev/null 2>&1; then
+            update-desktop-database -q /usr/share/applications || true
+        fi
+
+        # Update GTK icon cache
+        # This makes the application icon available to the desktop environment
+        if command -v gtk-update-icon-cache > /dev/null 2>&1; then
+            gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+        fi
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        # Nothing to do on abort
+        ;;
+
+    *)
+        echo "postinst called with unknown argument '$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
