@@ -441,7 +441,19 @@ class LogsView(Gtk.Box):
         if self._is_loading:
             return
 
-        # Set loading state
+        # Quick check if there are any logs to load (non-blocking file count)
+        # This prevents showing "Loading logs..." when there's nothing to load
+        log_count = self._log_manager.get_log_count()
+        if log_count == 0:
+            # No logs to load - show empty state immediately without loading indicator
+            try:
+                self._logs_listbox.remove_all()
+            except Exception:
+                pass
+            self._clear_button.set_sensitive(False)
+            return
+
+        # Set loading state - only show "Loading logs..." when there are actual logs
         self._set_loading_state(True)
 
         # Get logs from log manager asynchronously
