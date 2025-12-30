@@ -23,6 +23,15 @@ class SettingsManager:
         "notifications_enabled": True,
         "minimize_to_tray": False,
         "start_minimized": False,
+        # Scheduled scan settings
+        "scheduled_scans_enabled": False,
+        "schedule_frequency": "weekly",  # "daily", "weekly", "monthly"
+        "schedule_time": "02:00",  # 24-hour format HH:MM
+        "schedule_targets": [],  # List of directory paths to scan
+        "schedule_skip_on_battery": True,
+        "schedule_auto_quarantine": False,
+        "schedule_day_of_week": 0,  # 0=Monday, 6=Sunday (for weekly scans)
+        "schedule_day_of_month": 1,  # 1-28 (for monthly scans)
     }
 
     def __init__(self, config_dir: Optional[Path] = None):

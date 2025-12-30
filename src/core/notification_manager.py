@@ -23,6 +23,7 @@ class NotificationManager:
     # Notification IDs for deduplication
     NOTIFICATION_ID_SCAN = "scan-complete"
     NOTIFICATION_ID_UPDATE = "update-complete"
+    NOTIFICATION_ID_SCHEDULED_SCAN = "scheduled-scan-complete"
 
     def __init__(self, settings_manager: Optional[SettingsManager] = None):
         """
@@ -122,6 +123,53 @@ class NotificationManager:
             body=body,
             priority=Gio.NotificationPriority.NORMAL,
             default_action="app.show-update"
+        )
+
+    def notify_scheduled_scan_complete(
+        self,
+        is_clean: bool,
+        infected_count: int = 0,
+        scanned_count: int = 0,
+        quarantined_count: int = 0,
+        target_path: Optional[str] = None
+    ) -> bool:
+        """
+        Send notification for scheduled scan completion.
+
+        Args:
+            is_clean: True if no threats were found
+            infected_count: Number of infected files found
+            scanned_count: Number of files scanned
+            quarantined_count: Number of files quarantined
+            target_path: Optional path that was scanned
+
+        Returns:
+            True if notification was sent, False otherwise
+        """
+        if not self._can_notify():
+            return False
+
+        if is_clean:
+            title = "Scheduled Scan Complete"
+            if scanned_count > 0:
+                body = f"No threats found ({scanned_count} files scanned)"
+            else:
+                body = "No threats found"
+            priority = Gio.NotificationPriority.NORMAL
+        else:
+            title = "Scheduled Scan: Threats Detected!"
+            if quarantined_count > 0:
+                body = f"{infected_count} infected file(s) found, {quarantined_count} quarantined"
+            else:
+                body = f"{infected_count} infected file(s) found"
+            priority = Gio.NotificationPriority.URGENT
+
+        return self._send(
+            notification_id=self.NOTIFICATION_ID_SCHEDULED_SCAN,
+            title=title,
+            body=body,
+            priority=priority,
+            default_action="app.show-scan"
         )
 
     def _can_notify(self) -> bool:

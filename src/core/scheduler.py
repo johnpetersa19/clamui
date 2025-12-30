@@ -1,0 +1,841 @@
+# ClamUI Scheduler Module
+"""
+Scheduler module for ClamUI providing system-level scheduled scanning.
+Supports systemd timers (primary) and cron (fallback) for persistent
+scheduling that runs even when the GUI application is closed.
+"""
+
+import os
+import shutil
+import subprocess
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+from .utils import is_flatpak, wrap_host_command, which_host_command
+
+
+class SchedulerBackend(Enum):
+    """Available scheduler backends."""
+    SYSTEMD = "systemd"
+    CRON = "cron"
+    NONE = "none"
+
+
+class ScheduleFrequency(Enum):
+    """Schedule frequency options."""
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+
+
+@dataclass
+class ScheduleConfig:
+    """
+    Configuration for a scheduled scan.
+
+    Attributes:
+        enabled: Whether the schedule is active
+        frequency: How often to run (daily, weekly, monthly)
+        time: Time of day to run in HH:MM format (24-hour)
+        targets: List of paths to scan
+        skip_on_battery: Whether to skip scan when on battery power
+        auto_quarantine: Whether to automatically quarantine threats
+        day_of_week: Day for weekly scans (0=Monday, 6=Sunday)
+        day_of_month: Day for monthly scans (1-28)
+    """
+    enabled: bool = False
+    frequency: ScheduleFrequency = ScheduleFrequency.DAILY
+    time: str = "02:00"
+    targets: List[str] = None
+    skip_on_battery: bool = True
+    auto_quarantine: bool = False
+    day_of_week: int = 0  # Monday
+    day_of_month: int = 1
+
+    def __post_init__(self):
+        """Initialize mutable default."""
+        if self.targets is None:
+            self.targets = []
+
+
+# Detection caches (None = not checked)
+_systemd_available: Optional[bool] = None
+_cron_available: Optional[bool] = None
+
+
+def _check_systemd_available() -> bool:
+    """
+    Check if systemd is available and usable for user-level timers.
+
+    Returns:
+        True if systemd user timers are available, False otherwise
+    """
+    global _systemd_available
+
+    if _systemd_available is not None:
+        return _systemd_available
+
+    # Check if systemctl exists
+    systemctl_path = which_host_command("systemctl")
+    if systemctl_path is None:
+        _systemd_available = False
+        return False
+
+    # Verify systemd user session is running
+    try:
+        result = subprocess.run(
+            wrap_host_command(["systemctl", "--user", "status"]),
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        # systemctl --user status returns 0 even if no units
+        # It returns non-zero if user session isn't available
+        _systemd_available = result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
+        _systemd_available = False
+    except Exception:
+        _systemd_available = False
+
+    return _systemd_available
+
+
+def _check_cron_available() -> bool:
+    """
+    Check if cron is available.
+
+    Returns:
+        True if crontab command is available, False otherwise
+    """
+    global _cron_available
+
+    if _cron_available is not None:
+        return _cron_available
+
+    # Check if crontab command exists
+    crontab_path = which_host_command("crontab")
+    _cron_available = crontab_path is not None
+
+    return _cron_available
+
+
+class Scheduler:
+    """
+    Manager for scheduled scan configuration and system scheduler integration.
+
+    Provides abstraction layer for systemd timers and cron jobs,
+    automatically detecting the best available backend.
+    """
+
+    # Service and timer file names
+    SERVICE_NAME = "clamui-scheduled-scan"
+    TIMER_NAME = "clamui-scheduled-scan"
+
+    # Crontab marker for identifying ClamUI entries
+    CRON_MARKER = "# ClamUI Scheduled Scan"
+
+    def __init__(self, config_dir: Optional[Path] = None):
+        """
+        Initialize the Scheduler.
+
+        Args:
+            config_dir: Optional custom config directory for systemd files.
+                        Defaults to XDG_CONFIG_HOME/systemd/user or
+                        ~/.config/systemd/user
+        """
+        if config_dir is not None:
+            self._config_dir = Path(config_dir)
+        else:
+            xdg_config_home = os.environ.get("XDG_CONFIG_HOME", "~/.config")
+            self._config_dir = Path(xdg_config_home).expanduser()
+
+        self._systemd_dir = self._config_dir / "systemd" / "user"
+
+        # Detect available backend
+        self._backend = self._detect_backend()
+
+    def _detect_backend(self) -> SchedulerBackend:
+        """
+        Detect the best available scheduler backend.
+
+        Returns:
+            SchedulerBackend indicating which system to use
+        """
+        if _check_systemd_available():
+            return SchedulerBackend.SYSTEMD
+        elif _check_cron_available():
+            return SchedulerBackend.CRON
+        else:
+            return SchedulerBackend.NONE
+
+    @property
+    def backend(self) -> SchedulerBackend:
+        """
+        Get the current scheduler backend.
+
+        Returns:
+            SchedulerBackend indicating which system is being used
+        """
+        return self._backend
+
+    @property
+    def is_available(self) -> bool:
+        """
+        Check if any scheduler backend is available.
+
+        Returns:
+            True if either systemd or cron is available
+        """
+        return self._backend != SchedulerBackend.NONE
+
+    @property
+    def systemd_available(self) -> bool:
+        """
+        Check if systemd user timers are available.
+
+        Returns:
+            True if systemd is available
+        """
+        return _check_systemd_available()
+
+    @property
+    def cron_available(self) -> bool:
+        """
+        Check if cron is available.
+
+        Returns:
+            True if cron is available
+        """
+        return _check_cron_available()
+
+    def get_backend_name(self) -> str:
+        """
+        Get human-readable name of the current backend.
+
+        Returns:
+            String name of the backend (e.g., "systemd timers")
+        """
+        if self._backend == SchedulerBackend.SYSTEMD:
+            return "systemd timers"
+        elif self._backend == SchedulerBackend.CRON:
+            return "cron"
+        else:
+            return "none"
+
+    def get_status(self) -> Tuple[bool, Optional[str]]:
+        """
+        Get current scheduler status.
+
+        Returns:
+            Tuple of (is_scheduled, next_run_time_or_error):
+            - (True, next_run_time) if schedule is active
+            - (False, None) if no schedule is active
+            - (False, error_message) if an error occurred
+        """
+        if not self.is_available:
+            return (False, "No scheduler backend available")
+
+        if self._backend == SchedulerBackend.SYSTEMD:
+            return self._get_systemd_status()
+        elif self._backend == SchedulerBackend.CRON:
+            return self._get_cron_status()
+        else:
+            return (False, None)
+
+    def _get_systemd_status(self) -> Tuple[bool, Optional[str]]:
+        """
+        Get status of systemd timer.
+
+        Returns:
+            Tuple of (is_active, next_run_or_error)
+        """
+        try:
+            result = subprocess.run(
+                wrap_host_command([
+                    "systemctl", "--user", "is-active",
+                    f"{self.TIMER_NAME}.timer"
+                ]),
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0:
+                # Timer is active, get next run time
+                next_result = subprocess.run(
+                    wrap_host_command([
+                        "systemctl", "--user", "show",
+                        f"{self.TIMER_NAME}.timer",
+                        "--property=NextElapseUSecRealtime"
+                    ]),
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+
+                if next_result.returncode == 0:
+                    output = next_result.stdout.strip()
+                    if "=" in output:
+                        next_time = output.split("=", 1)[1]
+                        return (True, next_time if next_time else None)
+
+                return (True, None)
+            else:
+                return (False, None)
+
+        except subprocess.TimeoutExpired:
+            return (False, "Timeout checking timer status")
+        except Exception as e:
+            return (False, f"Error checking timer: {str(e)}")
+
+    def _get_cron_status(self) -> Tuple[bool, Optional[str]]:
+        """
+        Get status of cron entry.
+
+        Returns:
+            Tuple of (has_entry, None_or_error)
+        """
+        try:
+            result = subprocess.run(
+                wrap_host_command(["crontab", "-l"]),
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0:
+                if self.CRON_MARKER in result.stdout:
+                    return (True, None)
+                return (False, None)
+            else:
+                # No crontab or empty
+                return (False, None)
+
+        except subprocess.TimeoutExpired:
+            return (False, "Timeout checking crontab")
+        except Exception as e:
+            return (False, f"Error checking crontab: {str(e)}")
+
+    def _generate_oncalendar(
+        self,
+        frequency: ScheduleFrequency,
+        time: str,
+        day_of_week: int = 0,
+        day_of_month: int = 1
+    ) -> str:
+        """
+        Generate systemd OnCalendar specification.
+
+        Args:
+            frequency: Schedule frequency
+            time: Time in HH:MM format
+            day_of_week: Day of week (0=Monday) for weekly
+            day_of_month: Day of month (1-28) for monthly
+
+        Returns:
+            OnCalendar specification string
+        """
+        # Validate time format
+        try:
+            hour, minute = time.split(":")
+            hour = int(hour)
+            minute = int(minute)
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                raise ValueError("Invalid time")
+        except (ValueError, AttributeError):
+            # Default to 2:00 AM if invalid
+            hour, minute = 2, 0
+
+        time_str = f"{hour:02d}:{minute:02d}:00"
+
+        if frequency == ScheduleFrequency.DAILY:
+            return f"*-*-* {time_str}"
+        elif frequency == ScheduleFrequency.WEEKLY:
+            # Convert day_of_week (0=Monday) to systemd format
+            days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            day = days[day_of_week % 7]
+            return f"{day} *-*-* {time_str}"
+        elif frequency == ScheduleFrequency.MONTHLY:
+            # Ensure day is in valid range (1-28 for all months)
+            day = max(1, min(28, day_of_month))
+            return f"*-*-{day:02d} {time_str}"
+        else:
+            return f"*-*-* {time_str}"
+
+    def _generate_crontab_entry(
+        self,
+        frequency: ScheduleFrequency,
+        time: str,
+        day_of_week: int = 0,
+        day_of_month: int = 1
+    ) -> str:
+        """
+        Generate crontab entry specification.
+
+        Args:
+            frequency: Schedule frequency
+            time: Time in HH:MM format
+            day_of_week: Day of week (0=Monday) for weekly
+            day_of_month: Day of month (1-28) for monthly
+
+        Returns:
+            Crontab time specification (e.g., "0 2 * * *")
+        """
+        # Validate time format
+        try:
+            hour, minute = time.split(":")
+            hour = int(hour)
+            minute = int(minute)
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                raise ValueError("Invalid time")
+        except (ValueError, AttributeError):
+            # Default to 2:00 AM if invalid
+            hour, minute = 2, 0
+
+        if frequency == ScheduleFrequency.DAILY:
+            # minute hour * * *
+            return f"{minute} {hour} * * *"
+        elif frequency == ScheduleFrequency.WEEKLY:
+            # minute hour * * day_of_week
+            # Cron uses 0=Sunday, 1=Monday, etc.
+            # Convert from 0=Monday to cron format
+            cron_day = (day_of_week + 1) % 7
+            return f"{minute} {hour} * * {cron_day}"
+        elif frequency == ScheduleFrequency.MONTHLY:
+            # minute hour day_of_month * *
+            day = max(1, min(28, day_of_month))
+            return f"{minute} {hour} {day} * *"
+        else:
+            return f"{minute} {hour} * * *"
+
+    def _get_cli_command_path(self) -> Optional[str]:
+        """
+        Get the path to the clamui-scheduled-scan CLI command.
+
+        Returns:
+            Path to the CLI command, or None if not found
+        """
+        # First try to find it in PATH
+        cli_path = which_host_command("clamui-scheduled-scan")
+        if cli_path:
+            return cli_path
+
+        # Fall back to python module execution
+        python_path = which_host_command("python3") or which_host_command("python")
+        if python_path:
+            return f"{python_path} -m src.scheduled_scan"
+
+        return None
+
+    def enable_schedule(
+        self,
+        frequency: str,
+        time: str,
+        targets: List[str],
+        day_of_week: int = 0,
+        day_of_month: int = 1,
+        skip_on_battery: bool = True,
+        auto_quarantine: bool = False
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Enable scheduled scanning.
+
+        Creates systemd timer/service files or crontab entry based on
+        the available backend.
+
+        Args:
+            frequency: Schedule frequency ("daily", "weekly", "monthly")
+            time: Time in HH:MM format (24-hour)
+            targets: List of paths to scan
+            day_of_week: Day of week for weekly (0=Monday)
+            day_of_month: Day of month for monthly (1-28)
+            skip_on_battery: Skip scan when on battery power
+            auto_quarantine: Automatically quarantine threats
+
+        Returns:
+            Tuple of (success, error_message):
+            - (True, None) if schedule was enabled
+            - (False, error_message) if failed
+        """
+        if not self.is_available:
+            return (False, "No scheduler backend available. "
+                          "Install systemd or cron to enable scheduled scans.")
+
+        # Convert frequency string to enum
+        try:
+            freq = ScheduleFrequency(frequency.lower())
+        except ValueError:
+            return (False, f"Invalid frequency: {frequency}")
+
+        if self._backend == SchedulerBackend.SYSTEMD:
+            return self._enable_systemd_schedule(
+                freq, time, targets, day_of_week, day_of_month,
+                skip_on_battery, auto_quarantine
+            )
+        elif self._backend == SchedulerBackend.CRON:
+            return self._enable_cron_schedule(
+                freq, time, targets, day_of_week, day_of_month,
+                skip_on_battery, auto_quarantine
+            )
+        else:
+            return (False, "No scheduler backend available")
+
+    def _enable_systemd_schedule(
+        self,
+        frequency: ScheduleFrequency,
+        time: str,
+        targets: List[str],
+        day_of_week: int,
+        day_of_month: int,
+        skip_on_battery: bool,
+        auto_quarantine: bool
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Create and enable systemd timer/service.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        try:
+            # Ensure systemd user directory exists
+            self._systemd_dir.mkdir(parents=True, exist_ok=True)
+
+            # Get CLI command path
+            cli_path = self._get_cli_command_path()
+            if not cli_path:
+                return (False, "Could not find clamui-scheduled-scan command")
+
+            # Generate OnCalendar specification
+            on_calendar = self._generate_oncalendar(
+                frequency, time, day_of_week, day_of_month
+            )
+
+            # Create service file
+            service_content = self._generate_service_file(
+                cli_path, targets, skip_on_battery, auto_quarantine
+            )
+            service_path = self._systemd_dir / f"{self.SERVICE_NAME}.service"
+            service_path.write_text(service_content, encoding="utf-8")
+
+            # Create timer file
+            timer_content = self._generate_timer_file(on_calendar)
+            timer_path = self._systemd_dir / f"{self.TIMER_NAME}.timer"
+            timer_path.write_text(timer_content, encoding="utf-8")
+
+            # Reload systemd daemon
+            subprocess.run(
+                wrap_host_command(["systemctl", "--user", "daemon-reload"]),
+                capture_output=True,
+                timeout=10
+            )
+
+            # Enable and start timer
+            result = subprocess.run(
+                wrap_host_command([
+                    "systemctl", "--user", "enable", "--now",
+                    f"{self.TIMER_NAME}.timer"
+                ]),
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode != 0:
+                return (False, f"Failed to enable timer: {result.stderr.strip()}")
+
+            return (True, None)
+
+        except PermissionError:
+            return (False, "Permission denied creating systemd files")
+        except OSError as e:
+            return (False, f"Error creating systemd files: {str(e)}")
+        except subprocess.TimeoutExpired:
+            return (False, "Timeout enabling systemd timer")
+        except Exception as e:
+            return (False, f"Error enabling schedule: {str(e)}")
+
+    def _generate_service_file(
+        self,
+        cli_path: str,
+        targets: List[str],
+        skip_on_battery: bool,
+        auto_quarantine: bool
+    ) -> str:
+        """
+        Generate systemd service file content.
+
+        Returns:
+            Service file content as string
+        """
+        # Build command with options
+        exec_cmd = cli_path
+        if skip_on_battery:
+            exec_cmd += " --skip-on-battery"
+        if auto_quarantine:
+            exec_cmd += " --auto-quarantine"
+        for target in targets:
+            exec_cmd += f" --target \"{target}\""
+
+        return f"""[Unit]
+Description=ClamUI Scheduled Antivirus Scan
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart={exec_cmd}
+Nice=19
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=default.target
+"""
+
+    def _generate_timer_file(self, on_calendar: str) -> str:
+        """
+        Generate systemd timer file content.
+
+        Args:
+            on_calendar: OnCalendar specification
+
+        Returns:
+            Timer file content as string
+        """
+        return f"""[Unit]
+Description=ClamUI Scheduled Scan Timer
+
+[Timer]
+OnCalendar={on_calendar}
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+"""
+
+    def _enable_cron_schedule(
+        self,
+        frequency: ScheduleFrequency,
+        time: str,
+        targets: List[str],
+        day_of_week: int,
+        day_of_month: int,
+        skip_on_battery: bool,
+        auto_quarantine: bool
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Create and enable cron entry.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        try:
+            # Get CLI command path
+            cli_path = self._get_cli_command_path()
+            if not cli_path:
+                return (False, "Could not find clamui-scheduled-scan command")
+
+            # Generate cron time specification
+            cron_time = self._generate_crontab_entry(
+                frequency, time, day_of_week, day_of_month
+            )
+
+            # Build command
+            cron_cmd = cli_path
+            if skip_on_battery:
+                cron_cmd += " --skip-on-battery"
+            if auto_quarantine:
+                cron_cmd += " --auto-quarantine"
+            for target in targets:
+                cron_cmd += f" --target \"{target}\""
+
+            # Create cron entry
+            cron_entry = f"{cron_time} {cron_cmd}"
+
+            # Get current crontab
+            result = subprocess.run(
+                wrap_host_command(["crontab", "-l"]),
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0:
+                current_crontab = result.stdout
+            else:
+                current_crontab = ""
+
+            # Remove any existing ClamUI entries
+            lines = current_crontab.splitlines()
+            new_lines = []
+            skip_next = False
+            for line in lines:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if self.CRON_MARKER in line:
+                    skip_next = True  # Skip the marker and the next line
+                    continue
+                new_lines.append(line)
+
+            # Add new entry with marker
+            new_lines.append(self.CRON_MARKER)
+            new_lines.append(cron_entry)
+
+            # Write new crontab
+            new_crontab = "\n".join(new_lines) + "\n"
+
+            result = subprocess.run(
+                wrap_host_command(["crontab", "-"]),
+                input=new_crontab,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode != 0:
+                return (False, f"Failed to update crontab: {result.stderr.strip()}")
+
+            return (True, None)
+
+        except subprocess.TimeoutExpired:
+            return (False, "Timeout updating crontab")
+        except Exception as e:
+            return (False, f"Error enabling schedule: {str(e)}")
+
+    def disable_schedule(self) -> Tuple[bool, Optional[str]]:
+        """
+        Disable scheduled scanning.
+
+        Removes systemd timer/service files or crontab entry.
+
+        Returns:
+            Tuple of (success, error_message):
+            - (True, None) if schedule was disabled
+            - (False, error_message) if failed
+        """
+        if not self.is_available:
+            return (True, None)  # Nothing to disable
+
+        if self._backend == SchedulerBackend.SYSTEMD:
+            return self._disable_systemd_schedule()
+        elif self._backend == SchedulerBackend.CRON:
+            return self._disable_cron_schedule()
+        else:
+            return (True, None)
+
+    def _disable_systemd_schedule(self) -> Tuple[bool, Optional[str]]:
+        """
+        Disable and remove systemd timer/service.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        try:
+            # Stop and disable timer
+            subprocess.run(
+                wrap_host_command([
+                    "systemctl", "--user", "disable", "--now",
+                    f"{self.TIMER_NAME}.timer"
+                ]),
+                capture_output=True,
+                timeout=10
+            )
+
+            # Remove files
+            service_path = self._systemd_dir / f"{self.SERVICE_NAME}.service"
+            timer_path = self._systemd_dir / f"{self.TIMER_NAME}.timer"
+
+            if service_path.exists():
+                service_path.unlink()
+            if timer_path.exists():
+                timer_path.unlink()
+
+            # Reload daemon
+            subprocess.run(
+                wrap_host_command(["systemctl", "--user", "daemon-reload"]),
+                capture_output=True,
+                timeout=10
+            )
+
+            return (True, None)
+
+        except PermissionError:
+            return (False, "Permission denied removing systemd files")
+        except OSError as e:
+            return (False, f"Error removing systemd files: {str(e)}")
+        except subprocess.TimeoutExpired:
+            return (False, "Timeout disabling systemd timer")
+        except Exception as e:
+            return (False, f"Error disabling schedule: {str(e)}")
+
+    def _disable_cron_schedule(self) -> Tuple[bool, Optional[str]]:
+        """
+        Remove cron entry.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        try:
+            # Get current crontab
+            result = subprocess.run(
+                wrap_host_command(["crontab", "-l"]),
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode != 0:
+                return (True, None)  # No crontab to modify
+
+            # Remove ClamUI entries
+            lines = result.stdout.splitlines()
+            new_lines = []
+            skip_next = False
+            for line in lines:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if self.CRON_MARKER in line:
+                    skip_next = True
+                    continue
+                new_lines.append(line)
+
+            # Write new crontab
+            if new_lines:
+                new_crontab = "\n".join(new_lines) + "\n"
+                result = subprocess.run(
+                    wrap_host_command(["crontab", "-"]),
+                    input=new_crontab,
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+            else:
+                # Remove crontab entirely if empty
+                result = subprocess.run(
+                    wrap_host_command(["crontab", "-r"]),
+                    capture_output=True,
+                    timeout=5
+                )
+
+            if result.returncode != 0:
+                return (False, f"Failed to update crontab: {result.stderr.strip() if hasattr(result, 'stderr') else ''}")
+
+            return (True, None)
+
+        except subprocess.TimeoutExpired:
+            return (False, "Timeout updating crontab")
+        except Exception as e:
+            return (False, f"Error disabling schedule: {str(e)}")
+
+    def is_schedule_active(self) -> bool:
+        """
+        Check if a schedule is currently active.
+
+        Returns:
+            True if schedule is active, False otherwise
+        """
+        is_active, _ = self.get_status()
+        return is_active

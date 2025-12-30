@@ -541,3 +541,90 @@ class Scanner:
         )
 
         self._log_manager.save_log(log_entry)
+
+    def quarantine_infected(
+        self,
+        infected_files: list[str],
+        quarantine_dir: Optional[str] = None
+    ) -> tuple[list[str], list[tuple[str, str]]]:
+        """
+        Move infected files to quarantine directory.
+
+        Quarantined files are renamed with a unique suffix to avoid collisions
+        and stored in a secure directory with restricted permissions (0700).
+
+        Args:
+            infected_files: List of file paths to quarantine
+            quarantine_dir: Optional custom quarantine directory.
+                            Defaults to ~/.local/share/clamui/quarantine/
+
+        Returns:
+            Tuple of (successfully_quarantined, failed_files):
+            - successfully_quarantined: List of original file paths that were quarantined
+            - failed_files: List of (file_path, error_message) tuples for failures
+        """
+        import os
+        import shutil
+        import uuid
+
+        # Determine quarantine directory
+        if quarantine_dir:
+            qdir = Path(quarantine_dir)
+        else:
+            xdg_data_home = os.environ.get("XDG_DATA_HOME", "~/.local/share")
+            qdir = Path(xdg_data_home).expanduser() / "clamui" / "quarantine"
+
+        # Ensure quarantine directory exists with restricted permissions
+        try:
+            qdir.mkdir(parents=True, exist_ok=True)
+            # Set directory permissions to 0700 (owner read/write/execute only)
+            os.chmod(qdir, 0o700)
+        except (OSError, PermissionError) as e:
+            # Cannot create quarantine directory - all files will fail
+            return ([], [(f, f"Cannot create quarantine directory: {e}") for f in infected_files])
+
+        successfully_quarantined: list[str] = []
+        failed_files: list[tuple[str, str]] = []
+
+        for file_path in infected_files:
+            try:
+                source = Path(file_path)
+
+                # Check if source file exists
+                if not source.exists():
+                    failed_files.append((file_path, "File does not exist"))
+                    continue
+
+                # Check if source file is readable
+                if not os.access(source, os.R_OK):
+                    failed_files.append((file_path, "Permission denied: cannot read file"))
+                    continue
+
+                # Generate unique quarantine filename to avoid collisions
+                # Format: original_name.quarantined.uuid
+                unique_suffix = str(uuid.uuid4())[:8]
+                quarantine_name = f"{source.name}.quarantined.{unique_suffix}"
+                dest = qdir / quarantine_name
+
+                # Move file to quarantine
+                shutil.move(str(source), str(dest))
+
+                # Set quarantined file permissions to read-only for owner (0400)
+                try:
+                    os.chmod(dest, 0o400)
+                except (OSError, PermissionError):
+                    # File was moved but permission change failed - still counts as success
+                    pass
+
+                successfully_quarantined.append(file_path)
+
+            except PermissionError as e:
+                failed_files.append((file_path, f"Permission denied: {e}"))
+            except shutil.Error as e:
+                failed_files.append((file_path, f"Move failed: {e}"))
+            except OSError as e:
+                failed_files.append((file_path, f"OS error: {e}"))
+            except Exception as e:
+                failed_files.append((file_path, f"Unexpected error: {e}"))
+
+        return (successfully_quarantined, failed_files)

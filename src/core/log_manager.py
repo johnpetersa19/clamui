@@ -45,6 +45,7 @@ class LogEntry:
     details: str
     path: Optional[str] = None  # Scanned path (for scans)
     duration: float = 0.0  # Operation duration in seconds
+    scheduled: bool = False  # Whether this was a scheduled automatic scan
 
     @classmethod
     def create(
@@ -54,7 +55,8 @@ class LogEntry:
         summary: str,
         details: str,
         path: Optional[str] = None,
-        duration: float = 0.0
+        duration: float = 0.0,
+        scheduled: bool = False
     ) -> "LogEntry":
         """
         Create a new LogEntry with auto-generated id and timestamp.
@@ -66,6 +68,7 @@ class LogEntry:
             details: Full output/details
             path: Scanned path (for scan operations)
             duration: Operation duration in seconds
+            scheduled: Whether this was a scheduled automatic scan
 
         Returns:
             New LogEntry instance
@@ -78,7 +81,8 @@ class LogEntry:
             summary=summary,
             details=details,
             path=path,
-            duration=duration
+            duration=duration,
+            scheduled=scheduled
         )
 
     def to_dict(self) -> dict:
@@ -96,7 +100,8 @@ class LogEntry:
             summary=data.get("summary", ""),
             details=data.get("details", ""),
             path=data.get("path"),
-            duration=data.get("duration", 0.0)
+            duration=data.get("duration", 0.0),
+            scheduled=data.get("scheduled", False)
         )
 
 
