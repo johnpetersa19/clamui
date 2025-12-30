@@ -65,6 +65,9 @@ class ScanView(Gtk.Box):
         self.set_margin_end(24)
         self.set_spacing(18)
 
+        # Set up CSS for drag-and-drop visual feedback
+        self._setup_drop_css()
+
         # Create the selection section
         self._create_selection_section()
 
@@ -79,6 +82,22 @@ class ScanView(Gtk.Box):
 
         # Set up drag-and-drop support
         self._setup_drop_target()
+
+    def _setup_drop_css(self):
+        """Set up CSS styling for drag-and-drop visual feedback."""
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_string("""
+            .drop-active {
+                border: 2px dashed @accent_color;
+                border-radius: 12px;
+                background-color: alpha(@accent_bg_color, 0.1);
+            }
+        """)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
     def _setup_drop_target(self):
         """Set up drag-and-drop file handling."""
@@ -105,6 +124,9 @@ class ScanView(Gtk.Box):
         Returns:
             True if drop was accepted, False otherwise
         """
+        # Remove visual feedback (leave signal is not emitted on drop)
+        self.remove_css_class('drop-active')
+
         # Extract files from Gdk.FileList
         files = value.get_files()
         if not files:
@@ -125,14 +147,33 @@ class ScanView(Gtk.Box):
         return False
 
     def _on_drag_enter(self, target, x, y) -> Gdk.DragAction:
-        """Visual feedback when drag enters."""
-        # Placeholder - will be implemented in subtask-2-3
+        """
+        Visual feedback when drag enters the drop zone.
+
+        Adds the 'drop-active' CSS class to highlight the widget
+        as a valid drop target.
+
+        Args:
+            target: The DropTarget controller
+            x: X coordinate of drag position
+            y: Y coordinate of drag position
+
+        Returns:
+            Gdk.DragAction.COPY to indicate the drop is accepted
+        """
+        self.add_css_class('drop-active')
         return Gdk.DragAction.COPY
 
     def _on_drag_leave(self, target):
-        """Cleanup when drag leaves."""
-        # Placeholder - will be implemented in subtask-2-3
-        pass
+        """
+        Cleanup visual feedback when drag leaves the drop zone.
+
+        Removes the 'drop-active' CSS class to restore normal appearance.
+
+        Args:
+            target: The DropTarget controller
+        """
+        self.remove_css_class('drop-active')
 
     def _create_selection_section(self):
         """Create the folder/file selection section."""
