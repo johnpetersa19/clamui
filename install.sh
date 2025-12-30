@@ -265,6 +265,69 @@ check_all_dependencies() {
 }
 
 #
+# Installation Functions
+#
+
+# Install ClamUI Python package using pip or uv
+install_python_package() {
+    log_info "=== Installing ClamUI Python Package ==="
+    echo
+
+    # Verify we're in a directory with pyproject.toml
+    if [ ! -f "$SCRIPT_DIR/pyproject.toml" ]; then
+        log_error "pyproject.toml not found in $SCRIPT_DIR"
+        log_error "Please run this script from the ClamUI source directory."
+        return 1
+    fi
+
+    log_info "Installing clamui package using $PKG_MANAGER..."
+
+    # Build the install command based on package manager and install mode
+    if [ "$PKG_MANAGER" = "uv" ]; then
+        # uv pip install with appropriate options
+        if [ "$SYSTEM_INSTALL" = "1" ]; then
+            # System-wide install with uv (requires --system flag)
+            INSTALL_CMD="uv pip install --system \"$SCRIPT_DIR\""
+        else
+            # User install with uv
+            INSTALL_CMD="uv pip install --user \"$SCRIPT_DIR\""
+        fi
+    else
+        # pip/pip3 install with appropriate options
+        if [ "$SYSTEM_INSTALL" = "1" ]; then
+            # System-wide install (no --user flag, requires root)
+            INSTALL_CMD="$PKG_INSTALL_CMD \"$SCRIPT_DIR\""
+        else
+            # User install with --user flag
+            INSTALL_CMD="$PKG_INSTALL_CMD --user \"$SCRIPT_DIR\""
+        fi
+    fi
+
+    log_info "Running: $INSTALL_CMD"
+
+    # Execute the installation
+    if eval "$INSTALL_CMD"; then
+        log_success "ClamUI Python package installed successfully!"
+        echo
+
+        # Verify the installation
+        if $PYTHON_CMD -c "import src" 2>/dev/null; then
+            log_success "Package import verification passed"
+        else
+            log_warning "Package installed but import verification skipped (may need shell restart)"
+        fi
+        return 0
+    else
+        log_error "Failed to install ClamUI Python package."
+        log_info "You may need to install build dependencies first:"
+        log_info "  Ubuntu/Debian: sudo apt install libgirepository-2.0-dev libcairo2-dev pkg-config python3-dev"
+        log_info "  Fedora: sudo dnf install python3-gobject-devel gobject-introspection-devel cairo-gobject-devel"
+        log_info "  Arch: sudo pacman -S python-gobject"
+        return 1
+    fi
+}
+
+#
 # Main Execution
 #
 
@@ -276,8 +339,14 @@ main() {
     # Check all dependencies
     check_all_dependencies
 
-    # Placeholder for future subtasks (pip install, XDG file installation, etc.)
-    log_info "Dependency checks complete. Installation will continue in next steps."
+    # Install the Python package
+    if ! install_python_package; then
+        log_error "Installation failed."
+        exit 1
+    fi
+
+    # Placeholder for future subtasks (XDG file installation, etc.)
+    log_info "Python package installation complete. Additional steps will follow."
 }
 
 main "$@"
