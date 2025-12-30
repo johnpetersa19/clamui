@@ -44,6 +44,9 @@ class LogsView(Gtk.Box):
         # Loading state for historical logs
         self._is_loading = False
 
+        # Track if widget is destroyed/unmapped to prevent callback issues
+        self._is_disposed = False
+
         # Set up the UI
         self._setup_ui()
 
@@ -272,7 +275,18 @@ class LogsView(Gtk.Box):
         GLib.idle_add(self._check_daemon_status)
 
     def _load_logs_async(self):
-        """Load and display historical logs asynchronously."""
+        """
+        Load and display historical logs asynchronously.
+
+        This method is safe to call multiple times - it will prevent
+        duplicate requests and handle edge cases like:
+        - Widget disposed/unmapped
+        - Rapid refresh clicks (debouncing via _is_loading flag)
+        """
+        # Guard against loading when widget is disposed
+        if self._is_disposed:
+            return
+
         # Prevent duplicate load requests
         if self._is_loading:
             return
@@ -280,12 +294,17 @@ class LogsView(Gtk.Box):
         # Set loading state
         self._set_loading_state(True)
 
-        # Clear existing rows
-        while True:
-            row = self._logs_listbox.get_row_at_index(0)
-            if row is None:
-                break
-            self._logs_listbox.remove(row)
+        # Clear existing rows safely
+        try:
+            while True:
+                row = self._logs_listbox.get_row_at_index(0)
+                if row is None:
+                    break
+                self._logs_listbox.remove(row)
+        except Exception:
+            # Widget may be in invalid state, reset and return
+            self._set_loading_state(False)
+            return
 
         # Get logs from log manager asynchronously
         self._log_manager.get_logs_async(
@@ -297,19 +316,55 @@ class LogsView(Gtk.Box):
         """
         Handle completion of async log loading.
 
+        This callback is invoked on the main GTK thread when async loading
+        completes. It safely handles edge cases:
+        - Widget unmapped/disposed during loading
+        - Empty log list
+        - Errors during loading (empty list returned)
+
         Args:
             logs: List of LogEntry objects from the log manager
 
         Returns:
             False to prevent GLib.idle_add from repeating
         """
+        # Guard against callback firing after widget is disposed/unmapped
+        # This prevents crashes when navigating away during async load
+        if self._is_disposed:
+            return False
+
+        # Additional check: verify widget is still in a valid state
+        # get_mapped() returns False if widget is not visible/attached
+        try:
+            if not self.get_mapped():
+                # Widget is not mapped, skip UI updates but reset loading state
+                self._is_loading = False
+                return False
+        except Exception:
+            # Widget may be in an invalid state, skip updates
+            self._is_loading = False
+            return False
+
+        # Handle empty logs - placeholder will be shown automatically
+        # by GTK ListBox since we set it with set_placeholder()
+        if not logs:
+            # Ensure clear button is disabled for empty state
+            self._clear_button.set_sensitive(False)
+            self._set_loading_state(False)
+            return False
+
         # Add log entries to list
         for entry in logs:
-            row = self._create_log_row(entry)
-            self._logs_listbox.append(row)
+            try:
+                row = self._create_log_row(entry)
+                self._logs_listbox.append(row)
+            except Exception:
+                # Skip entries that fail to render (corrupted data)
+                continue
 
-        # Update clear button sensitivity
-        self._clear_button.set_sensitive(len(logs) > 0)
+        # Update clear button sensitivity based on actual rendered rows
+        has_logs = self._logs_listbox.get_row_at_index(0) is not None
+        self._clear_button.set_sensitive(has_logs)
 
         # Reset loading state
         self._set_loading_state(False)
@@ -604,7 +659,22 @@ class LogsView(Gtk.Box):
         GLib.idle_add(self._load_logs_async)
 
     def do_unmap(self):
-        """Handle widget unmapping (being hidden)."""
+        """
+        Handle widget unmapping (being hidden).
+
+        This is called when the widget is hidden or removed from the widget tree.
+        We use this to:
+        - Stop daemon log refresh to save resources
+        - Mark widget as disposed to prevent async callbacks from updating UI
+        - Reset loading state to allow fresh load on next map
+        """
+        # Mark as disposed to prevent async callbacks from updating UI
+        # This handles the edge case of unmapping during an async load
+        self._is_disposed = True
+
+        # Reset loading state so widget can load fresh when re-mapped
+        self._is_loading = False
+
         # Stop daemon log refresh when view is hidden
         self._stop_daemon_log_refresh()
         if self._live_toggle.get_active():
@@ -612,6 +682,23 @@ class LogsView(Gtk.Box):
 
         # Call parent implementation
         Gtk.Box.do_unmap(self)
+
+    def do_map(self):
+        """
+        Handle widget mapping (being shown).
+
+        This is called when the widget becomes visible.
+        We use this to reset the disposed flag and trigger a fresh load.
+        """
+        # Call parent implementation first
+        Gtk.Box.do_map(self)
+
+        # Reset disposed flag now that we're mapped again
+        self._is_disposed = False
+
+        # Trigger a fresh load of logs when view becomes visible again
+        # This ensures logs are up-to-date after navigation
+        GLib.idle_add(self._load_logs_async)
 
     @property
     def log_manager(self) -> LogManager:
