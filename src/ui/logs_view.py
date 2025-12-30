@@ -226,6 +226,39 @@ class LogsView(Gtk.Box):
 
         return empty_box
 
+    def _create_loading_state(self) -> Gtk.ListBoxRow:
+        """
+        Create a loading state placeholder row widget.
+
+        Returns:
+            Gtk.ListBoxRow containing spinner and loading text
+        """
+        row = Gtk.ListBoxRow()
+        row.set_selectable(False)
+        row.set_activatable(False)
+
+        loading_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        loading_box.set_halign(Gtk.Align.CENTER)
+        loading_box.set_valign(Gtk.Align.CENTER)
+        loading_box.set_margin_top(24)
+        loading_box.set_margin_bottom(24)
+        loading_box.set_spacing(12)
+
+        # Loading spinner
+        spinner = Gtk.Spinner()
+        spinner.set_spinning(True)
+        loading_box.append(spinner)
+
+        # Loading message
+        label = Gtk.Label()
+        label.set_text("Loading logs...")
+        label.add_css_class("dim-label")
+        loading_box.append(label)
+
+        row.set_child(loading_box)
+
+        return row
+
     def _create_log_detail_section(self, parent: Gtk.Box):
         """
         Create the log detail display section.
@@ -920,24 +953,33 @@ class LogsView(Gtk.Box):
         """
         Update UI to reflect loading state for historical logs.
 
+        Shows a loading placeholder row with spinner in the listbox when loading,
+        in addition to the header spinner indicator.
+
         Args:
             is_loading: Whether logs are currently being loaded
         """
         self._is_loading = is_loading
 
         if is_loading:
-            # Show loading state
+            # Show loading state in header
             self._logs_spinner.set_visible(True)
             self._logs_spinner.start()
             self._refresh_button.set_sensitive(False)
             self._clear_button.set_sensitive(False)
+
+            # Clear existing rows and show loading placeholder in listbox
+            self._logs_listbox.remove_all()
+            loading_row = self._create_loading_state()
+            self._logs_listbox.append(loading_row)
         else:
-            # Restore normal state
+            # Restore normal header state
             self._logs_spinner.stop()
             self._logs_spinner.set_visible(False)
             self._refresh_button.set_sensitive(True)
             # Clear button sensitivity will be updated based on log count
             # in the calling code after loading completes
+            # Note: Loading row is removed by _on_logs_loaded() calling remove_all()
 
     def _check_daemon_status(self) -> bool:
         """Check and display daemon status."""
