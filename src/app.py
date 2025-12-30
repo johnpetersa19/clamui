@@ -13,6 +13,9 @@ from .ui.scan_view import ScanView
 from .ui.update_view import UpdateView
 from .ui.logs_view import LogsView
 from .ui.components_view import ComponentsView
+from .ui.preferences_dialog import PreferencesDialog
+from .core.settings_manager import SettingsManager
+from .core.notification_manager import NotificationManager
 
 
 class ClamUIApp(Adw.Application):
@@ -34,6 +37,10 @@ class ClamUIApp(Adw.Application):
         self._app_name = "ClamUI"
         self._version = "0.1.0"
 
+        # Settings and notification management
+        self._settings_manager = SettingsManager()
+        self._notification_manager = NotificationManager(self._settings_manager)
+
         # View management
         self._scan_view = None
         self._update_view = None
@@ -50,6 +57,16 @@ class ClamUIApp(Adw.Application):
     def version(self) -> str:
         """Get the application version."""
         return self._version
+
+    @property
+    def notification_manager(self) -> NotificationManager:
+        """Get the notification manager instance."""
+        return self._notification_manager
+
+    @property
+    def settings_manager(self) -> SettingsManager:
+        """Get the settings manager instance."""
+        return self._settings_manager
 
     def do_activate(self):
         """
@@ -88,6 +105,9 @@ class ClamUIApp(Adw.Application):
         """
         Adw.Application.do_startup(self)
 
+        # Set application reference for notification manager
+        self._notification_manager.set_application(self)
+
         # Set up application actions
         self._setup_actions()
 
@@ -103,6 +123,12 @@ class ClamUIApp(Adw.Application):
         about_action = Gio.SimpleAction.new("about", None)
         about_action.connect("activate", self._on_about)
         self.add_action(about_action)
+
+        # Preferences action
+        preferences_action = Gio.SimpleAction.new("preferences", None)
+        preferences_action.connect("activate", self._on_preferences)
+        self.add_action(preferences_action)
+        self.set_accels_for_action("app.preferences", ["<Control>comma"])
 
         # View switching actions
         show_scan_action = Gio.SimpleAction.new("show-scan", None)
@@ -168,6 +194,11 @@ class ClamUIApp(Adw.Application):
             win.set_content_view(self._components_view)
             win.set_active_view("components")
             self._current_view = "components"
+
+    def _on_preferences(self, action, param):
+        """Handle preferences action - show preferences dialog."""
+        dialog = PreferencesDialog(settings_manager=self._settings_manager)
+        dialog.present(self.props.active_window)
 
     def _on_about(self, action, param):
         """Handle about action - show about dialog."""

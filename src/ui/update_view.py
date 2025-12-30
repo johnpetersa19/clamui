@@ -268,6 +268,18 @@ class UpdateView(Gtk.Box):
         """
         self._set_updating_state(False)
         self._display_results(result)
+
+        # Send notification
+        root = self.get_root()
+        if root:
+            app = root.get_application()
+            if app and hasattr(app, 'notification_manager'):
+                success = result.status in (UpdateStatus.SUCCESS, UpdateStatus.UP_TO_DATE)
+                app.notification_manager.notify_update_complete(
+                    success=success,
+                    databases_updated=result.databases_updated
+                )
+
         return False  # Don't repeat GLib.idle_add
 
     def _clear_results(self):

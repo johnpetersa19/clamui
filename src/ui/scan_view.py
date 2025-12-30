@@ -404,6 +404,18 @@ class ScanView(Gtk.Box):
         """
         self._set_scanning_state(False)
         self._display_results(result)
+
+        # Send notification
+        root = self.get_root()
+        if root:
+            app = root.get_application()
+            if app and hasattr(app, 'notification_manager'):
+                app.notification_manager.notify_scan_complete(
+                    is_clean=result.is_clean,
+                    infected_count=result.infected_count,
+                    scanned_count=result.scanned_files
+                )
+
         return False  # Don't repeat GLib.idle_add
 
     def _clear_results(self):

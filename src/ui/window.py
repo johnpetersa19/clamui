@@ -163,6 +163,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Create menu model
         menu = Gio.Menu()
+        menu.append("Preferences", "app.preferences")
         menu.append("About ClamUI", "app.about")
         menu.append("Quit", "app.quit")
 
