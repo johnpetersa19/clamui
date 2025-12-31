@@ -248,6 +248,13 @@ class MainWindow(Adw.ApplicationWindow):
         self._quarantine_button.set_action_name("app.show-quarantine")
         nav_box.append(self._quarantine_button)
 
+        # Statistics button
+        self._statistics_button = Gtk.ToggleButton()
+        self._statistics_button.set_icon_name("chart-line-symbolic")
+        self._statistics_button.set_tooltip_text("Statistics Dashboard")
+        self._statistics_button.set_action_name("app.show-statistics")
+        nav_box.append(self._statistics_button)
+
         return nav_box
 
     def set_active_view(self, view_name: str):
@@ -255,7 +262,7 @@ class MainWindow(Adw.ApplicationWindow):
         Update the navigation button states based on the active view.
 
         Args:
-            view_name: The name of the active view ('scan', 'update', 'logs', 'components', or 'quarantine')
+            view_name: The name of the active view ('scan', 'update', 'logs', 'components', 'statistics' or 'quarantine')
         """
         if view_name == "scan":
             self._scan_button.set_active(True)
@@ -263,17 +270,20 @@ class MainWindow(Adw.ApplicationWindow):
             self._logs_button.set_active(False)
             self._components_button.set_active(False)
             self._quarantine_button.set_active(False)
+            self._statistics_button.set_active(False)
         elif view_name == "update":
             self._scan_button.set_active(False)
             self._database_button.set_active(True)
             self._logs_button.set_active(False)
             self._components_button.set_active(False)
             self._quarantine_button.set_active(False)
+            self._statistics_button.set_active(False)
         elif view_name == "logs":
             self._scan_button.set_active(False)
             self._database_button.set_active(False)
             self._logs_button.set_active(True)
             self._components_button.set_active(False)
+            self._statistics_button.set_active(False)
             self._quarantine_button.set_active(False)
         elif view_name == "components":
             self._scan_button.set_active(False)
@@ -287,6 +297,13 @@ class MainWindow(Adw.ApplicationWindow):
             self._logs_button.set_active(False)
             self._components_button.set_active(False)
             self._quarantine_button.set_active(True)
+            self._statistics_button.set_active(False)
+        elif view_name == "statistics":
+            self._scan_button.set_active(False)
+            self._database_button.set_active(False)
+            self._logs_button.set_active(False)
+            self._components_button.set_active(False)
+            self._statistics_button.set_active(True)
 
     def _create_menu_button(self) -> Gtk.MenuButton:
         """
