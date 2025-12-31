@@ -832,3 +832,190 @@ Infected files: 4
         assert threat_map["Trojan.Banker"].severity == "high"
         assert threat_map["Adware.Toolbar"].severity == "medium"
         assert threat_map["Eicar-Test-Signature"].severity == "low"
+
+
+@pytest.mark.integration
+def test_scan_cancellation(tmp_path):
+    """
+    Test scan cancellation handling.
+
+    This test verifies that when a scan is cancelled:
+    1. The cancel() method sets the internal cancelled flag
+    2. The subprocess is terminated
+    3. The result status is ScanStatus.CANCELLED
+    4. The error_message indicates user cancellation
+    5. The result contains expected default values for cancelled scans
+
+    The test simulates a running scan and triggers cancellation mid-execution
+    to verify the scanner properly handles the cancellation request.
+    """
+    import threading
+    import time
+
+    # Create test file to scan
+    test_file = tmp_path / "test_cancel.txt"
+    test_file.write_text("This is a test file for cancellation testing.")
+
+    scanner = Scanner()
+
+    # Track callback invocation
+    callback_results = []
+    callback_event = threading.Event()
+
+    def test_callback(result: ScanResult):
+        """Callback to capture scan result."""
+        callback_results.append(result)
+        callback_event.set()
+
+    def mock_glib_idle_add(callback_func, *args):
+        """Mock GLib.idle_add to capture and immediately invoke callback."""
+        return callback_func(*args)
+
+    def mock_communicate():
+        """
+        Mock communicate that simulates a long-running scan.
+
+        This gives us time to trigger cancellation during execution.
+        When cancelled, the process sets _scan_cancelled flag before
+        communicate returns, simulating a terminated subprocess.
+        """
+        # Simulate scan taking some time
+        time.sleep(0.1)
+        # Set cancelled flag to simulate user cancellation during scan
+        scanner._scan_cancelled = True
+        return ("", "")
+
+    with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+        with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+            with mock.patch("src.core.scanner.check_clamav_installed", return_value=(True, "1.2.3")):
+                with mock.patch("subprocess.Popen") as mock_popen:
+                    mock_process = mock.MagicMock()
+                    mock_process.communicate.side_effect = mock_communicate
+                    mock_process.returncode = -15  # SIGTERM exit code
+                    mock_popen.return_value = mock_process
+
+                    with mock.patch("src.core.scanner.GLib.idle_add", side_effect=mock_glib_idle_add):
+                        # Execute async scan
+                        scanner.scan_async(str(test_file), test_callback)
+
+                        # Wait for callback to be invoked
+                        callback_received = callback_event.wait(timeout=5.0)
+
+    # Verify callback was invoked
+    assert callback_received, "Callback was not invoked within timeout"
+    assert len(callback_results) == 1, "Callback should be invoked exactly once"
+
+    # Verify cancellation result
+    result = callback_results[0]
+    assert isinstance(result, ScanResult)
+
+    # CRITICAL: Verify ScanStatus.CANCELLED
+    assert result.status == ScanStatus.CANCELLED, (
+        f"Expected ScanStatus.CANCELLED, got {result.status}"
+    )
+
+    # Verify cancellation properties
+    assert result.path == str(test_file)
+    assert result.is_clean is False  # Cancelled is not clean
+    assert result.has_threats is False  # Cancelled has no threats
+
+    # Verify error message indicates cancellation
+    assert result.error_message is not None
+    assert "cancel" in result.error_message.lower()
+
+    # Verify default values for cancelled scan
+    assert result.infected_count == 0
+    assert result.scanned_files == 0
+    assert result.scanned_dirs == 0
+    assert len(result.infected_files) == 0
+    assert len(result.threat_details) == 0
+
+
+@pytest.mark.integration
+def test_scan_cancellation_via_cancel_method(tmp_path):
+    """
+    Test scan cancellation via the cancel() method.
+
+    This test verifies that calling scanner.cancel() during an active scan:
+    1. Sets the internal _scan_cancelled flag to True
+    2. Calls terminate() on the subprocess
+    3. The scan result reflects the cancellation
+
+    This tests the explicit cancel() API rather than internal flag setting.
+    """
+    import threading
+    import time
+
+    # Create test file to scan
+    test_file = tmp_path / "test_cancel_method.txt"
+    test_file.write_text("Test content for cancel method testing.")
+
+    scanner = Scanner()
+
+    # Track callback invocation
+    callback_results = []
+    callback_event = threading.Event()
+    process_started_event = threading.Event()
+
+    def test_callback(result: ScanResult):
+        """Callback to capture scan result."""
+        callback_results.append(result)
+        callback_event.set()
+
+    def mock_glib_idle_add(callback_func, *args):
+        """Mock GLib.idle_add to capture and immediately invoke callback."""
+        return callback_func(*args)
+
+    def mock_communicate():
+        """
+        Mock communicate that signals when process starts,
+        then waits to allow cancel() to be called.
+        """
+        process_started_event.set()
+        # Wait a bit to allow cancel() to be called
+        time.sleep(0.2)
+        return ("", "")
+
+    with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+        with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+            with mock.patch("src.core.scanner.check_clamav_installed", return_value=(True, "1.2.3")):
+                with mock.patch("subprocess.Popen") as mock_popen:
+                    mock_process = mock.MagicMock()
+                    mock_process.communicate.side_effect = mock_communicate
+                    mock_process.returncode = -15  # SIGTERM exit code
+                    mock_popen.return_value = mock_process
+
+                    with mock.patch("src.core.scanner.GLib.idle_add", side_effect=mock_glib_idle_add):
+                        # Start async scan
+                        scanner.scan_async(str(test_file), test_callback)
+
+                        # Wait for process to start
+                        process_started = process_started_event.wait(timeout=2.0)
+                        assert process_started, "Process did not start"
+
+                        # Call cancel() method - this should:
+                        # 1. Set _scan_cancelled flag to True
+                        # 2. Call terminate() on the subprocess
+                        scanner.cancel()
+
+                        # Wait for callback to be invoked
+                        callback_received = callback_event.wait(timeout=5.0)
+
+    # Verify callback was invoked
+    assert callback_received, "Callback was not invoked within timeout"
+
+    # Verify cancellation result
+    result = callback_results[0]
+    assert result.status == ScanStatus.CANCELLED, (
+        f"Expected ScanStatus.CANCELLED, got {result.status}"
+    )
+
+    # Verify cancel() was effective
+    assert scanner._scan_cancelled is True
+
+    # Verify terminate was called on the process
+    mock_process.terminate.assert_called_once()
+
+    # Verify result properties
+    assert result.error_message is not None
+    assert "cancel" in result.error_message.lower()
