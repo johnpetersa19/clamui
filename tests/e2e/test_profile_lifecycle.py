@@ -732,6 +732,143 @@ class TestE2EDefaultProfiles:
         for path in expected_exclusions:
             assert path in exclusion_paths, f"Expected {path} in Full Scan exclusions"
 
+    def test_e2e_default_profiles_complete_verification(self, default_profile_env):
+        """
+        E2E Test: Complete default profiles verification (subtask-6-2).
+
+        Verification steps from spec:
+        1. Fresh app launch (simulated by fresh ProfileManager)
+        2. Verify Quick Scan, Full Scan, Home Folder profiles exist
+        3. Select Quick Scan profile
+        4. Verify Downloads folder is target
+        5. Select Full Scan profile
+        6. Verify system-wide scan targets
+        7. Attempt to delete default profile
+        8. Verify deletion is blocked
+        """
+        config_dir = default_profile_env["config_dir"]
+
+        # Step 1: Fresh app launch (simulated by fresh config directory)
+        # No profiles.json exists yet, this simulates first launch
+        storage_file = config_dir / "profiles.json"
+        assert not storage_file.exists(), "Config should be fresh (no profiles.json)"
+
+        pm = ProfileManager(config_dir)
+
+        # After initialization, storage file should exist with defaults
+        assert storage_file.exists(), "profiles.json should be created"
+
+        # Step 2: Verify Quick Scan, Full Scan, Home Folder profiles exist
+        profiles = pm.list_profiles()
+        profile_names = {p.name for p in profiles}
+
+        assert "Quick Scan" in profile_names, "Quick Scan profile should exist"
+        assert "Full Scan" in profile_names, "Full Scan profile should exist"
+        assert "Home Folder" in profile_names, "Home Folder profile should exist"
+
+        # Verify we have exactly 3 default profiles
+        default_profiles = [p for p in profiles if p.is_default]
+        assert len(default_profiles) >= 3, "Should have at least 3 default profiles"
+
+        # Step 3: Select Quick Scan profile
+        quick_scan = pm.get_profile_by_name("Quick Scan")
+        assert quick_scan is not None, "Quick Scan profile should be selectable"
+        assert quick_scan.is_default is True, "Quick Scan should be marked as default"
+
+        # Step 4: Verify Downloads folder is target
+        assert len(quick_scan.targets) > 0, "Quick Scan should have targets"
+        downloads_target = quick_scan.targets[0]
+        assert "Downloads" in downloads_target, (
+            f"Quick Scan should target Downloads folder, got: {downloads_target}"
+        )
+        # Verify it's the ~/Downloads path
+        assert downloads_target == "~/Downloads", (
+            f"Quick Scan should target ~/Downloads, got: {downloads_target}"
+        )
+
+        # Step 5: Select Full Scan profile
+        full_scan = pm.get_profile_by_name("Full Scan")
+        assert full_scan is not None, "Full Scan profile should be selectable"
+        assert full_scan.is_default is True, "Full Scan should be marked as default"
+
+        # Step 6: Verify system-wide scan targets
+        assert len(full_scan.targets) > 0, "Full Scan should have targets"
+        assert "/" in full_scan.targets, (
+            f"Full Scan should target root '/', got: {full_scan.targets}"
+        )
+
+        # Verify Full Scan has sensible exclusions for system directories
+        exclusion_paths = full_scan.exclusions.get("paths", [])
+        assert "/proc" in exclusion_paths, "Full Scan should exclude /proc"
+        assert "/sys" in exclusion_paths, "Full Scan should exclude /sys"
+        assert "/dev" in exclusion_paths, "Full Scan should exclude /dev"
+
+        # Step 7: Attempt to delete default profile
+        # Try to delete the Quick Scan default profile
+        delete_error = None
+        try:
+            pm.delete_profile(quick_scan.id)
+        except ValueError as e:
+            delete_error = e
+
+        # Step 8: Verify deletion is blocked
+        assert delete_error is not None, "Deleting default profile should raise error"
+        assert "Cannot delete default profile" in str(delete_error), (
+            f"Error should mention cannot delete default, got: {delete_error}"
+        )
+
+        # Verify profile still exists after failed deletion attempt
+        assert pm.profile_exists(quick_scan.id), (
+            "Default profile should still exist after blocked deletion"
+        )
+
+        # Verify all default profiles still exist
+        final_profiles = pm.list_profiles()
+        final_default_count = len([p for p in final_profiles if p.is_default])
+        assert final_default_count >= 3, (
+            f"All 3 default profiles should still exist, got: {final_default_count}"
+        )
+
+        # Also try deleting Full Scan and Home Folder (should all be blocked)
+        for profile_name in ["Full Scan", "Home Folder"]:
+            profile = pm.get_profile_by_name(profile_name)
+            with pytest.raises(ValueError, match="Cannot delete default profile"):
+                pm.delete_profile(profile.id)
+            # Verify still exists
+            assert pm.profile_exists(profile.id), (
+                f"{profile_name} should still exist after blocked deletion"
+            )
+
+    def test_e2e_home_folder_profile_targets(self, default_profile_env):
+        """
+        E2E Test: Verify Home Folder profile has correct targets and exclusions.
+
+        Complements the main default profiles test with Home Folder specifics.
+        """
+        config_dir = default_profile_env["config_dir"]
+
+        pm = ProfileManager(config_dir)
+
+        home_folder = pm.get_profile_by_name("Home Folder")
+        assert home_folder is not None, "Home Folder profile should exist"
+
+        # Verify targets home directory
+        assert "~" in home_folder.targets, (
+            f"Home Folder should target ~, got: {home_folder.targets}"
+        )
+
+        # Verify has sensible exclusions for home directory
+        exclusion_paths = home_folder.exclusions.get("paths", [])
+        assert "~/.cache" in exclusion_paths, "Home Folder should exclude ~/.cache"
+        assert "~/.local/share/Trash" in exclusion_paths, (
+            "Home Folder should exclude ~/.local/share/Trash"
+        )
+
+        # Verify profile attributes
+        assert home_folder.is_default is True
+        assert home_folder.description is not None
+        assert len(home_folder.description) > 0
+
 
 class TestE2EProfileCompleteWorkflow:
     """Complete end-to-end workflow tests combining all operations."""
