@@ -282,3 +282,170 @@ class TestClamUIAppLifecycle:
         """Test that the _on_about handler method exists."""
         assert hasattr(app, '_on_about')
         assert callable(app._on_about)
+
+
+class TestClamUIAppQuickScanProfile:
+    """Tests for Quick Scan profile retrieval and application."""
+
+    def test_get_quick_scan_profile_method_exists(self, app):
+        """Test that the _get_quick_scan_profile helper method exists."""
+        assert hasattr(app, '_get_quick_scan_profile')
+        assert callable(app._get_quick_scan_profile)
+
+    def test_get_quick_scan_profile_calls_profile_manager(self, app):
+        """Test that _get_quick_scan_profile retrieves profile from profile manager."""
+        # Mock the profile manager
+        app._profile_manager = mock.MagicMock()
+        mock_profile = mock.MagicMock()
+        mock_profile.id = "quick-scan-profile-id"
+        mock_profile.name = "Quick Scan"
+        app._profile_manager.get_profile_by_name.return_value = mock_profile
+
+        result = app._get_quick_scan_profile()
+
+        app._profile_manager.get_profile_by_name.assert_called_once_with("Quick Scan")
+        assert result == mock_profile
+
+    def test_get_quick_scan_profile_returns_none_when_not_found(self, app):
+        """Test that _get_quick_scan_profile returns None when profile not found."""
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        result = app._get_quick_scan_profile()
+
+        assert result is None
+
+    def test_on_statistics_quick_scan_handler_exists(self, app):
+        """Test that the _on_statistics_quick_scan handler method exists."""
+        assert hasattr(app, '_on_statistics_quick_scan')
+        assert callable(app._on_statistics_quick_scan)
+
+    def test_on_statistics_quick_scan_switches_to_scan_view(self, app, mock_gtk_modules):
+        """Test that _on_statistics_quick_scan switches to scan view."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (fallback path)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Call the handler
+        app._on_statistics_quick_scan()
+
+        # Verify view switch
+        mock_window.set_content_view.assert_called_once_with(mock_scan_view)
+        mock_window.set_active_view.assert_called_once_with("scan")
+        assert app._current_view == "scan"
+
+    def test_on_statistics_quick_scan_applies_quick_scan_profile(self, app, mock_gtk_modules):
+        """Test that _on_statistics_quick_scan applies the Quick Scan profile."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return a profile
+        mock_profile = mock.MagicMock()
+        mock_profile.id = "quick-scan-profile-id"
+        mock_profile.name = "Quick Scan"
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = mock_profile
+
+        # Call the handler
+        app._on_statistics_quick_scan()
+
+        # Verify profile is applied
+        mock_scan_view.refresh_profiles.assert_called_once()
+        mock_scan_view.set_selected_profile.assert_called_once_with("quick-scan-profile-id")
+
+    def test_on_statistics_quick_scan_falls_back_to_home_when_profile_missing(
+        self, app, mock_gtk_modules
+    ):
+        """Test that _on_statistics_quick_scan falls back to home directory when profile not found."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Call the handler
+        with mock.patch('src.app.os.path.expanduser') as mock_expanduser:
+            mock_expanduser.return_value = "/home/testuser"
+            app._on_statistics_quick_scan()
+
+            # Verify fallback to home directory
+            mock_scan_view._set_selected_path.assert_called_once_with("/home/testuser")
+        # Verify set_selected_profile was NOT called
+        mock_scan_view.set_selected_profile.assert_not_called()
+
+    def test_on_statistics_quick_scan_does_not_auto_start_scan(self, app, mock_gtk_modules):
+        """Test that _on_statistics_quick_scan does NOT auto-start the scan."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval
+        mock_profile = mock.MagicMock()
+        mock_profile.id = "quick-scan-profile-id"
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = mock_profile
+
+        # Call the handler
+        app._on_statistics_quick_scan()
+
+        # Verify _start_scan was NOT called (user must click Start Scan)
+        mock_scan_view._start_scan.assert_not_called()
+
+    def test_on_statistics_quick_scan_no_action_without_window(self, app, mock_gtk_modules):
+        """Test that _on_statistics_quick_scan does nothing without active window."""
+        app.props = mock.MagicMock()
+        app.props.active_window = None
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+
+        # Call the handler
+        app._on_statistics_quick_scan()
+
+        # Verify no scan view methods were called
+        mock_scan_view.refresh_profiles.assert_not_called()
+        mock_scan_view.set_selected_profile.assert_not_called()
+
+    def test_on_statistics_quick_scan_no_action_without_scan_view(self, app, mock_gtk_modules):
+        """Test that _on_statistics_quick_scan does nothing without scan view."""
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+        app._scan_view = None
+
+        # Mock profile manager to detect any calls
+        app._profile_manager = mock.MagicMock()
+
+        # Call the handler - should not crash
+        app._on_statistics_quick_scan()
+
+        # Profile manager should not be queried without scan view
+        # (the method exits early when scan_view is None)
+        mock_window.set_content_view.assert_not_called()
