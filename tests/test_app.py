@@ -694,3 +694,252 @@ class TestClamUIAppTrayQuickScan:
 
         # Verify GLib.idle_add was called with _do_tray_quick_scan
         mock_glib.idle_add.assert_called_once_with(app._do_tray_quick_scan)
+
+
+class TestClamUIAppQuickScanFallback:
+    """Dedicated tests for Quick Scan fallback behavior when profile is not found."""
+
+    def test_statistics_fallback_uses_expanduser_with_tilde(self, app, mock_gtk_modules):
+        """Test that statistics quick scan fallback uses os.path.expanduser with '~'."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Call the handler and verify expanduser is called with "~"
+        with mock.patch('src.app.os.path.expanduser') as mock_expanduser:
+            mock_expanduser.return_value = "/home/testuser"
+            app._on_statistics_quick_scan()
+
+            # Verify expanduser was called with "~" to get home directory
+            mock_expanduser.assert_called_once_with("~")
+
+    def test_tray_fallback_uses_expanduser_with_tilde(self, app, mock_gtk_modules):
+        """Test that tray quick scan fallback uses os.path.expanduser with '~'."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Mock activate
+        app.activate = mock.MagicMock()
+
+        # Call the handler and verify expanduser is called with "~"
+        with mock.patch('src.app.os.path.expanduser') as mock_expanduser:
+            mock_expanduser.return_value = "/home/testuser"
+            app._do_tray_quick_scan()
+
+            # Verify expanduser was called with "~" to get home directory
+            mock_expanduser.assert_called_once_with("~")
+
+    def test_statistics_fallback_does_not_call_refresh_profiles(self, app, mock_gtk_modules):
+        """Test that statistics quick scan fallback does not call refresh_profiles."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Call the handler
+        app._on_statistics_quick_scan()
+
+        # Verify refresh_profiles was NOT called (only called when profile found)
+        mock_scan_view.refresh_profiles.assert_not_called()
+
+    def test_tray_fallback_does_not_call_refresh_profiles(self, app, mock_gtk_modules):
+        """Test that tray quick scan fallback does not call refresh_profiles."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Mock activate
+        app.activate = mock.MagicMock()
+
+        # Call the handler
+        app._do_tray_quick_scan()
+
+        # Verify refresh_profiles was NOT called (only called when profile found)
+        mock_scan_view.refresh_profiles.assert_not_called()
+
+    def test_statistics_fallback_logs_warning(self, app, mock_gtk_modules):
+        """Test that statistics quick scan fallback logs a warning message."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Call the handler and verify logging
+        with mock.patch('src.app.logger') as mock_logger:
+            app._on_statistics_quick_scan()
+
+            # Verify warning was logged about fallback
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args[0][0]
+            assert "Quick Scan profile not found" in warning_call
+            assert "falling back" in warning_call.lower()
+
+    def test_tray_fallback_logs_warning(self, app, mock_gtk_modules):
+        """Test that tray quick scan fallback logs a warning message."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Mock activate
+        app.activate = mock.MagicMock()
+
+        # Call the handler and verify logging
+        with mock.patch('src.app.logger') as mock_logger:
+            app._do_tray_quick_scan()
+
+            # Verify warning was logged about fallback
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args[0][0]
+            assert "Quick Scan profile not found" in warning_call
+            assert "falling back" in warning_call.lower()
+
+    def test_statistics_fallback_still_switches_to_scan_view(self, app, mock_gtk_modules):
+        """Test that statistics quick scan fallback still switches to scan view."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Call the handler
+        app._on_statistics_quick_scan()
+
+        # Verify view switch still happens
+        mock_window.set_content_view.assert_called_once_with(mock_scan_view)
+        mock_window.set_active_view.assert_called_once_with("scan")
+        assert app._current_view == "scan"
+
+    def test_tray_fallback_still_switches_to_scan_view(self, app, mock_gtk_modules):
+        """Test that tray quick scan fallback still switches to scan view."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Mock activate
+        app.activate = mock.MagicMock()
+
+        # Call the handler
+        app._do_tray_quick_scan()
+
+        # Verify view switch still happens
+        mock_window.set_content_view.assert_called_once_with(mock_scan_view)
+        mock_window.set_active_view.assert_called_once_with("scan")
+        assert app._current_view == "scan"
+
+    def test_statistics_fallback_path_is_set_correctly(self, app, mock_gtk_modules):
+        """Test that statistics quick scan fallback sets the correct home path."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Call the handler with a specific home directory
+        with mock.patch('src.app.os.path.expanduser') as mock_expanduser:
+            mock_expanduser.return_value = "/home/specific_user"
+            app._on_statistics_quick_scan()
+
+            # Verify the expanded path is passed to _set_selected_path
+            mock_scan_view._set_selected_path.assert_called_once_with("/home/specific_user")
+
+    def test_tray_fallback_path_is_set_correctly(self, app, mock_gtk_modules):
+        """Test that tray quick scan fallback sets the correct home path."""
+        # Set up mocks
+        mock_window = mock.MagicMock()
+        app.props = mock.MagicMock()
+        app.props.active_window = mock_window
+
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._current_view = "statistics"
+
+        # Mock profile retrieval to return None (trigger fallback)
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Mock activate
+        app.activate = mock.MagicMock()
+
+        # Call the handler with a specific home directory
+        with mock.patch('src.app.os.path.expanduser') as mock_expanduser:
+            mock_expanduser.return_value = "/home/specific_user"
+            app._do_tray_quick_scan()
+
+            # Verify the expanded path is passed to _set_selected_path
+            mock_scan_view._set_selected_path.assert_called_once_with("/home/specific_user")
