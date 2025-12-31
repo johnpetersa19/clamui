@@ -435,8 +435,9 @@ class ClamUIApp(Adw.Application):
         """
         Handle Quick Scan action from tray menu.
 
-        Presents the window, switches to scan view, sets the home directory
-        as the scan target, and starts the scan.
+        Presents the window, switches to scan view, applies the Quick Scan
+        profile, and starts the scan. Falls back to home directory if the
+        Quick Scan profile is not found.
         """
         # Use GLib.idle_add to ensure GTK4 operations run on main thread
         GLib.idle_add(self._do_tray_quick_scan)
@@ -453,12 +454,22 @@ class ClamUIApp(Adw.Application):
             win.set_active_view("scan")
             self._current_view = "scan"
 
-            # Set home directory as scan target and start scan
-            home_dir = os.path.expanduser("~")
-            self._scan_view._set_selected_path(home_dir)
-            self._scan_view._start_scan()
-
-            logger.info("Quick scan started from tray menu")
+            # Try to use Quick Scan profile
+            quick_scan_profile = self._get_quick_scan_profile()
+            if quick_scan_profile:
+                # Refresh profiles to ensure list is up to date
+                self._scan_view.refresh_profiles()
+                # Apply the Quick Scan profile
+                self._scan_view.set_selected_profile(quick_scan_profile.id)
+                # Start the scan
+                self._scan_view._start_scan()
+                logger.info("Quick scan started from tray menu using Quick Scan profile")
+            else:
+                # Fallback to home directory if profile not found
+                home_dir = os.path.expanduser("~")
+                self._scan_view._set_selected_path(home_dir)
+                self._scan_view._start_scan()
+                logger.warning("Quick Scan profile not found, falling back to home directory scan from tray menu")
 
         return False  # Don't repeat
 
