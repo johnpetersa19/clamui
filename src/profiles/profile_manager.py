@@ -4,6 +4,9 @@ Profile manager module for ClamUI providing scan profile lifecycle management.
 Centralizes all profile operations including CRUD, validation, and import/export.
 """
 
+import json
+import os
+import tempfile
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -654,3 +657,171 @@ class ProfileManager:
     def reload(self) -> None:
         """Reload profiles from storage, discarding in-memory changes."""
         self._load()
+
+    def export_profile(self, profile_id: str, export_path: Path) -> None:
+        """
+        Export a profile to a JSON file.
+
+        Exports a single profile to a standalone JSON file for backup
+        or sharing purposes.
+
+        Args:
+            profile_id: The unique identifier of the profile to export
+            export_path: Path where the JSON file will be saved
+
+        Raises:
+            ValueError: If profile not found
+            OSError: If file cannot be written
+        """
+        profile = self.get_profile(profile_id)
+        if profile is None:
+            raise ValueError(f"Profile with ID '{profile_id}' not found")
+
+        export_path = Path(export_path)
+
+        # Prepare export data
+        # Exclude is_default since imported profiles should not be default
+        profile_data = profile.to_dict()
+        export_data = {
+            "export_version": 1,
+            "profile": profile_data,
+        }
+
+        # Ensure parent directory exists
+        export_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Atomic write using temp file + rename pattern
+        fd, temp_path = tempfile.mkstemp(
+            suffix=".json",
+            prefix="profile_export_",
+            dir=export_path.parent,
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, indent=2)
+
+            # Atomic rename
+            Path(temp_path).replace(export_path)
+        except Exception:
+            # Clean up temp file on failure
+            try:
+                Path(temp_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
+
+    def import_profile(self, import_path: Path) -> ScanProfile:
+        """
+        Import a profile from a JSON file.
+
+        Imports a profile from a standalone JSON file. The imported
+        profile receives a new unique ID and is never marked as default.
+        Duplicate names are handled by appending a numeric suffix.
+
+        Args:
+            import_path: Path to the JSON file to import
+
+        Returns:
+            The newly imported ScanProfile
+
+        Raises:
+            ValueError: If file format is invalid or required fields are missing
+            OSError: If file cannot be read
+            FileNotFoundError: If file does not exist
+        """
+        import_path = Path(import_path)
+
+        if not import_path.exists():
+            raise FileNotFoundError(f"Import file not found: {import_path}")
+
+        # Read and parse the JSON file
+        try:
+            with open(import_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format: {e}")
+
+        # Validate export format
+        if not isinstance(data, dict):
+            raise ValueError("Invalid export format: expected JSON object")
+
+        # Support both versioned export format and raw profile format
+        if "profile" in data:
+            profile_data = data["profile"]
+        else:
+            # Assume the entire object is a profile (legacy format)
+            profile_data = data
+
+        if not isinstance(profile_data, dict):
+            raise ValueError("Invalid export format: profile data must be an object")
+
+        # Validate required fields
+        required_fields = ["name"]
+        for field in required_fields:
+            if field not in profile_data:
+                raise ValueError(f"Invalid profile data: missing required field '{field}'")
+
+        # Extract profile data with defaults
+        name = str(profile_data.get("name", ""))
+        targets = profile_data.get("targets", [])
+        exclusions = profile_data.get("exclusions", {})
+        description = str(profile_data.get("description", ""))
+        options = profile_data.get("options", {})
+
+        # Validate types
+        if not isinstance(targets, list):
+            raise ValueError("Invalid profile data: 'targets' must be a list")
+        if not isinstance(exclusions, dict):
+            raise ValueError("Invalid profile data: 'exclusions' must be an object")
+        if not isinstance(options, dict):
+            raise ValueError("Invalid profile data: 'options' must be an object")
+
+        # Handle duplicate names by appending numeric suffix
+        original_name = name
+        final_name = self._make_unique_name(original_name)
+
+        # Create the profile with a new ID
+        # Imported profiles are never default
+        return self.create_profile(
+            name=final_name,
+            targets=targets,
+            exclusions=exclusions,
+            description=description,
+            options=options,
+            is_default=False,
+        )
+
+    def _make_unique_name(self, name: str) -> str:
+        """
+        Ensure a profile name is unique by appending a numeric suffix if needed.
+
+        Args:
+            name: The proposed name
+
+        Returns:
+            A unique name (original if available, or with suffix like " (2)")
+        """
+        if not self.name_exists(name):
+            return name
+
+        # Try appending (2), (3), etc. until we find a unique name
+        counter = 2
+        while True:
+            candidate = f"{name} ({counter})"
+            # Ensure the candidate doesn't exceed max length
+            if len(candidate) > MAX_PROFILE_NAME_LENGTH:
+                # Truncate the base name to make room for suffix
+                suffix = f" ({counter})"
+                max_base = MAX_PROFILE_NAME_LENGTH - len(suffix)
+                candidate = f"{name[:max_base]} ({counter})"
+
+            if not self.name_exists(candidate):
+                return candidate
+
+            counter += 1
+
+            # Safety limit to prevent infinite loop
+            if counter > 1000:
+                raise ValueError(
+                    f"Could not generate unique name for '{name}'"
+                )
