@@ -315,6 +315,15 @@ class StatisticsView(Gtk.Box):
         self._canvas = FigureCanvas(self._figure)
         self._canvas.set_size_request(-1, 200)  # Set minimum height
 
+        # Create scroll controller to propagate events to parent ScrolledWindow
+        # This prevents the matplotlib canvas from hijacking scroll events
+        scroll_controller = Gtk.EventControllerScroll.new(
+            Gtk.EventControllerScrollFlags.VERTICAL | Gtk.EventControllerScrollFlags.KINETIC
+        )
+        scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        scroll_controller.connect("scroll", self._on_chart_scroll)
+        self._canvas.add_controller(scroll_controller)
+
         # Create a frame for the chart
         chart_frame = Gtk.Frame()
         chart_frame.add_css_class("card")
@@ -495,6 +504,23 @@ class StatisticsView(Gtk.Box):
                 self._chart_group.set_description("Unable to render chart")
             except Exception:
                 pass
+
+    def _on_chart_scroll(self, controller, dx, dy):
+        """
+        Handle scroll events on the chart canvas.
+
+        Returns False to allow scroll events to propagate to the parent
+        ScrolledWindow instead of being consumed by the matplotlib canvas.
+
+        Args:
+            controller: The EventControllerScroll that received the event
+            dx: Horizontal scroll delta
+            dy: Vertical scroll delta
+
+        Returns:
+            False to allow event propagation to parent
+        """
+        return False
 
     def _create_quick_actions_section(self, parent: Gtk.Box):
         """
