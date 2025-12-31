@@ -91,6 +91,20 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "integration: marks tests as integration tests (may require external dependencies)",
+    "ui: marks tests as UI tests (require GTK/display environment)",
+    "slow: marks tests as slow running",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
 # System dependencies note:
 # ClamUI requires system packages for GTK4/PyGObject bindings:
 #
