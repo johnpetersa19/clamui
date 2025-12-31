@@ -398,12 +398,18 @@ class ClamUIApp(Adw.Application):
                 self._scan_view.refresh_profiles()
                 # Apply the Quick Scan profile
                 self._scan_view.set_selected_profile(quick_scan_profile.id)
-                logger.info("Quick Scan profile applied from statistics view")
+                logger.info(
+                    f"Quick scan configured with Quick Scan profile from statistics view "
+                    f"(profile_id={quick_scan_profile.id})"
+                )
             else:
                 # Fallback to home directory if profile not found
                 home_dir = os.path.expanduser("~")
                 self._scan_view._set_selected_path(home_dir)
-                logger.warning("Quick Scan profile not found, falling back to home directory")
+                logger.warning(
+                    f"Quick Scan profile not found, falling back to home directory "
+                    f"scan from statistics view (path={home_dir})"
+                )
 
     def _on_show_quarantine(self, action, param):
         """Handle show-quarantine action - switch to quarantine view."""
@@ -463,13 +469,19 @@ class ClamUIApp(Adw.Application):
                 self._scan_view.set_selected_profile(quick_scan_profile.id)
                 # Start the scan
                 self._scan_view._start_scan()
-                logger.info("Quick scan started from tray menu using Quick Scan profile")
+                logger.info(
+                    f"Quick scan started with Quick Scan profile from tray menu "
+                    f"(profile_id={quick_scan_profile.id})"
+                )
             else:
                 # Fallback to home directory if profile not found
                 home_dir = os.path.expanduser("~")
                 self._scan_view._set_selected_path(home_dir)
                 self._scan_view._start_scan()
-                logger.warning("Quick Scan profile not found, falling back to home directory scan from tray menu")
+                logger.warning(
+                    f"Quick Scan profile not found, falling back to home directory "
+                    f"scan from tray menu (path={home_dir})"
+                )
 
         return False  # Don't repeat
 
