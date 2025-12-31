@@ -22,6 +22,47 @@ class ProfileManager:
     scan profiles. Uses ProfileStorage for persistence.
     """
 
+    # Default profile definitions
+    # These are created on first run if not present in storage
+    DEFAULT_PROFILES = [
+        {
+            "name": "Quick Scan",
+            "description": "Fast scan of the Downloads folder for quick threat detection",
+            "targets": ["~/Downloads"],
+            "exclusions": {},
+            "options": {},
+        },
+        {
+            "name": "Full Scan",
+            "description": "Comprehensive system-wide scan of all accessible directories",
+            "targets": ["/"],
+            "exclusions": {
+                "paths": [
+                    "/proc",
+                    "/sys",
+                    "/dev",
+                    "/run",
+                    "/tmp",
+                    "/var/cache",
+                    "/var/tmp",
+                ]
+            },
+            "options": {},
+        },
+        {
+            "name": "Home Folder",
+            "description": "Scan of the user's home directory and personal files",
+            "targets": ["~"],
+            "exclusions": {
+                "paths": [
+                    "~/.cache",
+                    "~/.local/share/Trash",
+                ]
+            },
+            "options": {},
+        },
+    ]
+
     def __init__(self, config_dir: Path):
         """
         Initialize the ProfileManager.
@@ -42,11 +83,53 @@ class ProfileManager:
         # Load profiles on initialization
         self._load()
 
+        # Ensure default profiles exist
+        self._ensure_default_profiles()
+
     def _load(self) -> None:
         """Load profiles from storage into memory."""
         with self._lock:
             profiles = self._storage.load_profiles()
             self._profiles = {p.id: p for p in profiles}
+
+    def _ensure_default_profiles(self) -> None:
+        """
+        Ensure all default profiles exist.
+
+        Creates any missing default profiles from DEFAULT_PROFILES.
+        This is called during initialization to ensure built-in profiles
+        are always available.
+        """
+        # Get names of existing default profiles
+        existing_default_names: set[str] = set()
+        with self._lock:
+            for profile in self._profiles.values():
+                if profile.is_default:
+                    existing_default_names.add(profile.name)
+
+        # Create any missing default profiles
+        profiles_created = False
+        for default_def in self.DEFAULT_PROFILES:
+            if default_def["name"] not in existing_default_names:
+                timestamp = self._get_timestamp()
+                profile = ScanProfile(
+                    id=self._generate_id(),
+                    name=default_def["name"],
+                    targets=list(default_def["targets"]),
+                    exclusions=dict(default_def["exclusions"]),
+                    created_at=timestamp,
+                    updated_at=timestamp,
+                    is_default=True,
+                    description=default_def["description"],
+                    options=dict(default_def["options"]),
+                )
+                with self._lock:
+                    self._profiles[profile.id] = profile
+                profiles_created = True
+
+        # Save if any profiles were created
+        if profiles_created:
+            self._save()
 
     def _save(self) -> bool:
         """
