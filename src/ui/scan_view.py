@@ -560,11 +560,14 @@ class ScanView(Gtk.Box):
 
         Opens the ProfileListDialog for managing profiles. When a profile
         is selected from the dialog, it updates the dropdown selection.
+        The dropdown is also refreshed when the dialog is closed to capture
+        any profile additions or deletions.
         """
         profile_manager = self._get_profile_manager()
 
         dialog = ProfileListDialog(profile_manager=profile_manager)
         dialog.set_on_profile_selected(self._on_dialog_profile_selected)
+        dialog.connect("closed", lambda d: self.refresh_profiles())
         dialog.present(self.get_root())
 
     def _on_dialog_profile_selected(self, profile: "ScanProfile"):
