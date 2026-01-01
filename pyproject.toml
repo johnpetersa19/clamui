@@ -45,8 +45,8 @@ clamui = "src.main:main"
 clamui-scheduled-scan = "src.cli.scheduled_scan:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/clamui"
-Repository = "https://github.com/yourusername/clamui"
+Homepage = "https://github.com/rooki/clamui"
+Repository = "https://github.com/rooki/clamui"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
@@ -97,7 +97,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
 markers = [
     "integration: marks tests as integration tests (may require external dependencies)",
     "ui: marks tests as UI tests (require GTK/display environment)",
@@ -106,6 +105,7 @@ markers = [
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+addopts = "-v --tb=short"
 
 [tool.coverage.run]
 source = ["src"]
