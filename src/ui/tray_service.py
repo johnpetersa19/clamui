@@ -32,20 +32,35 @@ logger = logging.getLogger(__name__)
 
 # GTK3 imports MUST happen before any GTK4 contamination
 # This is why this runs in a separate subprocess
+APPINDICATOR_AVAILABLE = False
+AppIndicator = None
+
 try:
     import gi
     gi.require_version("Gtk", "3.0")
-    gi.require_version("AyatanaAppIndicator3", "0.1")
-    from gi.repository import AyatanaAppIndicator3 as AppIndicator
     from gi.repository import Gtk as Gtk3
     from gi.repository import GLib
-    APPINDICATOR_AVAILABLE = True
-    logger.info("AyatanaAppIndicator3 loaded successfully")
+
+    # Try AyatanaAppIndicator3 first (newer), then AppIndicator3 (legacy)
+    try:
+        gi.require_version("AyatanaAppIndicator3", "0.1")
+        from gi.repository import AyatanaAppIndicator3 as AppIndicator
+        APPINDICATOR_AVAILABLE = True
+        logger.info("AyatanaAppIndicator3 loaded successfully")
+    except (ValueError, ImportError):
+        try:
+            gi.require_version("AppIndicator3", "0.1")
+            from gi.repository import AppIndicator3 as AppIndicator
+            APPINDICATOR_AVAILABLE = True
+            logger.info("AppIndicator3 (legacy) loaded successfully")
+        except (ValueError, ImportError) as e:
+            logger.error(f"No AppIndicator library available: {e}")
+
 except (ValueError, ImportError) as e:
-    logger.error(f"Failed to load AppIndicator: {e}")
-    APPINDICATOR_AVAILABLE = False
-    # Exit with error - the main app should handle this
-    print(json.dumps({"event": "error", "message": str(e)}), flush=True)
+    logger.error(f"Failed to load GTK3: {e}")
+
+if not APPINDICATOR_AVAILABLE:
+    print(json.dumps({"event": "error", "message": "No AppIndicator library available"}), flush=True)
     sys.exit(1)
 
 
