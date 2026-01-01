@@ -54,10 +54,33 @@ modules:
           project-id: 13023
           url-template: https://www.clamav.net/downloads/production/clamav-$version.tar.gz
 
+  # Python build dependencies (hatchling for pyproject.toml builds)
+  # Using pre-built wheels to avoid complex build dependency chains
+  - name: python-build-deps
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps pathspec-0.12.1-py3-none-any.whl
+      - pip3 install --prefix=/app --no-deps trove_classifiers-2025.12.1.14-py3-none-any.whl
+      - pip3 install --prefix=/app --no-deps pluggy-1.6.0-py3-none-any.whl
+      - pip3 install --prefix=/app --no-deps hatchling-1.28.0-py3-none-any.whl
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl
+        sha256: a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08
+      - type: file
+        url: https://files.pythonhosted.org/packages/4f/7e/bc19996fa86cad8801e8ffe6f1bba5836ca0160df76d0410d27432193712/trove_classifiers-2025.12.1.14-py3-none-any.whl
+        sha256: a8206978ede95937b9959c3aff3eb258bbf7b07dff391ddd4ea7e61f316635ab
+      - type: file
+        url: https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl
+        sha256: e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
+      - type: file
+        url: https://files.pythonhosted.org/packages/0d/a5/48cb7efb8b4718b1a4c0c331e3364a3a33f614ff0d6afd2b93ee883d3c47/hatchling-1.28.0-py3-none-any.whl
+        sha256: dc48722b68b3f4bbfa3ff618ca07cdea6750e7d03481289ffa8be1521d18a961
+
   - name: clamui
     buildsystem: simple
     build-commands:
-      - pip3 install --prefix=/app --no-deps .
+      - pip3 install --prefix=/app --no-deps --no-build-isolation .
       - install -Dm644 com.github.rooki.clamui.desktop /app/share/applications/com.github.rooki.clamui.desktop
       - install -Dm644 icons/com.github.rooki.clamui.svg /app/share/icons/hicolor/scalable/apps/com.github.rooki.clamui.svg
     sources:
