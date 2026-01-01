@@ -104,6 +104,84 @@ class LogEntry:
             scheduled=data.get("scheduled", False)
         )
 
+    @classmethod
+    def from_scan_result_data(
+        cls,
+        scan_status: str,
+        path: str,
+        duration: float,
+        scanned_files: int = 0,
+        scanned_dirs: int = 0,
+        infected_count: int = 0,
+        threat_details: Optional[list] = None,
+        error_message: Optional[str] = None,
+        stdout: str = "",
+        suffix: str = "",
+        scheduled: bool = False
+    ) -> "LogEntry":
+        """
+        Create a LogEntry from scan result data.
+
+        This factory method handles the common logic for creating log entries
+        from scan results, used by both Scanner and DaemonScanner.
+
+        Args:
+            scan_status: Status of the scan ("clean", "infected", "cancelled", "error")
+            path: The path that was scanned
+            duration: Scan duration in seconds
+            scanned_files: Number of files scanned
+            scanned_dirs: Number of directories scanned
+            infected_count: Number of infections found
+            threat_details: List of threat details (dicts with file_path, threat_name)
+            error_message: Error message if status is error
+            stdout: Raw stdout from scan command
+            suffix: Optional suffix for summary (e.g., "(daemon)")
+            scheduled: Whether this was a scheduled scan
+
+        Returns:
+            New LogEntry instance
+        """
+        threat_details = threat_details or []
+
+        # Build summary based on status
+        suffix_str = f" {suffix}" if suffix else ""
+        if scan_status == "clean":
+            summary = f"Clean scan of {path}{suffix_str}"
+            status = "clean"
+        elif scan_status == "infected":
+            summary = f"Found {infected_count} threat(s) in {path}{suffix_str}"
+            status = "infected"
+        elif scan_status == "cancelled":
+            summary = f"Scan cancelled: {path}"
+            status = "cancelled"
+        else:
+            summary = f"Scan error: {path}"
+            status = "error"
+
+        # Build details string
+        details_parts = []
+        if scanned_files > 0:
+            details_parts.append(f"Scanned: {scanned_files} files, {scanned_dirs} directories")
+        if infected_count > 0:
+            details_parts.append(f"Threats found: {infected_count}")
+            for threat in threat_details:
+                file_path = threat.get("file_path", threat.get("path", "unknown"))
+                threat_name = threat.get("threat_name", threat.get("name", "unknown"))
+                details_parts.append(f"  - {file_path}: {threat_name}")
+        if error_message:
+            details_parts.append(f"Error: {error_message}")
+        details = "\n".join(details_parts) if details_parts else stdout or ""
+
+        return cls.create(
+            log_type="scan",
+            status=status,
+            summary=summary,
+            details=details,
+            path=path,
+            duration=duration,
+            scheduled=scheduled
+        )
+
 
 # Common locations for clamd log files
 CLAMD_LOG_PATHS = [

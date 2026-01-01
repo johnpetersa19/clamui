@@ -614,40 +614,31 @@ class Scanner:
             result: The scan result
             duration: Scan duration in seconds
         """
-        # Build summary and details from scan result
-        if result.status == ScanStatus.CLEAN:
-            summary = f"Clean scan of {result.path}"
-            status = "clean"
-        elif result.status == ScanStatus.INFECTED:
-            summary = f"Found {result.infected_count} threat(s) in {result.path}"
-            status = "infected"
-        elif result.status == ScanStatus.CANCELLED:
-            summary = f"Scan cancelled: {result.path}"
-            status = "cancelled"
-        else:
-            summary = f"Scan error: {result.path}"
-            status = "error"
+        # Map ScanStatus to string
+        status_map = {
+            ScanStatus.CLEAN: "clean",
+            ScanStatus.INFECTED: "infected",
+            ScanStatus.CANCELLED: "cancelled",
+            ScanStatus.ERROR: "error",
+        }
+        scan_status = status_map.get(result.status, "error")
 
-        # Build details string with scan output info
-        details_parts = []
-        if result.scanned_files > 0:
-            details_parts.append(f"Scanned: {result.scanned_files} files, {result.scanned_dirs} directories")
-        if result.infected_count > 0:
-            details_parts.append(f"Threats found: {result.infected_count}")
-            for threat in result.threat_details:
-                details_parts.append(f"  - {threat.file_path}: {threat.threat_name}")
-        if result.error_message:
-            details_parts.append(f"Error: {result.error_message}")
-        details = "\n".join(details_parts) if details_parts else result.stdout or ""
+        # Convert threat details to dicts for the factory method
+        threat_dicts = [
+            {"file_path": t.file_path, "threat_name": t.threat_name}
+            for t in result.threat_details
+        ]
 
-        # Use LogEntry.create() factory method for proper id/timestamp generation
-        entry = LogEntry.create(
-            log_type="scan",
-            status=status,
-            summary=summary,
-            details=details,
+        entry = LogEntry.from_scan_result_data(
+            scan_status=scan_status,
             path=result.path,
             duration=duration,
+            scanned_files=result.scanned_files,
+            scanned_dirs=result.scanned_dirs,
+            infected_count=result.infected_count,
+            threat_details=threat_dicts,
+            error_message=result.error_message,
+            stdout=result.stdout,
             scheduled=False
         )
         self._log_manager.save_log(entry)
