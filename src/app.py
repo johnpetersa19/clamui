@@ -1,6 +1,30 @@
 # ClamUI Application
 """
 Main Adwaita Application class for ClamUI.
+
+This module defines the ClamUIApp class, which is the central GTK4/Adwaita
+application that manages the complete lifecycle of the ClamUI antivirus GUI.
+
+Key Responsibilities:
+    - Application lifecycle management (startup, activation, shutdown)
+    - View management and navigation between different UI panels
+    - System tray integration via TrayManager subprocess
+    - Profile management integration for scan configurations
+    - Settings and notification management coordination
+    - GTK action setup for keyboard shortcuts and menu actions
+
+The application uses GLib.idle_add for thread-safe UI updates when handling
+callbacks from the tray indicator subprocess, ensuring all GTK operations
+occur on the main thread.
+
+Classes:
+    ClamUIApp: Main Adw.Application subclass managing the application.
+
+Example:
+    from src.app import ClamUIApp
+
+    app = ClamUIApp()
+    exit_code = app.run(sys.argv)
 """
 
 import logging

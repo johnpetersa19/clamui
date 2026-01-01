@@ -277,21 +277,63 @@ clamui /path/to/file1 /path/to/folder
 ```
 clamui/
 ├── src/
-│   ├── __init__.py
-│   ├── main.py              # Application entry point
-│   ├── app.py               # Adw.Application class
-│   ├── ui/
+│   ├── __init__.py           # Package initialization with version
+│   ├── main.py               # Application entry point
+│   ├── app.py                # Adw.Application class (lifecycle, views, tray)
+│   ├── cli/
 │   │   ├── __init__.py
-│   │   ├── window.py        # Main application window
-│   │   └── scan_view.py     # Scan interface component
-│   └── core/
+│   │   └── scheduled_scan.py # CLI for scheduled scans (systemd/cron)
+│   ├── core/                  # Business logic modules
+│   │   ├── __init__.py
+│   │   ├── scanner.py         # ClamAV scanning (sync/async)
+│   │   ├── daemon_scanner.py  # clamd daemon integration
+│   │   ├── scheduler.py       # systemd/cron scheduled scans
+│   │   ├── quarantine/        # Threat quarantine system
+│   │   │   ├── __init__.py
+│   │   │   ├── manager.py     # High-level quarantine operations
+│   │   │   ├── database.py    # SQLite metadata storage
+│   │   │   └── file_handler.py # Secure file operations
+│   │   ├── settings_manager.py    # JSON settings persistence
+│   │   ├── log_manager.py         # Scan history logging
+│   │   ├── notification_manager.py # Desktop notifications
+│   │   ├── battery_manager.py     # Battery status for scheduled scans
+│   │   ├── updater.py             # freshclam database updates
+│   │   ├── clamav_config.py       # ClamAV configuration parsing
+│   │   ├── statistics_calculator.py # Scan statistics
+│   │   └── utils.py               # Utility functions (Flatpak detection, path validation)
+│   ├── profiles/              # Scan profile management
+│   │   ├── __init__.py
+│   │   ├── profile_manager.py # CRUD operations, validation, import/export
+│   │   ├── profile_storage.py # JSON persistence
+│   │   └── models.py          # ScanProfile dataclass
+│   └── ui/                    # GTK4/Adwaita UI components
 │       ├── __init__.py
-│       ├── scanner.py       # ClamAV subprocess integration
-│       └── utils.py         # Utility functions
-├── pyproject.toml
-├── uv.lock
-├── README.md
-└── .gitignore
+│       ├── window.py          # Main application window
+│       ├── scan_view.py       # Scanning interface
+│       ├── update_view.py     # Database update view
+│       ├── logs_view.py       # Scan history
+│       ├── quarantine_view.py # Quarantine management
+│       ├── statistics_view.py # Statistics dashboard
+│       ├── components_view.py # ClamAV components status
+│       ├── preferences_window.py / preferences_dialog.py
+│       ├── profile_dialogs.py # Profile create/edit dialogs
+│       ├── tray_manager.py    # System tray subprocess manager
+│       ├── tray_indicator.py  # GTK3 tray subprocess
+│       └── fullscreen_dialog.py
+├── tests/                     # Test suite (mirrors src structure)
+│   ├── conftest.py            # Shared fixtures, GTK mocking
+│   ├── core/                  # Core module tests
+│   ├── ui/                    # UI component tests
+│   ├── profiles/              # Profile tests
+│   ├── integration/           # Integration tests
+│   └── e2e/                   # End-to-end tests
+├── scripts/
+│   └── clamui-scheduled-scan  # Scheduled scan CLI wrapper
+├── debian/                    # Debian packaging
+├── icons/                     # Application icons
+├── .github/workflows/         # CI: test.yml, lint.yml, build-*.yml
+├── pyproject.toml             # Project config, dependencies, tool settings
+└── install.sh                 # Installation script
 ```
 
 ## Usage
@@ -368,14 +410,14 @@ pytest --cov=src --cov-report=term-missing --cov-report=html
 
 #### Coverage Requirements
 
-The project enforces a minimum of **80% code coverage** for the `src/` directory. Coverage is measured with branch coverage enabled. The coverage configuration is defined in `pyproject.toml` and will fail the test run if coverage drops below the threshold.
+The project enforces a minimum of **50% code coverage** for the `src/` directory, with a target of **80%+** for comprehensive coverage. Coverage is measured with branch coverage enabled. The coverage configuration is defined in `pyproject.toml` and will fail the test run if coverage drops below the threshold.
 
 | Module | Coverage Target |
 |--------|----------------|
-| `src/core/` | 85%+ (critical business logic) |
+| `src/core/` | 80%+ (critical business logic) |
 | `src/profiles/` | 80%+ (profile management) |
 | `src/ui/` | 70%+ (GTK components, some lines untestable) |
-| Overall `src/` | 80%+ |
+| Overall `src/` | 50% minimum, 80% target |
 
 #### Performance Verification
 
@@ -406,21 +448,46 @@ Tests are organized to mirror the source code structure:
 
 ```
 tests/
-├── core/                  # Tests for src/core/ modules
+├── conftest.py                 # Shared fixtures, GTK mocking
+├── core/                       # Tests for src/core/ modules
+│   ├── test_battery_manager.py
+│   ├── test_clamav_config.py
+│   ├── test_daemon_scanner.py
 │   ├── test_log_manager.py
+│   ├── test_notification_manager.py
+│   ├── test_quarantine_database.py
 │   ├── test_quarantine_manager.py
+│   ├── test_scheduler.py
 │   ├── test_settings_manager.py
 │   └── test_utils.py
-├── profiles/              # Tests for src/profiles/ modules
+├── profiles/                   # Tests for src/profiles/ modules
+│   ├── test_models.py
 │   ├── test_profile_manager.py
 │   └── test_profile_storage.py
-├── ui/                    # Tests for src/ui/ components
+├── ui/                         # Tests for src/ui/ components
 │   ├── test_fullscreen_dialog.py
 │   ├── test_logs_view.py
 │   ├── test_preferences_window.py
 │   ├── test_profile_dialogs.py
-│   └── test_quarantine_view.py
-└── test_scanner.py        # Scanner integration tests
+│   ├── test_quarantine_view.py
+│   ├── test_scanner_ui.py
+│   ├── test_statistics_view.py
+│   ├── test_tray_indicator.py
+│   └── test_tray_manager.py
+├── integration/                # Integration tests
+│   ├── test_scanner_integration.py
+│   ├── test_scheduled_scan.py
+│   └── test_tray_integration.py
+├── e2e/                        # End-to-end tests
+│   ├── test_profile_lifecycle.py
+│   └── test_scheduled_scan_flow.py
+├── test_app.py                 # Application tests
+├── test_cli.py                 # CLI tests
+├── test_scanner.py             # Scanner tests
+├── test_scan_view.py           # Scan view tests
+├── test_statistics_calculator.py
+├── test_updater.py
+└── test_quarantine_integration.py
 ```
 
 #### Writing New Tests
