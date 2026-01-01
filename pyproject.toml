@@ -103,7 +103,6 @@ markers = [
     "slow: marks tests as slow running",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning",
 ]
 addopts = "-v --tb=short"
 
