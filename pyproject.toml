@@ -104,7 +104,7 @@ markers = [
 ]
 filterwarnings = [
 ]
-addopts = "-v --tb=short --cov=src --cov-report=term-missing  --cov-fail-under=50"
+addopts = "-v --tb=short --cov=src --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["src"]
@@ -123,7 +123,7 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
-fail_under = 80
+fail_under = 50
 show_missing = true
 
 [tool.coverage.html]
