@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Generator, Optional
 
+from .connection_pool import ConnectionPool
+
 
 @dataclass
 class QuarantineEntry:
@@ -61,12 +63,14 @@ class QuarantineDatabase:
     quarantine entries with thread-safe operations.
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: Optional[str] = None, pool_size: int = 3):
         """
         Initialize the QuarantineDatabase.
 
         Args:
             db_path: Optional custom database path. Defaults to XDG_DATA_HOME/clamui/quarantine.db
+            pool_size: Size of the connection pool. Set to 0 to disable pooling and use
+                      per-operation connections. Default is 3 for optimal performance.
         """
         if db_path:
             self._db_path = Path(db_path)
@@ -76,6 +80,14 @@ class QuarantineDatabase:
 
         # Thread lock for safe concurrent access
         self._lock = threading.Lock()
+
+        # Initialize connection pool if enabled
+        if pool_size > 0:
+            self._pool: Optional[ConnectionPool] = ConnectionPool(
+                str(self._db_path), pool_size=pool_size
+            )
+        else:
+            self._pool = None
 
         # Ensure parent directory exists
         self._ensure_db_dir()
