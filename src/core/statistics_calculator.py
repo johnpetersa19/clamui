@@ -5,6 +5,8 @@ Calculates metrics across different timeframes from stored scan logs.
 """
 
 import re
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -121,6 +123,9 @@ class StatisticsCalculator:
     DEFINITION_WARNING_THRESHOLD_HOURS = 24  # 1 day
     DEFINITION_CRITICAL_THRESHOLD_HOURS = 24 * 7  # 7 days
 
+    # Cache TTL in seconds
+    CACHE_TTL_SECONDS = 30
+
     def __init__(self, log_manager: Optional[LogManager] = None):
         """
         Initialize the StatisticsCalculator.
@@ -129,6 +134,64 @@ class StatisticsCalculator:
             log_manager: Optional LogManager instance. Creates a new one if not provided.
         """
         self._log_manager = log_manager if log_manager else LogManager()
+
+        # Cache for log data to prevent redundant disk I/O
+        self._cache: dict = {}
+        self._cache_timestamp: Optional[float] = None
+
+        # Thread lock for safe concurrent access
+        self._lock = threading.Lock()
+
+    def _get_cached_logs(self, limit: int, log_type: str) -> list[LogEntry]:
+        """
+        Get logs from cache if fresh, otherwise fetch from log_manager.
+
+        Thread-safe method that checks cache validity based on TTL.
+        If cache is stale or doesn't exist, fetches fresh data from
+        log_manager, updates cache, and returns the data.
+
+        Args:
+            limit: Maximum number of logs to retrieve
+            log_type: Type of logs to retrieve (e.g., 'scan')
+
+        Returns:
+            List of LogEntry objects
+        """
+        with self._lock:
+            cache_key = (limit, log_type)
+            current_time = time.time()
+
+            # Check if cache exists and is fresh
+            if (
+                cache_key in self._cache
+                and self._cache_timestamp is not None
+                and (current_time - self._cache_timestamp) < self.CACHE_TTL_SECONDS
+            ):
+                # Return cached data
+                return self._cache[cache_key]
+
+            # Fetch fresh data from log_manager
+            logs = self._log_manager.get_logs(limit=limit, log_type=log_type)
+
+            # Update cache
+            self._cache[cache_key] = logs
+            self._cache_timestamp = current_time
+
+            return logs
+
+    def invalidate_cache(self) -> None:
+        """
+        Invalidate the cache, forcing fresh data on the next fetch.
+
+        This method clears all cached log data and resets the cache timestamp.
+        Useful for testing or when new logs are written and fresh data is needed
+        immediately without waiting for TTL expiration.
+
+        Thread-safe operation using internal lock.
+        """
+        with self._lock:
+            self._cache.clear()
+            self._cache_timestamp = None
 
     def _get_timeframe_range(self, timeframe: str) -> tuple[datetime, datetime]:
         """
@@ -267,7 +330,7 @@ class StatisticsCalculator:
             ScanStatistics dataclass with aggregated metrics
         """
         # Get all scan logs (filter by type="scan")
-        all_entries = self._log_manager.get_logs(limit=10000, log_type="scan")
+        all_entries = self._get_cached_logs(limit=10000, log_type="scan")
 
         # Filter by timeframe
         entries = self._filter_entries_by_timeframe(all_entries, timeframe)
@@ -438,47 +501,55 @@ class StatisticsCalculator:
             data_points: Number of data points to return
 
         Returns:
-            List of dicts with 'date', 'scans', 'threats' keys
+            List of dictionaries with timestamp and scan metrics
         """
-        start_date, end_date = self._get_timeframe_range(timeframe)
+        all_entries = self._get_cached_logs(limit=10000, log_type="scan")
+        entries = self._filter_entries_by_timeframe(all_entries, timeframe)
 
-        # Calculate interval based on timeframe and data points
-        total_duration = end_date - start_date
-        interval = total_duration / data_points
+        if not entries:
+            return []
 
-        # Get all scan logs
-        all_entries = self._log_manager.get_logs(limit=10000, log_type="scan")
-        filtered_entries = self._filter_entries_by_timeframe(all_entries, timeframe)
+        # Group by time intervals
+        now = datetime.now()
+        trend_data: dict[str, dict] = {}
 
-        # Build data points
-        trend_data = []
-        for i in range(data_points):
-            point_start = start_date + (interval * i)
-            point_end = start_date + (interval * (i + 1))
+        for entry in entries:
+            entry_time = self._parse_timestamp(entry.timestamp)
+            if not entry_time:
+                continue
 
-            scans = 0
-            threats = 0
+            # Create bucket key based on timeframe
+            if timeframe == Timeframe.DAILY.value:
+                bucket_key = entry_time.strftime("%Y-%m-%d %H:00")
+            elif timeframe == Timeframe.WEEKLY.value:
+                bucket_key = entry_time.strftime("%Y-W%U")
+            elif timeframe == Timeframe.MONTHLY.value:
+                bucket_key = entry_time.strftime("%Y-%m")
+            else:
+                bucket_key = entry_time.strftime("%Y-%m-%d")
 
-            for entry in filtered_entries:
-                entry_time = self._parse_timestamp(entry.timestamp)
-                if entry_time and point_start <= entry_time < point_end:
-                    scans += 1
-                    threats += self._extract_threats_found(entry)
+            if bucket_key not in trend_data:
+                trend_data[bucket_key] = {
+                    "timestamp": bucket_key,
+                    "scans": 0,
+                    "threats": 0,
+                    "clean": 0,
+                    "infected": 0,
+                }
 
-            trend_data.append({
-                "date": point_start.isoformat(),
-                "scans": scans,
-                "threats": threats,
-            })
+            trend_data[bucket_key]["scans"] += 1
+            trend_data[bucket_key]["threats"] += self._extract_threats_found(entry)
 
-        return trend_data
+            if entry.status == "clean":
+                trend_data[bucket_key]["clean"] += 1
+            elif entry.status == "infected":
+                trend_data[bucket_key]["infected"] += 1
 
-    def has_scan_history(self) -> bool:
-        """
-        Check if any scan history exists.
+        # Convert to sorted list and limit data points
+        sorted_trend = sorted(trend_data.values(), key=lambda x: x["timestamp"])
 
-        Returns:
-            True if at least one scan log exists, False otherwise
-        """
-        logs = self._log_manager.get_logs(limit=1, log_type="scan")
-        return len(logs) > 0
+        # Return only the most recent data_points
+        if len(sorted_trend) > data_points:
+            sorted_trend = sorted_trend[-data_points:]
+
+        return sorted_trend
