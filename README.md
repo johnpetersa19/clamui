@@ -86,6 +86,7 @@ clamui /path/to/file1 /path/to/folder
 
 | Document | Description |
 |----------|-------------|
+| [User Guide](./docs/USER_GUIDE.md) | Complete guide to using ClamUI features |
 | [Installation Guide](./docs/INSTALL.md) | Flatpak, .deb, context menu, and tray setup |
 | [Development Guide](./docs/DEVELOPMENT.md) | Dev environment, testing, and contributing |
 | [Debian Packaging](./DEBIAN_PACKAGING.md) | Building .deb packages |
