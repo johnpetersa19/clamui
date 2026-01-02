@@ -112,3 +112,36 @@ class ConnectionPool:
                 else:
                     # Pool is exhausted and we're at max size - re-raise the timeout exception
                     raise
+
+    def release(self, conn: sqlite3.Connection) -> None:
+        """
+        Release a connection back to the pool.
+
+        Validates the connection is still usable before returning it to the pool.
+        Invalid connections are closed and discarded instead of being returned.
+
+        Args:
+            conn: The connection to release back to the pool
+
+        Raises:
+            RuntimeError: If the pool has been closed
+        """
+        # Check if pool is closed
+        if self._closed:
+            # Pool is closed - just close the connection
+            conn.close()
+            return
+
+        # Validate connection health before returning to pool
+        try:
+            # Execute a simple query to verify connection is usable
+            conn.execute("SELECT 1")
+            # Connection is valid - return to pool
+            self._pool.put(conn, block=False)
+        except (sqlite3.Error, queue.Full):
+            # Connection is invalid or pool is full - close and discard
+            # This handles: database locked, connection closed, or pool overflow
+            conn.close()
+            # Decrement total connections count since we're discarding this one
+            with self._lock:
+                self._total_connections -= 1
