@@ -772,3 +772,406 @@ class TestLogManagerThreadSafety:
         # Verify all entries were saved
         logs = log_manager.get_logs(limit=100)
         assert len(logs) == 20
+
+
+class TestLogManagerIndexInfrastructure:
+    """Tests for index infrastructure in LogManager."""
+
+    @pytest.fixture
+    def temp_log_dir(self):
+        """Create a temporary directory for log storage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def log_manager(self, temp_log_dir):
+        """Create a LogManager with a temporary directory."""
+        return LogManager(log_dir=temp_log_dir)
+
+    def test_load_index_empty_state(self, log_manager):
+        """Test _load_index returns empty structure when no index file exists."""
+        index = log_manager._load_index()
+        assert isinstance(index, dict)
+        assert index["version"] == 1
+        assert index["entries"] == []
+
+    def test_load_index_valid_index(self, log_manager, temp_log_dir):
+        """Test _load_index successfully loads a valid index file."""
+        # Create a valid index file
+        index_data = {
+            "version": 1,
+            "entries": [
+                {"id": "test-id-1", "timestamp": "2024-01-01T10:00:00", "type": "scan"},
+                {"id": "test-id-2", "timestamp": "2024-01-02T10:00:00", "type": "update"},
+            ]
+        }
+        index_path = Path(temp_log_dir) / "log_index.json"
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump(index_data, f)
+
+        # Load the index
+        loaded = log_manager._load_index()
+        assert loaded["version"] == 1
+        assert len(loaded["entries"]) == 2
+        assert loaded["entries"][0]["id"] == "test-id-1"
+        assert loaded["entries"][1]["id"] == "test-id-2"
+
+    def test_load_index_corrupted_json(self, log_manager, temp_log_dir):
+        """Test _load_index handles corrupted JSON gracefully."""
+        # Create a corrupted index file
+        index_path = Path(temp_log_dir) / "log_index.json"
+        with open(index_path, "w", encoding="utf-8") as f:
+            f.write("{ this is not valid json }")
+
+        # Should return empty structure instead of crashing
+        index = log_manager._load_index()
+        assert index["version"] == 1
+        assert index["entries"] == []
+
+    def test_load_index_invalid_structure(self, log_manager, temp_log_dir):
+        """Test _load_index handles invalid structure gracefully."""
+        # Create index with wrong structure (missing required keys)
+        index_path = Path(temp_log_dir) / "log_index.json"
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump({"invalid": "structure"}, f)
+
+        # Should return empty structure
+        index = log_manager._load_index()
+        assert index["version"] == 1
+        assert index["entries"] == []
+
+    def test_load_index_permission_error(self, log_manager, temp_log_dir):
+        """Test _load_index handles permission errors gracefully."""
+        # Create a valid index file
+        index_path = Path(temp_log_dir) / "log_index.json"
+        index_data = {"version": 1, "entries": []}
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump(index_data, f)
+
+        # Mock open to raise PermissionError
+        with mock.patch("builtins.open", side_effect=PermissionError("Permission denied")):
+            index = log_manager._load_index()
+            assert index["version"] == 1
+            assert index["entries"] == []
+
+    def test_save_index_success(self, log_manager, temp_log_dir):
+        """Test _save_index successfully saves index to file."""
+        index_data = {
+            "version": 1,
+            "entries": [
+                {"id": "test-id-1", "timestamp": "2024-01-01T10:00:00", "type": "scan"},
+            ]
+        }
+
+        result = log_manager._save_index(index_data)
+        assert result is True
+
+        # Verify file was created
+        index_path = Path(temp_log_dir) / "log_index.json"
+        assert index_path.exists()
+
+        # Verify content
+        with open(index_path, "r", encoding="utf-8") as f:
+            saved_data = json.load(f)
+        assert saved_data["version"] == 1
+        assert len(saved_data["entries"]) == 1
+        assert saved_data["entries"][0]["id"] == "test-id-1"
+
+    def test_save_index_atomic_write(self, log_manager, temp_log_dir):
+        """Test _save_index uses atomic write pattern."""
+        index_data = {"version": 1, "entries": []}
+
+        # Save initial data
+        log_manager._save_index(index_data)
+
+        # Save again with different data
+        new_data = {
+            "version": 1,
+            "entries": [
+                {"id": "new-id", "timestamp": "2024-01-01T10:00:00", "type": "scan"},
+            ]
+        }
+        result = log_manager._save_index(new_data)
+        assert result is True
+
+        # Verify new data was written
+        loaded = log_manager._load_index()
+        assert len(loaded["entries"]) == 1
+        assert loaded["entries"][0]["id"] == "new-id"
+
+    def test_save_index_creates_directory(self, temp_log_dir):
+        """Test _save_index creates parent directory if needed."""
+        # Create manager with non-existent directory
+        log_dir = Path(temp_log_dir) / "subdir" / "logs"
+        manager = LogManager(log_dir=str(log_dir))
+
+        # Delete the directory that was created by __init__
+        import shutil
+        shutil.rmtree(log_dir)
+
+        # Save should recreate the directory
+        index_data = {"version": 1, "entries": []}
+        result = manager._save_index(index_data)
+        assert result is True
+        assert log_dir.exists()
+
+    def test_save_index_permission_error(self, log_manager):
+        """Test _save_index handles permission errors gracefully."""
+        index_data = {"version": 1, "entries": []}
+
+        # Mock tempfile.mkstemp to raise PermissionError
+        with mock.patch("tempfile.mkstemp", side_effect=PermissionError("Permission denied")):
+            result = log_manager._save_index(index_data)
+            assert result is False
+
+    def test_save_index_cleanup_on_failure(self, log_manager, temp_log_dir):
+        """Test _save_index cleans up temp file on failure."""
+        index_data = {"version": 1, "entries": []}
+
+        # Track created temp files
+        temp_files = []
+        original_mkstemp = tempfile.mkstemp
+
+        def track_mkstemp(*args, **kwargs):
+            fd, path = original_mkstemp(*args, **kwargs)
+            temp_files.append(path)
+            return fd, path
+
+        # Mock Path.replace to fail after temp file is created
+        with mock.patch("tempfile.mkstemp", side_effect=track_mkstemp):
+            with mock.patch("pathlib.Path.replace", side_effect=OSError("Simulated failure")):
+                result = log_manager._save_index(index_data)
+                assert result is False
+
+                # Verify temp file was cleaned up
+                if temp_files:
+                    assert not Path(temp_files[0]).exists()
+
+    def test_rebuild_index_empty_directory(self, log_manager, temp_log_dir):
+        """Test rebuild_index creates empty index when no logs exist."""
+        result = log_manager.rebuild_index()
+        assert result is True
+
+        # Verify index was created with empty entries
+        index = log_manager._load_index()
+        assert index["version"] == 1
+        assert index["entries"] == []
+
+    def test_rebuild_index_with_valid_logs(self, log_manager):
+        """Test rebuild_index creates index from existing log files."""
+        # Create some log entries
+        entry1 = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Test scan 1",
+            details="Details 1",
+        )
+        entry2 = LogEntry.create(
+            log_type="update",
+            status="success",
+            summary="Test update 1",
+            details="Details 2",
+        )
+        log_manager.save_log(entry1)
+        log_manager.save_log(entry2)
+
+        # Rebuild the index
+        result = log_manager.rebuild_index()
+        assert result is True
+
+        # Verify index contains both entries
+        index = log_manager._load_index()
+        assert len(index["entries"]) == 2
+
+        # Verify entries contain correct metadata
+        ids = {entry["id"] for entry in index["entries"]}
+        assert entry1.id in ids
+        assert entry2.id in ids
+
+        types = {entry["type"] for entry in index["entries"]}
+        assert "scan" in types
+        assert "update" in types
+
+    def test_rebuild_index_skips_corrupted_files(self, log_manager, temp_log_dir):
+        """Test rebuild_index skips corrupted log files."""
+        # Create a valid log entry
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Valid entry",
+            details="Details",
+        )
+        log_manager.save_log(entry)
+
+        # Create a corrupted log file
+        corrupted_path = Path(temp_log_dir) / "corrupted.json"
+        with open(corrupted_path, "w", encoding="utf-8") as f:
+            f.write("{ invalid json }")
+
+        # Rebuild should succeed and include only the valid entry
+        result = log_manager.rebuild_index()
+        assert result is True
+
+        index = log_manager._load_index()
+        assert len(index["entries"]) == 1
+        assert index["entries"][0]["id"] == entry.id
+
+    def test_rebuild_index_skips_index_file(self, log_manager, temp_log_dir):
+        """Test rebuild_index doesn't process the index file itself."""
+        # Create an old index file
+        old_index = {
+            "version": 1,
+            "entries": [
+                {"id": "old-id", "timestamp": "2024-01-01T10:00:00", "type": "scan"},
+            ]
+        }
+        index_path = Path(temp_log_dir) / "log_index.json"
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump(old_index, f)
+
+        # Create a real log entry
+        entry = LogEntry.create(
+            log_type="update",
+            status="success",
+            summary="Real entry",
+            details="Details",
+        )
+        log_manager.save_log(entry)
+
+        # Rebuild should create new index with only the real log entry
+        result = log_manager.rebuild_index()
+        assert result is True
+
+        index = log_manager._load_index()
+        assert len(index["entries"]) == 1
+        assert index["entries"][0]["id"] == entry.id
+        assert index["entries"][0]["type"] == "update"
+
+    def test_rebuild_index_handles_missing_fields(self, log_manager, temp_log_dir):
+        """Test rebuild_index skips entries with missing required fields."""
+        # Create log file with missing timestamp
+        incomplete_log = {
+            "id": "test-id",
+            "type": "scan",
+            # Missing timestamp
+            "status": "clean",
+            "summary": "Test",
+            "details": "Test",
+        }
+        incomplete_path = Path(temp_log_dir) / "incomplete.json"
+        with open(incomplete_path, "w", encoding="utf-8") as f:
+            json.dump(incomplete_log, f)
+
+        # Create a complete log entry
+        complete_entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Complete entry",
+            details="Details",
+        )
+        log_manager.save_log(complete_entry)
+
+        # Rebuild should skip incomplete entry
+        result = log_manager.rebuild_index()
+        assert result is True
+
+        index = log_manager._load_index()
+        assert len(index["entries"]) == 1
+        assert index["entries"][0]["id"] == complete_entry.id
+
+    def test_rebuild_index_nonexistent_directory(self, temp_log_dir):
+        """Test rebuild_index handles non-existent directory gracefully."""
+        # Create manager with directory, then remove it
+        log_dir = Path(temp_log_dir) / "nonexistent"
+        manager = LogManager(log_dir=str(log_dir))
+
+        # Delete the directory
+        import shutil
+        shutil.rmtree(log_dir)
+
+        # Rebuild should create empty index
+        result = manager.rebuild_index()
+        assert result is True
+
+        # Verify empty index was created
+        index = manager._load_index()
+        assert index["version"] == 1
+        assert index["entries"] == []
+
+    def test_rebuild_index_after_corruption(self, log_manager, temp_log_dir):
+        """Test rebuild_index can recover from corrupted index file."""
+        # Create valid log entries
+        entry1 = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Entry 1",
+            details="Details 1",
+        )
+        entry2 = LogEntry.create(
+            log_type="update",
+            status="success",
+            summary="Entry 2",
+            details="Details 2",
+        )
+        log_manager.save_log(entry1)
+        log_manager.save_log(entry2)
+
+        # Corrupt the index file
+        index_path = Path(temp_log_dir) / "log_index.json"
+        with open(index_path, "w", encoding="utf-8") as f:
+            f.write("{ corrupted json data }")
+
+        # Verify index is corrupted
+        corrupted_index = log_manager._load_index()
+        assert corrupted_index["entries"] == []
+
+        # Rebuild should recover
+        result = log_manager.rebuild_index()
+        assert result is True
+
+        # Verify index now contains both entries
+        recovered_index = log_manager._load_index()
+        assert len(recovered_index["entries"]) == 2
+
+    def test_rebuild_index_thread_safety(self, log_manager):
+        """Test rebuild_index is thread-safe."""
+        # Create some log entries
+        for i in range(5):
+            entry = LogEntry.create(
+                log_type="scan",
+                status="clean",
+                summary=f"Entry {i}",
+                details="Details",
+            )
+            log_manager.save_log(entry)
+
+        # Rebuild index from multiple threads
+        errors = []
+        results = []
+
+        def rebuild():
+            try:
+                result = log_manager.rebuild_index()
+                results.append(result)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = []
+        for i in range(5):
+            t = threading.Thread(target=rebuild)
+            threads.append(t)
+
+        for t in threads:
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        # Verify no errors occurred
+        assert len(errors) == 0
+        # All rebuilds should succeed
+        assert all(results)
+
+        # Verify final index is valid
+        index = log_manager._load_index()
+        assert len(index["entries"]) == 5
