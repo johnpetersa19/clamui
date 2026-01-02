@@ -83,7 +83,7 @@ Auto mode implements a two-stage detection process that runs **at the start of e
 **Disadvantages**:
 - ⚠️ **No manual control**: Cannot force specific backend - selection is always automatic
 - ⚠️ **Variable performance**: Scan startup time may vary (instant vs 3-10 sec) if daemon availability changes
-- ⚠️ **Detection overhead**: Adds ~50-100ms overhead per scan for daemon availability check
+- ⚠️ **Detection overhead**: Adds approximately 50-100ms overhead per scan for daemon availability check (negligible for typical scans)
 - ⚠️ **Potential confusion**: Users may wonder why scan speed varies between runs if daemon starts/stops
 - ⚠️ **Not optimal for guaranteed performance**: If you need consistent predictable scan times, choose explicit backend
 
@@ -123,7 +123,7 @@ if backend == "auto":
 **Performance Characteristics**:
 - **When daemon available**: Matches daemon backend performance (instant startup + scan time)
 - **When daemon unavailable**: Matches clamscan backend performance (3-10 sec startup + scan time)
-- **Detection overhead**: ~50-100ms for daemon connectivity check (negligible compared to scan time)
+- **Detection overhead**: Typically 50-100ms for daemon connectivity check (negligible compared to scan time)
 - **No caching**: Detection runs fresh for each scan to ensure accuracy
 
 ---
@@ -621,15 +621,15 @@ ClamUI interprets these codes consistently across all backends.
 
 **Clamscan Backend** executes commands like:
 ```bash
-clamscan --recursive --infected --no-summary /path/to/scan
+clamscan --recursive --infected /path/to/scan
 ```
 
 **Daemon Backend** executes commands like:
 ```bash
-clamdscan --multiscan --infected --no-summary /path/to/scan
+clamdscan --multiscan --fdpass --infected /path/to/scan
 ```
 
-Note the different command names and options available.
+Note the different command names and options available. The daemon backend uses `--multiscan` for parallel scanning and `--fdpass` for file descriptor passing to improve performance.
 
 ### Exclusion Patterns
 
@@ -637,14 +637,12 @@ Both backends support exclusion patterns configured in ClamUI preferences. ClamU
 
 ### Daemon Socket Locations
 
-Clamd socket location varies by distribution:
+Clamd socket location varies by distribution. ClamUI automatically detects the socket by checking these locations in order:
 
-- Ubuntu/Debian: `/var/run/clamav/clamd.ctl`
-- Fedora: `/var/run/clamd.scan/clamd.sock`
-- Arch: `/var/lib/clamav/clamd.socket`
-- Custom: Check `/etc/clamav/clamd.conf` for `LocalSocket` setting
-
-ClamUI automatically detects the socket location using ClamAV's configuration.
+- `/var/run/clamav/clamd.ctl` (Ubuntu/Debian default)
+- `/run/clamav/clamd.ctl` (Alternative Ubuntu/Debian location)
+- `/var/run/clamd.scan/clamd.sock` (Fedora default)
+- Custom: Check `/etc/clamav/clamd.conf` for `LocalSocket` setting if none of the above work
 
 ---
 
