@@ -683,29 +683,29 @@ class ScanView(Gtk.Box):
         if self._on_scan_state_changed:
             self._on_scan_state_changed(True)
 
-        # Start async scan
-        GLib.idle_add(self._run_scan, path)
+        # Get profile exclusions if a profile is selected
+        profile_exclusions = None
+        if self._selected_profile and self._selected_profile.exclusions:
+            profile_exclusions = self._selected_profile.exclusions
 
-    def _run_scan(self, path: str):
+        # Start async scan in background thread (does NOT block UI)
+        logger.info(f"Starting scan of: {path}")
+        self._scanner.scan_async(
+            path,
+            callback=self._on_scan_complete,
+            profile_exclusions=profile_exclusions
+        )
+
+    def _on_scan_complete(self, result: ScanResult):
         """
-        Run the scan operation.
+        Handle scan completion.
 
-        Performs the actual scan and updates results display.
+        Called on main thread via GLib.idle_add when async scan completes.
 
         Args:
-            path: The path to scan
-
-        Returns:
-            False to prevent GLib.idle_add from repeating
+            result: The ScanResult from the scanner
         """
         try:
-            logger.info(f"Starting scan of: {path}")
-            # Get profile exclusions if a profile is selected
-            profile_exclusions = None
-            if self._selected_profile and self._selected_profile.exclusions:
-                profile_exclusions = self._selected_profile.exclusions
-            result = self._scanner.scan_sync(path, profile_exclusions=profile_exclusions)
-
             # Process scan results
             self._display_scan_results(result)
 
@@ -740,9 +740,7 @@ class ScanView(Gtk.Box):
 
             # Update tray if callback is set
             if self._on_scan_state_changed:
-                self._on_scan_state_changed(False)
-
-        return False
+                self._on_scan_state_changed(False, result)
 
     def _create_results_section(self):
         """Create the results display section."""

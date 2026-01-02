@@ -478,15 +478,15 @@ class TestScanInitiationUI:
             mock_scan_view, mock_scan_view.__class__
         )
 
-        # Mock GLib.idle_add
-        with mock.patch.object(mock_gi_modules['glib'], 'idle_add') as mock_idle_add:
-            mock_scan_view._start_scan(test_path)
+        # Mock the scanner's scan_async method
+        mock_scan_view._scanner = mock.MagicMock()
+        mock_scan_view._start_scan(test_path)
 
-            # Verify GLib.idle_add was called with _run_scan and path
-            mock_idle_add.assert_called_once()
-            call_args = mock_idle_add.call_args[0]
-            assert call_args[0] == mock_scan_view._run_scan
-            assert call_args[1] == test_path
+        # Verify scan_async was called with path and callback
+        mock_scan_view._scanner.scan_async.assert_called_once()
+        call_kwargs = mock_scan_view._scanner.scan_async.call_args
+        assert call_kwargs[0][0] == test_path  # path argument
+        assert call_kwargs[1]['callback'] == mock_scan_view._on_scan_complete
 
 
 # Module-level test function for scan initiation verification
@@ -501,7 +501,7 @@ def test_scan_initiation_ui(scan_view_class):
     # Verify the class has scan initiation methods
     assert hasattr(scan_view_class, '_on_scan_clicked')
     assert hasattr(scan_view_class, '_start_scan')
-    assert hasattr(scan_view_class, '_run_scan')
+    assert hasattr(scan_view_class, '_on_scan_complete')
     assert hasattr(scan_view_class, 'set_scan_state_changed_callback')
 
 
@@ -571,6 +571,6 @@ def test_results_display_ui(scan_view_class):
     """
     # Verify the class has results display methods
     assert hasattr(scan_view_class, '_display_scan_results')
-    assert hasattr(scan_view_class, '_run_scan')
+    assert hasattr(scan_view_class, '_on_scan_complete')
     assert hasattr(scan_view_class, '_create_results_section')
     assert hasattr(scan_view_class, 'get_scan_results_text')
