@@ -26,6 +26,8 @@ class ConnectionPool:
         _pool_size: Maximum number of connections in the pool
         _pool: Queue storing available connections
         _lock: Thread lock for thread-safe operations
+        _total_connections: Total number of connections created
+        _closed: Flag indicating if the pool has been closed
     """
 
     def __init__(self, db_path: str, pool_size: int = 5):
@@ -46,6 +48,8 @@ class ConnectionPool:
         self._pool_size = pool_size
         self._pool: queue.Queue = queue.Queue(maxsize=pool_size)
         self._lock = threading.Lock()
+        self._total_connections = 0  # Track total connections created
+        self._closed = False  # Track if pool has been closed
 
     def _create_connection(self) -> sqlite3.Connection:
         """
@@ -71,3 +75,40 @@ class ConnectionPool:
             # Close connection on configuration failure
             conn.close()
             raise
+
+    def acquire(self, timeout: Optional[float] = None) -> sqlite3.Connection:
+        """
+        Acquire a connection from the pool.
+
+        Returns a connection from the pool if available, or creates a new one
+        if the pool is empty and the maximum pool size has not been reached.
+
+        Args:
+            timeout: Maximum time in seconds to wait for a connection.
+                    None means wait indefinitely (default).
+
+        Returns:
+            A configured SQLite connection
+
+        Raises:
+            queue.Empty: If timeout expires while waiting for a connection
+            RuntimeError: If the pool has been closed
+        """
+        # Check if pool is closed
+        if self._closed:
+            raise RuntimeError("Connection pool has been closed")
+
+        try:
+            # Try to get an existing connection from the pool
+            return self._pool.get(block=True, timeout=timeout)
+        except queue.Empty:
+            # Pool is empty - try to create a new connection if we're below max size
+            with self._lock:
+                if self._total_connections < self._pool_size:
+                    # We can create a new connection
+                    conn = self._create_connection()
+                    self._total_connections += 1
+                    return conn
+                else:
+                    # Pool is exhausted and we're at max size - re-raise the timeout exception
+                    raise
