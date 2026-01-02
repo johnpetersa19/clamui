@@ -77,30 +77,41 @@ You can change the scan backend in **Preferences → General Settings → Scan B
 **Description**: Uses the ClamAV daemon (clamd) exclusively for all scanning operations.
 
 **How It Works**:
-- Communicates with the clamd background service via `clamdscan`
-- The daemon keeps the entire virus database loaded in memory
-- Each scan reuses the pre-loaded database without reload time
-- Supports advanced features like parallel scanning and file descriptor passing
+- Communicates with the clamd background service via `clamdscan` command
+- The daemon runs continuously as a system service (systemd or init.d)
+- Keeps the entire virus database loaded in memory at all times for instant access
+- Each scan reuses the pre-loaded database without any reload time
+- Supports advanced features like parallel scanning (`--multiscan`) and file descriptor passing (`--fdpass`)
+- Daemon automatically reloads database when freshclam updates signatures
 
 **Advantages**:
-- ✅ **Much faster scan startup**: Database already loaded in memory
-- ✅ **Better performance for frequent scans**: No database reload between scans
-- ✅ **Parallel scanning support**: Can scan multiple files simultaneously with --multiscan
-- ✅ **Lower per-scan overhead**: Daemon process stays resident
-- ✅ **Advanced optimizations**: Supports --fdpass for improved performance on large files
+- ✅ **Instant scan startup**: Database is already loaded in memory, eliminating 3-10 second load time
+- ✅ **Superior performance for frequent scans**: No database reload between consecutive scans
+- ✅ **Parallel scanning support**: Can scan multiple files simultaneously with `--multiscan` flag, utilizing all CPU cores
+- ✅ **Lower per-scan overhead**: Daemon process stays resident, avoiding process creation/teardown costs
+- ✅ **Advanced optimizations**: Supports `--fdpass` for improved performance on large files by passing file descriptors
+- ✅ **Consistent performance**: Predictable scan times without database loading variability
+- ✅ **Ideal for automation**: Perfect for scheduled scans, real-time monitoring, and server deployments
+- ✅ **Efficient for batch operations**: Scanning multiple locations in sequence is much faster
 
 **Disadvantages**:
-- ❌ **Requires clamd to be running**: Scans fail if daemon is not available
-- ❌ **Additional setup required**: Must install and configure clamd service
-- ❌ **Higher baseline memory usage**: Daemon keeps database in RAM (typically 500MB-1GB)
-- ❌ **Service management**: Must ensure daemon starts on boot and stays running
+- ❌ **Requires clamd to be running**: Scans fail completely if daemon is not available or crashes
+- ❌ **Additional setup required**: Must install `clamav-daemon` package and configure systemd service
+- ❌ **Higher baseline memory usage**: Daemon keeps database in RAM constantly (typically 500MB-1GB idle)
+- ❌ **Service management overhead**: Must ensure daemon starts on boot, stays running, and restarts after crashes
+- ❌ **Dependency on system service**: Requires root/sudo access for initial setup and configuration
+- ❌ **Socket permission issues**: Can encounter permission problems with daemon socket access
+- ❌ **Distribution-specific configuration**: Socket paths and service names vary across Linux distributions
 
 **When to Use**:
-- Running frequent or scheduled scans
-- Performance-critical environments
-- Server deployments with always-on scanning
-- When you need maximum scan throughput
-- Systems where clamd is already configured (e.g., mail servers)
+- **Frequent or scheduled scans**: Running daily, hourly, or on-demand scans multiple times per day
+- **Performance-critical environments**: When scan speed and responsiveness are paramount
+- **Server deployments**: Mail servers, file servers, web servers with always-on scanning requirements
+- **Real-time monitoring**: Systems that need continuous or near-continuous scanning capability
+- **Maximum scan throughput**: When you need to scan large volumes of files as quickly as possible
+- **Systems with clamd already configured**: Mail servers (Postfix/Exim), file sharing servers, or any system already using clamd
+- **Development/testing environments**: Where repeated scanning of the same codebase is common
+- **Dedicated security appliances**: Systems whose primary purpose is malware scanning
 
 **Setup Requirements**:
 See [Daemon Setup Instructions](#daemon-setup) below.
