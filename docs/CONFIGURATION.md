@@ -12,7 +12,11 @@ This document provides comprehensive reference documentation for all configurati
    - [Quarantine Settings](#quarantine-settings)
    - [Scheduled Scan Settings](#scheduled-scan-settings)
    - [Scan Backend Settings](#scan-backend-settings)
-4. [Configuration Examples](#configuration-examples)
+4. [Scan Profiles](#scan-profiles)
+   - [Profile Structure](#profile-structure)
+   - [Default Profiles](#default-profiles)
+   - [Exclusion Formats](#exclusion-formats)
+5. [Configuration Examples](#configuration-examples)
 
 ---
 
@@ -447,6 +451,418 @@ This setting only applies when `scan_backend` is `"daemon"` or `"auto"` (and dae
   "daemon_socket_path": ""
 }
 ```
+
+---
+
+## Scan Profiles
+
+ClamUI uses scan profiles to save and reuse common scanning configurations. Profiles define what to scan, what to exclude, and how to scan it. They are stored in `~/.config/clamui/profiles.json` as a JSON array of profile objects.
+
+### Profile Structure
+
+Each scan profile is a JSON object with the following fields:
+
+#### `id`
+
+**Type:** String (UUID)
+**Required:** Yes
+
+Unique identifier for the profile, automatically generated when the profile is created. This ID is used internally to reference and manage profiles.
+
+**Example:** `"550e8400-e29b-41d4-a716-446655440000"`
+
+---
+
+#### `name`
+
+**Type:** String
+**Required:** Yes
+**Length:** 1-50 characters
+
+User-visible name for the profile. Must be unique across all profiles (case-sensitive). Profile names are displayed in the UI for selecting which configuration to use.
+
+**Example:** `"Quick Scan"`, `"Documents Backup"`, `"Weekly System Check"`
+
+---
+
+#### `targets`
+
+**Type:** Array of Strings
+**Required:** Yes
+
+List of directories or files to scan. Each element must be a valid path string. Paths can be:
+- **Absolute paths:** `/home/username/Documents`
+- **Home directory notation:** `~/Downloads` (expands to the user's home directory)
+- **Root:** `/` (scans the entire filesystem)
+
+Empty targets array is allowed but will result in no files being scanned.
+
+**Example:**
+```json
+"targets": [
+  "~/Documents",
+  "~/Downloads",
+  "/var/www"
+]
+```
+
+---
+
+#### `exclusions`
+
+**Type:** Object (Dictionary)
+**Required:** No (defaults to empty object `{}`)
+
+Defines files and directories to exclude from the scan. The exclusions object can contain two optional keys:
+
+##### `exclusions.paths`
+
+**Type:** Array of Strings
+
+List of specific paths to exclude. Each path can be:
+- **Absolute path:** `/var/cache` - Excludes this exact directory
+- **Home directory notation:** `~/.cache` - Excludes user cache directory
+- **Subdirectories:** All subdirectories within an excluded path are also excluded
+
+**Example:**
+```json
+"exclusions": {
+  "paths": [
+    "~/.cache",
+    "~/.local/share/Trash",
+    "/proc",
+    "/sys"
+  ]
+}
+```
+
+##### `exclusions.patterns`
+
+**Type:** Array of Strings
+
+List of glob patterns to match filenames for exclusion. Patterns support standard glob syntax:
+- `*.log` - All .log files
+- `*.tmp` - All temporary files
+- `*~` - Backup files (common in text editors)
+- `*.iso` - Disk image files
+
+**Example:**
+```json
+"exclusions": {
+  "patterns": [
+    "*.log",
+    "*.tmp",
+    "*.bak",
+    "*.iso"
+  ]
+}
+```
+
+##### Combined Example
+
+```json
+"exclusions": {
+  "paths": [
+    "~/.cache",
+    "/var/tmp"
+  ],
+  "patterns": [
+    "*.log",
+    "*.tmp"
+  ]
+}
+```
+
+---
+
+#### `created_at`
+
+**Type:** String (ISO 8601 timestamp)
+**Required:** Yes
+
+Timestamp indicating when the profile was created. Automatically generated in UTC timezone.
+
+**Format:** `YYYY-MM-DDTHH:MM:SS.ssssss+00:00`
+
+**Example:** `"2024-01-15T10:30:45.123456+00:00"`
+
+---
+
+#### `updated_at`
+
+**Type:** String (ISO 8601 timestamp)
+**Required:** Yes
+
+Timestamp indicating when the profile was last modified. Automatically updated on any profile change.
+
+**Format:** `YYYY-MM-DDTHH:MM:SS.ssssss+00:00`
+
+**Example:** `"2024-01-15T14:22:10.654321+00:00"`
+
+---
+
+#### `is_default`
+
+**Type:** Boolean
+**Required:** Yes
+**Default:** `false`
+
+Indicates whether this is a built-in default profile. Default profiles:
+- Cannot be deleted through the UI
+- Are automatically recreated if missing
+- Are marked for special handling in the profile manager
+
+User-created profiles should always have `is_default: false`.
+
+**Example:** `true` (for built-in profiles), `false` (for user profiles)
+
+---
+
+#### `description`
+
+**Type:** String
+**Required:** No (defaults to empty string)
+
+Human-readable description explaining the profile's purpose. Displayed in the UI to help users understand what the profile does.
+
+**Example:**
+```json
+"description": "Fast scan of the Downloads folder for quick threat detection"
+```
+
+---
+
+#### `options`
+
+**Type:** Object (Dictionary)
+**Required:** No (defaults to empty object `{}`)
+
+Additional scan engine options and configuration. Currently supports custom scan parameters that may be added in future versions. Reserved for future expansion.
+
+**Example:**
+```json
+"options": {}
+```
+
+---
+
+### Default Profiles
+
+ClamUI includes three built-in default profiles that are automatically created on first launch:
+
+#### 1. Quick Scan
+
+**Purpose:** Fast scan of the Downloads folder for quick threat detection
+
+**Configuration:**
+```json
+{
+  "name": "Quick Scan",
+  "description": "Fast scan of the Downloads folder for quick threat detection",
+  "targets": ["~/Downloads"],
+  "exclusions": {},
+  "options": {},
+  "is_default": true
+}
+```
+
+**Use Case:** Quickly scan newly downloaded files before opening them. Ideal for daily use when you want to verify new downloads.
+
+---
+
+#### 2. Full Scan
+
+**Purpose:** Comprehensive system-wide scan of all accessible directories
+
+**Configuration:**
+```json
+{
+  "name": "Full Scan",
+  "description": "Comprehensive system-wide scan of all accessible directories",
+  "targets": ["/"],
+  "exclusions": {
+    "paths": [
+      "/proc",
+      "/sys",
+      "/dev",
+      "/run",
+      "/tmp",
+      "/var/cache",
+      "/var/tmp"
+    ]
+  },
+  "options": {},
+  "is_default": true
+}
+```
+
+**Use Case:** Thorough system-wide malware check. Excludes system virtual filesystems and temporary directories that don't contain persistent threats. Best run periodically (weekly/monthly) or after system updates.
+
+---
+
+#### 3. Home Folder
+
+**Purpose:** Scan of the user's home directory and personal files
+
+**Configuration:**
+```json
+{
+  "name": "Home Folder",
+  "description": "Scan of the user's home directory and personal files",
+  "targets": ["~"],
+  "exclusions": {
+    "paths": [
+      "~/.cache",
+      "~/.local/share/Trash"
+    ]
+  },
+  "options": {},
+  "is_default": true
+}
+```
+
+**Use Case:** Focus on personal documents and files where threats are most likely to impact you. Excludes cache and trash directories. Balances thoroughness with scan time.
+
+---
+
+### Exclusion Formats
+
+Understanding exclusion formats is important for creating effective scan profiles that skip unnecessary files while maintaining security.
+
+#### Path Exclusions (`exclusions.paths`)
+
+Path exclusions work by comparing the full resolved path of each file/directory:
+
+1. **Exact Directory Match**
+   ```json
+   "paths": ["/var/cache"]
+   ```
+   - Excludes `/var/cache` and all its contents
+   - Does NOT exclude `/var/cache2` or `/var/cache_old`
+
+2. **Home Directory Expansion**
+   ```json
+   "paths": ["~/.cache"]
+   ```
+   - Expands to `/home/username/.cache` at scan time
+   - Automatically adapts to the current user
+
+3. **Multiple Paths**
+   ```json
+   "paths": [
+     "~/Downloads/archives",
+     "~/.local/share/virtualenvs",
+     "/opt/backups"
+   ]
+   ```
+   - All specified paths and their contents are excluded
+
+4. **Subdirectory Behavior**
+   - If you exclude `/home/user/Documents`, all files and subdirectories within are automatically excluded
+   - You don't need to specify both parent and child paths
+
+#### Pattern Exclusions (`exclusions.patterns`)
+
+Pattern exclusions use glob-style matching on filenames:
+
+1. **File Extension Patterns**
+   ```json
+   "patterns": ["*.log", "*.tmp"]
+   ```
+   - Excludes all files ending in `.log` or `.tmp` regardless of location
+   - Example matches: `system.log`, `/var/log/app.log`, `temp.tmp`
+
+2. **Wildcard Patterns**
+   ```json
+   "patterns": ["*.iso", "*.img"]
+   ```
+   - Useful for excluding large disk images or backup files
+   - Applies to filename only, not the full path
+
+3. **Multiple Patterns**
+   ```json
+   "patterns": [
+     "*.log",
+     "*.tmp",
+     "*.bak",
+     "*~",
+     "*.pyc"
+   ]
+   ```
+   - Common exclusions for development and system files
+
+#### Best Practices for Exclusions
+
+**✅ DO:**
+- Exclude cache directories (`.cache`, `Cache`)
+- Exclude trash/recycle bins (`Trash`, `.local/share/Trash`)
+- Exclude system virtual filesystems (`/proc`, `/sys`, `/dev`)
+- Exclude large archives you've already verified (`.iso`, `.img`)
+- Exclude build artifacts (`.pyc`, `.o`, `__pycache__`)
+
+**❌ DON'T:**
+- Exclude your entire home directory (defeats the purpose)
+- Exclude download folders (high-risk areas)
+- Exclude document folders without good reason
+- Over-exclude to save time (modern scans are fast)
+
+**⚠️ WARNING:** If an exclusion path would exclude ALL target paths, ClamUI will warn you but still allow the configuration. For example:
+```json
+{
+  "targets": ["~/Documents"],
+  "exclusions": {
+    "paths": ["~"]
+  }
+}
+```
+This profile would scan nothing because `~` (home directory) excludes `~/Documents`.
+
+---
+
+### Complete Profile Example
+
+Here's a complete custom profile for scanning a development workspace:
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8",
+  "name": "Dev Projects",
+  "description": "Scan development projects excluding build artifacts and dependencies",
+  "targets": [
+    "~/projects",
+    "~/workspace"
+  ],
+  "exclusions": {
+    "paths": [
+      "~/projects/node_modules",
+      "~/projects/.venv",
+      "~/projects/venv",
+      "~/workspace/.git",
+      "~/workspace/build",
+      "~/workspace/dist"
+    ],
+    "patterns": [
+      "*.pyc",
+      "*.log",
+      "*.tmp",
+      "*.swp",
+      "*~",
+      ".DS_Store"
+    ]
+  },
+  "created_at": "2024-01-15T10:30:45.123456+00:00",
+  "updated_at": "2024-01-15T10:30:45.123456+00:00",
+  "is_default": false,
+  "options": {}
+}
+```
+
+This profile:
+- Scans two development directories
+- Excludes dependency folders (node_modules, virtual environments)
+- Excludes build output directories
+- Excludes common temporary and system files
+- Focuses scanning on actual source code where threats matter
 
 ---
 
