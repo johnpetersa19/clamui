@@ -265,19 +265,212 @@ Click the folder icon (📁) button in the header bar at any time to return to t
 
 ### Your First Scan
 
-*(This section will be completed in subtask 1.3)*
+Ready to scan for viruses? This walkthrough will guide you through running your very first scan with ClamUI. We'll show you how to select what to scan, understand what's happening during the scan, and interpret the results.
 
 #### Selecting Files and Folders
 
-*(This section will be completed in subtask 1.3)*
+ClamUI gives you several ways to choose what to scan. Pick the method that works best for you:
+
+**Method 1: Using the Browse Button**
+
+This is the most straightforward approach:
+
+1. Look for the **Scan Target** section in the main view
+2. Click the **Browse** button on the right side of the "Selected Path" row
+3. A file picker dialog will appear
+4. Navigate to the folder or file you want to scan
+5. Click **Select** to confirm your choice
+6. The selected path will appear in the "Selected Path" subtitle
+
+💡 **What should I scan first?** Start with your Downloads folder - it's where files from the internet arrive and is most likely to contain threats.
+
+**Method 2: Drag and Drop**
+
+For quick scanning, you can simply drag files or folders into ClamUI:
+
+1. Open your file manager (Files, Nautilus, etc.)
+2. Locate the file or folder you want to scan
+3. Drag it into the ClamUI window
+4. Drop it anywhere in the scan view
+5. The path will be automatically selected
+
+**Visual Feedback**: When dragging over ClamUI, you'll see a highlighted border indicating it's ready to accept your files.
+
+**Method 3: Using Scan Profiles** (Recommended for beginners)
+
+Scan profiles are pre-configured scan targets that make scanning even easier:
+
+1. Look for the **Scan Profile** section at the top
+2. Click the dropdown menu (it says "No Profile (Manual)" by default)
+3. Choose one of the default profiles:
+   - **Quick Scan**: Scans common locations (Downloads, Desktop, Documents)
+   - **Full Scan**: Comprehensive scan of your entire home directory
+   - **Home Folder**: Scans your home directory with common exclusions
+4. The scan target will be automatically set when you select a profile
+
+💡 **Tip**: For your first scan, try "Quick Scan" - it's fast and covers the most important areas.
+
+**Method 4: Command-Line Arguments** (Advanced)
+
+If you're comfortable with the terminal, you can launch ClamUI with a path already selected:
+
+```bash
+# Flatpak
+flatpak run com.github.rooki.ClamUI ~/Downloads
+
+# Native installation
+clamui ~/Downloads
+```
+
+This method is great for integrating ClamUI with other tools or file managers.
 
 #### Understanding Scan Progress
 
-*(This section will be completed in subtask 1.3)*
+Once you've selected what to scan, you're ready to start. Here's what to expect:
+
+**Starting the Scan**
+
+1. Click the **Scan** button (the big blue button in the middle)
+2. You'll immediately see changes in the interface:
+   - The Scan button becomes disabled (grayed out)
+   - The Browse button and Profile dropdown are also disabled
+   - A "Scanning..." message appears at the bottom
+   - The entire interface becomes non-interactive to prevent conflicts
+
+**During the Scan**
+
+While ClamUI is scanning:
+
+- **Be patient**: Scanning can take time, especially for large folders or if you have many files
+- **Don't close the window**: Closing ClamUI will stop the scan in progress
+- **Watch the status**: The status message at the bottom will show "Scanning..." until complete
+- **System usage**: You may notice increased CPU usage - this is normal as ClamAV analyzes files
+
+**How long will it take?**
+
+Scan duration depends on:
+- **Number of files**: More files = longer scan time
+- **File sizes**: Large files take longer to analyze
+- **Scan backend**: Daemon (clamd) is faster than standalone clamscan
+- **System resources**: Faster CPU = faster scanning
+
+Typical scan times:
+- Downloads folder (100-500 files): 10-30 seconds
+- Home directory (10,000+ files): 2-10 minutes
+- Full system scan: 15-60+ minutes
+
+💡 **Tip**: While your first scan runs, feel free to read ahead in this guide to learn about other features!
+
+**Scan Completion**
+
+When the scan finishes:
+- All buttons become active again
+- The status message updates with results
+- If threats were found, they appear in the "Scan Results" section below
+- If no threats were found, you'll see a success message
 
 #### Interpreting Scan Results
 
-*(This section will be completed in subtask 1.3)*
+After your scan completes, ClamUI displays clear, easy-to-understand results. Let's break down what you'll see:
+
+![Scan Results Example](../screenshots/main_view_with_scan_result.png)
+
+**Clean Scan (No Threats Found)**
+
+If your files are clean, you'll see:
+
+```
+✓ Scan complete: No threats found (XXX files scanned)
+```
+
+This green success message means:
+- All scanned files are safe
+- No viruses, trojans, or malware were detected
+- You can continue using your files normally
+
+The number in parentheses shows how many files were examined.
+
+**Threats Detected**
+
+If ClamUI finds threats, you'll see:
+
+```
+⚠ Scan complete: X threat(s) found
+```
+
+This red warning message is followed by a detailed list of each threat found. Don't panic - ClamUI gives you all the information and tools you need to handle threats safely.
+
+**Understanding Threat Details**
+
+Each detected threat is displayed in a card showing:
+
+1. **Threat Name** (large text at the top)
+   - The technical name of the virus or malware
+   - Example: "Eicar-Signature", "Win.Test.EICAR_HDB-1"
+   - This name is used by antivirus databases worldwide
+
+2. **Severity Badge** (colored label on the right)
+   - **CRITICAL** (red): Dangerous malware, immediate action required
+   - **HIGH** (orange): Serious threats, should be quarantined
+   - **MEDIUM** (yellow): Moderate concern, investigate further
+   - **LOW** (blue): Minor issues or test files
+
+3. **File Path** (monospaced text, second line)
+   - The exact location of the infected file
+   - You can select and copy this text
+   - Example: `/home/username/Downloads/suspicious_file.exe`
+
+4. **Category** (if available)
+   - The type of threat detected
+   - Examples: "Trojan", "Test", "Malware", "PUA" (Potentially Unwanted Application)
+
+5. **Action Buttons** (bottom of each card)
+   - **Quarantine**: Safely isolates the threat file
+   - **Copy Path**: Copies the file path to your clipboard
+
+**What Should I Do With Detected Threats?**
+
+Here's your action plan:
+
+1. **Don't panic** - ClamUI has already identified the threat and prevented any harm
+2. **Review the threat details** - Check the file path to understand what was flagged
+3. **Click "Quarantine"** - This safely moves the file to isolation where it can't cause harm
+4. **Verify it's not a false positive** - Sometimes legitimate files are mistakenly flagged (see FAQ)
+
+**For most users**: Click "Quarantine" on any detected threats. You can always restore files later if needed.
+
+**Testing With EICAR**
+
+Not sure if ClamUI is working correctly? Use the built-in test feature:
+
+1. Click the **Test (EICAR)** button next to the Scan button
+2. ClamUI creates a harmless test file that all antivirus software recognizes
+3. The scan runs automatically and should find the test "threat"
+4. You'll see a detection for "Eicar-Signature" or similar
+5. This confirms ClamUI is working properly
+
+**Important**: EICAR is NOT real malware - it's an industry-standard test pattern that's completely safe. It exists only to test antivirus software.
+
+**Understanding Large Result Sets**
+
+If a scan finds many threats (50+), ClamUI uses smart pagination:
+
+- Only the first 25 threats are shown initially
+- A **"Show More"** button appears at the bottom
+- Click it to load 25 more threats at a time
+- This keeps the interface responsive even with hundreds of detections
+
+**Next Steps After Your First Scan**
+
+Congratulations on completing your first scan! Now you can:
+
+- **Explore scan profiles** - Try the Quick Scan, Full Scan, or Home Folder profiles
+- **Set up scheduled scans** - Automate scanning to run regularly
+- **Check the quarantine** - Review what's been isolated
+- **View scan history** - See all your past scans in the Logs view
+- **Customize settings** - Configure ClamUI to match your preferences
+
+Ready to learn more? Continue reading to discover all of ClamUI's powerful features!
 
 ---
 
