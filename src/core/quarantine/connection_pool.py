@@ -189,6 +189,41 @@ class ConnectionPool:
             # Always release connection back to pool
             self.release(conn)
 
+    def get_stats(self) -> dict:
+        """
+        Get current pool statistics for debugging and monitoring.
+
+        Returns a dictionary containing pool statistics including pool size,
+        available connections, total connections created, and active connections.
+
+        Returns:
+            Dictionary with the following keys:
+                - pool_size: Maximum number of connections in the pool
+                - available_count: Number of connections currently available in the pool
+                - total_created: Total number of connections created
+                - active_count: Number of connections currently in use (total - available)
+                - is_closed: Whether the pool has been closed
+
+        Thread-safe operation using internal lock.
+
+        Example:
+            >>> pool = ConnectionPool("path/to/db.sqlite", pool_size=5)
+            >>> stats = pool.get_stats()
+            >>> print(f"Active: {stats['active_count']}/{stats['pool_size']}")
+            Active: 0/5
+        """
+        with self._lock:
+            available_count = self._pool.qsize()
+            active_count = self._total_connections - available_count
+
+            return {
+                "pool_size": self._pool_size,
+                "available_count": available_count,
+                "total_created": self._total_connections,
+                "active_count": active_count,
+                "is_closed": self._closed,
+            }
+
     def close_all(self) -> None:
         """
         Close all connections in the pool and prevent new connections.

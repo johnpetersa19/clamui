@@ -969,3 +969,246 @@ class TestConnectionPoolThreadSafety:
         assert sum(operation_count) == 500, f"Expected 500 operations (5 workers * 100 iterations)"
         # Pool should be healthy
         assert pool._total_connections <= 5
+
+
+class TestConnectionPoolGetStats:
+    """Tests for ConnectionPool.get_stats() method."""
+
+    @pytest.fixture
+    def pool(self):
+        """Create a ConnectionPool for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = str(Path(tmpdir) / "test_stats.db")
+            pool = ConnectionPool(db_path, pool_size=5)
+            yield pool
+            try:
+                pool.close_all()
+            except Exception:
+                pass
+
+    def test_get_stats_on_empty_pool(self, pool):
+        """Test get_stats() on a newly created pool with no connections."""
+        stats = pool.get_stats()
+
+        assert stats["pool_size"] == 5
+        assert stats["available_count"] == 0
+        assert stats["total_created"] == 0
+        assert stats["active_count"] == 0
+        assert stats["is_closed"] is False
+
+    def test_get_stats_after_acquiring_one_connection(self, pool):
+        """Test get_stats() after acquiring one connection."""
+        conn = pool.acquire()
+
+        stats = pool.get_stats()
+        assert stats["pool_size"] == 5
+        assert stats["available_count"] == 0
+        assert stats["total_created"] == 1
+        assert stats["active_count"] == 1
+        assert stats["is_closed"] is False
+
+        pool.release(conn)
+
+    def test_get_stats_after_releasing_connection(self, pool):
+        """Test get_stats() after acquiring and releasing a connection."""
+        conn = pool.acquire()
+        pool.release(conn)
+
+        stats = pool.get_stats()
+        assert stats["pool_size"] == 5
+        assert stats["available_count"] == 1
+        assert stats["total_created"] == 1
+        assert stats["active_count"] == 0
+        assert stats["is_closed"] is False
+
+    def test_get_stats_with_multiple_connections(self, pool):
+        """Test get_stats() with multiple connections acquired and some released."""
+        # Acquire 3 connections
+        conn1 = pool.acquire()
+        conn2 = pool.acquire()
+        conn3 = pool.acquire()
+
+        stats = pool.get_stats()
+        assert stats["total_created"] == 3
+        assert stats["active_count"] == 3
+        assert stats["available_count"] == 0
+
+        # Release one connection
+        pool.release(conn1)
+
+        stats = pool.get_stats()
+        assert stats["total_created"] == 3
+        assert stats["active_count"] == 2
+        assert stats["available_count"] == 1
+
+        # Release remaining connections
+        pool.release(conn2)
+        pool.release(conn3)
+
+        stats = pool.get_stats()
+        assert stats["total_created"] == 3
+        assert stats["active_count"] == 0
+        assert stats["available_count"] == 3
+
+    def test_get_stats_at_pool_capacity(self, pool):
+        """Test get_stats() when pool is at maximum capacity."""
+        # Acquire all 5 connections
+        connections = [pool.acquire() for _ in range(5)]
+
+        stats = pool.get_stats()
+        assert stats["pool_size"] == 5
+        assert stats["total_created"] == 5
+        assert stats["active_count"] == 5
+        assert stats["available_count"] == 0
+        assert stats["is_closed"] is False
+
+        # Release all connections
+        for conn in connections:
+            pool.release(conn)
+
+    def test_get_stats_after_close_all(self, pool):
+        """Test get_stats() after closing the pool."""
+        # Create some connections
+        conn1 = pool.acquire()
+        conn2 = pool.acquire()
+        pool.release(conn1)
+        pool.release(conn2)
+
+        # Close the pool
+        pool.close_all()
+
+        stats = pool.get_stats()
+        assert stats["is_closed"] is True
+        assert stats["total_created"] == 0  # All connections were closed
+        assert stats["available_count"] == 0
+        assert stats["active_count"] == 0
+
+    def test_get_stats_with_context_manager(self, pool):
+        """Test get_stats() when using context manager."""
+        # Before acquiring
+        stats = pool.get_stats()
+        assert stats["active_count"] == 0
+
+        # While connection is active in context manager
+        with pool.get_connection() as conn:
+            stats = pool.get_stats()
+            assert stats["total_created"] == 1
+            assert stats["active_count"] == 1
+            assert stats["available_count"] == 0
+
+        # After context manager releases connection
+        stats = pool.get_stats()
+        assert stats["total_created"] == 1
+        assert stats["active_count"] == 0
+        assert stats["available_count"] == 1
+
+    def test_get_stats_thread_safety(self, pool):
+        """Test that get_stats() is thread-safe during concurrent operations."""
+        stats_snapshots = []
+        errors = []
+        lock = threading.Lock()
+        barrier = threading.Barrier(10)
+
+        def worker():
+            try:
+                barrier.wait()  # Synchronize start
+                for _ in range(10):
+                    # Acquire and release connection
+                    conn = pool.acquire(timeout=1.0)
+                    # Get stats while holding connection
+                    stats = pool.get_stats()
+                    with lock:
+                        stats_snapshots.append(stats)
+                    pool.release(conn)
+                    # Get stats after releasing
+                    stats = pool.get_stats()
+                    with lock:
+                        stats_snapshots.append(stats)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=worker) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0, f"Errors occurred: {errors}"
+        assert len(stats_snapshots) > 0
+
+        # Verify all stats are valid
+        for stats in stats_snapshots:
+            assert "pool_size" in stats
+            assert "available_count" in stats
+            assert "total_created" in stats
+            assert "active_count" in stats
+            assert "is_closed" in stats
+            # Verify consistency: active + available should equal total
+            assert stats["active_count"] + stats["available_count"] == stats["total_created"]
+            # Verify totals don't exceed pool size
+            assert stats["total_created"] <= stats["pool_size"]
+
+    def test_get_stats_consistency_check(self, pool):
+        """Test that get_stats() maintains internal consistency."""
+        # Acquire and release multiple times
+        for i in range(10):
+            conn = pool.acquire()
+            stats = pool.get_stats()
+
+            # Active + available should always equal total
+            assert stats["active_count"] + stats["available_count"] == stats["total_created"]
+            # Total should never exceed pool size
+            assert stats["total_created"] <= stats["pool_size"]
+
+            pool.release(conn)
+            stats = pool.get_stats()
+
+            # Verify consistency after release
+            assert stats["active_count"] + stats["available_count"] == stats["total_created"]
+
+    def test_get_stats_returns_new_dict(self, pool):
+        """Test that get_stats() returns a new dictionary each time."""
+        stats1 = pool.get_stats()
+        stats2 = pool.get_stats()
+
+        # Should be different objects
+        assert stats1 is not stats2
+        # But should have same values
+        assert stats1 == stats2
+
+        # Modifying one shouldn't affect the other
+        stats1["pool_size"] = 999
+        assert stats2["pool_size"] == 5
+
+    def test_get_stats_with_custom_pool_size(self):
+        """Test get_stats() with a custom pool size."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = str(Path(tmpdir) / "test_custom.db")
+            pool = ConnectionPool(db_path, pool_size=10)
+
+            stats = pool.get_stats()
+            assert stats["pool_size"] == 10
+            assert stats["total_created"] == 0
+
+            pool.close_all()
+
+    def test_get_stats_with_invalid_connections(self, pool):
+        """Test get_stats() when connections are invalidated."""
+        # Acquire connections
+        conn1 = pool.acquire()
+        conn2 = pool.acquire()
+
+        # Close one connection to make it invalid
+        conn1.close()
+
+        # Release invalid connection (should be discarded)
+        pool.release(conn1)
+
+        # Release valid connection (should be returned to pool)
+        pool.release(conn2)
+
+        stats = pool.get_stats()
+        # Only one connection should remain (the valid one)
+        assert stats["total_created"] == 1
+        assert stats["available_count"] == 1
+        assert stats["active_count"] == 0
