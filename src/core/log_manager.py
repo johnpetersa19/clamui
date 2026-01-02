@@ -499,7 +499,7 @@ class LogManager:
 
     def delete_log(self, log_id: str) -> bool:
         """
-        Delete a specific log entry.
+        Delete a specific log entry and remove it from the index.
 
         Args:
             log_id: The UUID of the log entry to delete
@@ -512,6 +512,20 @@ class LogManager:
                 log_file = self._log_dir / f"{log_id}.json"
                 if log_file.exists():
                     log_file.unlink()
+
+                    # Update index by removing the deleted entry (best-effort)
+                    try:
+                        index_data = self._load_index()
+                        index_data["entries"] = [
+                            entry for entry in index_data["entries"]
+                            if entry.get("id") != log_id
+                        ]
+                        self._save_index(index_data)
+                    except Exception:
+                        # Index update failed, but log file was deleted successfully
+                        # Index can be rebuilt later if needed
+                        pass
+
                     return True
             except OSError:
                 pass
