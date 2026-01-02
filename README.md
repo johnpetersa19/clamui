@@ -101,6 +101,7 @@ For complete reference including all 15 settings, scan profiles, file locations,
 
 | Document | Description |
 |----------|-------------|
+| [User Guide](./docs/USER_GUIDE.md) | Complete guide to using ClamUI features |
 | [Installation Guide](./docs/INSTALL.md) | Flatpak, .deb, context menu, and tray setup |
 | [Troubleshooting Guide](./docs/TROUBLESHOOTING.md) | Common issues and solutions |
 | [Development Guide](./docs/DEVELOPMENT.md) | Dev environment, testing, and contributing |
