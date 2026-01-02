@@ -86,6 +86,8 @@ flatpak run com.github.rooki.ClamUI
 
 Or find "ClamUI" in your application menu.
 
+> **Troubleshooting**: If you encounter issues with Flatpak installation or ClamAV not being detected, see [Flatpak-Specific Issues](./TROUBLESHOOTING.md#flatpak-specific-issues) and [ClamAV Installation Issues](./TROUBLESHOOTING.md#clamav-installation-issues) in the troubleshooting guide.
+
 ### Flatpak Permissions
 
 ClamUI requests the following permissions:
@@ -165,6 +167,8 @@ clamui
 ```
 
 Or find "ClamUI" in your application menu.
+
+> **Troubleshooting**: If you encounter issues with missing dependencies or ClamAV installation, see [ClamAV Installation Issues](./TROUBLESHOOTING.md#clamav-installation-issues) in the troubleshooting guide.
 
 ### Further Information
 
@@ -261,6 +265,8 @@ If the context menu doesn't appear:
    gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
    ```
 
+> **Troubleshooting**: For more detailed troubleshooting of context menu issues, see [File Manager Context Menu Issues](./TROUBLESHOOTING.md#file-manager-context-menu-issues) in the troubleshooting guide.
+
 ---
 
 ## System Tray Integration
@@ -303,6 +309,8 @@ GNOME Shell requires an additional extension for tray icon support:
 
 If the AppIndicator library is not installed, ClamUI runs normally without the tray icon feature. The application logs a warning but continues to function with all other features.
 
+> **Troubleshooting**: If the system tray icon is not appearing or not working correctly, see [System Tray Icon Issues](./TROUBLESHOOTING.md#system-tray-icon-issues) in the troubleshooting guide.
+
 ---
 
 ## Verification
@@ -333,6 +341,8 @@ freshclam --version
 ### Test a Scan
 
 Launch ClamUI and perform a test scan on a small directory to verify everything is working.
+
+> **Troubleshooting**: If ClamAV is not detected or scanning fails, see [ClamAV Installation Issues](./TROUBLESHOOTING.md#clamav-installation-issues) in the troubleshooting guide.
 
 ---
 
