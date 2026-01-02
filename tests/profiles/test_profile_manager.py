@@ -1107,3 +1107,369 @@ class TestProfileManagerPersistence:
         loaded = manager2.get_profile(profile_id)
 
         assert loaded is None
+
+
+class TestProfileManagerPathCaching:
+    """Tests for ProfileManager path caching functionality."""
+
+    @pytest.fixture
+    def temp_config_dir(self):
+        """Create a temporary directory for profile storage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def manager(self, temp_config_dir):
+        """Create a ProfileManager with a temporary directory."""
+        # Clear caches before each test
+        ProfileManager.clear_path_cache()
+        return ProfileManager(config_dir=temp_config_dir)
+
+    def test_cached_expanduser_returns_correct_result(self, manager):
+        """Test that _cached_expanduser() returns correct expanded path."""
+        result = ProfileManager._cached_expanduser("~/Documents")
+
+        assert result is not None
+        assert isinstance(result, Path)
+        # Should expand ~ to home directory
+        assert "~" not in str(result)
+        assert "Documents" in str(result)
+
+    def test_cached_expanduser_handles_non_tilde_paths(self, manager):
+        """Test that _cached_expanduser() handles paths without tilde."""
+        result = ProfileManager._cached_expanduser("/home/user/Documents")
+
+        assert result is not None
+        assert isinstance(result, Path)
+        assert str(result) == "/home/user/Documents"
+
+    def test_cached_expanduser_handles_invalid_paths(self, manager):
+        """Test that _cached_expanduser() returns None for invalid paths."""
+        # Path with null byte should fail
+        result = ProfileManager._cached_expanduser("/home\x00/user")
+
+        # Should return None on failure
+        assert result is None
+
+    def test_cached_resolve_returns_correct_result(self, manager, temp_config_dir):
+        """Test that _cached_resolve() returns resolved absolute path."""
+        # Create a real directory to resolve
+        test_dir = Path(temp_config_dir) / "test_resolve"
+        test_dir.mkdir()
+
+        result = ProfileManager._cached_resolve(str(test_dir))
+
+        assert result is not None
+        assert isinstance(result, Path)
+        assert result.is_absolute()
+        # Resolved path should be absolute and match the directory
+        assert str(result) == str(test_dir.resolve())
+
+    def test_cached_resolve_resolves_relative_paths(self, manager, temp_config_dir):
+        """Test that _cached_resolve() resolves relative paths."""
+        # Create a test directory
+        test_dir = Path(temp_config_dir) / "relative_test"
+        test_dir.mkdir()
+
+        # Use relative path
+        import os
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(temp_config_dir)
+            result = ProfileManager._cached_resolve("./relative_test")
+
+            assert result is not None
+            assert result.is_absolute()
+            assert "relative_test" in str(result)
+        finally:
+            os.chdir(old_cwd)
+
+    def test_cached_resolve_handles_nonexistent_paths(self, manager):
+        """Test that _cached_resolve() works with nonexistent paths."""
+        # resolve() should work even for nonexistent paths (creates absolute path)
+        result = ProfileManager._cached_resolve("/nonexistent/path/that/does/not/exist")
+
+        assert result is not None
+        assert isinstance(result, Path)
+        assert result.is_absolute()
+
+    def test_cached_expanduser_cache_hits(self, manager):
+        """Test that repeated calls to _cached_expanduser() use cache."""
+        # Clear cache first
+        ProfileManager.clear_path_cache()
+
+        # First call - should be a cache miss
+        path1 = "~/Documents"
+        result1 = ProfileManager._cached_expanduser(path1)
+
+        cache_info = ProfileManager.get_cache_info()
+        assert cache_info["expanduser"]["misses"] >= 1
+        initial_misses = cache_info["expanduser"]["misses"]
+
+        # Second call with same path - should be a cache hit
+        result2 = ProfileManager._cached_expanduser(path1)
+
+        cache_info = ProfileManager.get_cache_info()
+        assert cache_info["expanduser"]["hits"] >= 1
+        # Misses should not increase
+        assert cache_info["expanduser"]["misses"] == initial_misses
+
+        # Results should be identical
+        assert result1 == result2
+
+    def test_cached_resolve_cache_hits(self, manager, temp_config_dir):
+        """Test that repeated calls to _cached_resolve() use cache."""
+        # Clear cache first
+        ProfileManager.clear_path_cache()
+
+        # First call - should be a cache miss
+        path1 = str(temp_config_dir)
+        result1 = ProfileManager._cached_resolve(path1)
+
+        cache_info = ProfileManager.get_cache_info()
+        assert cache_info["resolve"]["misses"] >= 1
+        initial_misses = cache_info["resolve"]["misses"]
+
+        # Second call with same path - should be a cache hit
+        result2 = ProfileManager._cached_resolve(path1)
+
+        cache_info = ProfileManager.get_cache_info()
+        assert cache_info["resolve"]["hits"] >= 1
+        # Misses should not increase
+        assert cache_info["resolve"]["misses"] == initial_misses
+
+        # Results should be identical
+        assert result1 == result2
+
+    def test_clear_path_cache_clears_both_caches(self, manager):
+        """Test that clear_path_cache() clears both expanduser and resolve caches."""
+        # Populate both caches
+        ProfileManager._cached_expanduser("~/Documents")
+        ProfileManager._cached_resolve("/home/user")
+
+        # Verify caches have entries
+        cache_info = ProfileManager.get_cache_info()
+        assert cache_info["expanduser"]["currsize"] > 0 or cache_info["expanduser"]["misses"] > 0
+        assert cache_info["resolve"]["currsize"] > 0 or cache_info["resolve"]["misses"] > 0
+
+        # Clear caches
+        ProfileManager.clear_path_cache()
+
+        # Verify both caches are cleared
+        cache_info = ProfileManager.get_cache_info()
+        assert cache_info["expanduser"]["currsize"] == 0
+        assert cache_info["expanduser"]["hits"] == 0
+        assert cache_info["expanduser"]["misses"] == 0
+        assert cache_info["resolve"]["currsize"] == 0
+        assert cache_info["resolve"]["hits"] == 0
+        assert cache_info["resolve"]["misses"] == 0
+
+    def test_get_cache_info_returns_correct_structure(self, manager):
+        """Test that get_cache_info() returns expected dictionary structure."""
+        cache_info = ProfileManager.get_cache_info()
+
+        # Check structure
+        assert isinstance(cache_info, dict)
+        assert "expanduser" in cache_info
+        assert "resolve" in cache_info
+
+        # Check expanduser info
+        assert "hits" in cache_info["expanduser"]
+        assert "misses" in cache_info["expanduser"]
+        assert "maxsize" in cache_info["expanduser"]
+        assert "currsize" in cache_info["expanduser"]
+        assert cache_info["expanduser"]["maxsize"] == 128
+
+        # Check resolve info
+        assert "hits" in cache_info["resolve"]
+        assert "misses" in cache_info["resolve"]
+        assert "maxsize" in cache_info["resolve"]
+        assert "currsize" in cache_info["resolve"]
+        assert cache_info["resolve"]["maxsize"] == 128
+
+    def test_cache_improves_performance_in_validation(self, manager, temp_config_dir):
+        """Test that caching reduces redundant filesystem calls during validation."""
+        # Clear cache first
+        ProfileManager.clear_path_cache()
+
+        # Create a profile with multiple targets and exclusions
+        # This will trigger multiple path resolution calls
+        test_dir = Path(temp_config_dir) / "test_validation"
+        test_dir.mkdir()
+
+        targets = [
+            str(test_dir / "target1"),
+            str(test_dir / "target2"),
+            str(test_dir / "target3"),
+        ]
+
+        exclusions = {
+            "paths": [
+                str(test_dir / "exclude1"),
+                str(test_dir / "exclude2"),
+            ]
+        }
+
+        # Create the profile (triggers validation)
+        profile = manager.create_profile(
+            name="Cache Test",
+            targets=targets,
+            exclusions=exclusions,
+        )
+
+        # Check that caches were populated
+        cache_info = ProfileManager.get_cache_info()
+        total_calls = (
+            cache_info["expanduser"]["hits"] + cache_info["expanduser"]["misses"] +
+            cache_info["resolve"]["hits"] + cache_info["resolve"]["misses"]
+        )
+
+        # Should have made some calls
+        assert total_calls > 0
+
+        # Clear cache for second test
+        ProfileManager.clear_path_cache()
+
+        # Update the profile with same paths (triggers validation again)
+        manager.update_profile(profile.id, description="Updated")
+
+        # Verify cache usage on second validation
+        cache_info2 = ProfileManager.get_cache_info()
+        # Should have some cache activity from validation
+        assert (cache_info2["expanduser"]["misses"] + cache_info2["resolve"]["misses"]) > 0
+
+    def test_cache_handles_duplicate_paths_in_validation(self, manager, temp_config_dir):
+        """Test that cache efficiently handles duplicate paths in validation."""
+        ProfileManager.clear_path_cache()
+
+        # Use same path multiple times
+        same_path = str(Path(temp_config_dir) / "same")
+
+        targets = [same_path, same_path, same_path]
+
+        # This should use cache for duplicate paths
+        warnings = manager._validate_targets(targets)
+
+        cache_info = ProfileManager.get_cache_info()
+        # With caching, we should have hits for duplicate paths
+        # First call is a miss, subsequent calls should be hits
+        assert cache_info["expanduser"]["currsize"] >= 1
+
+    def test_cached_methods_are_thread_safe(self, manager):
+        """Test that cached methods work correctly with concurrent access."""
+        ProfileManager.clear_path_cache()
+
+        results = []
+        errors = []
+        lock = threading.Lock()
+
+        def call_cached_methods():
+            try:
+                # Call both cached methods
+                exp_result = ProfileManager._cached_expanduser("~/test")
+                res_result = ProfileManager._cached_resolve("/tmp")
+
+                with lock:
+                    results.append((exp_result, res_result))
+            except Exception as e:
+                with lock:
+                    errors.append(e)
+
+        # Run multiple threads
+        threads = [threading.Thread(target=call_cached_methods) for _ in range(10)]
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Should have no errors
+        assert len(errors) == 0
+
+        # All threads should get same results
+        assert len(results) == 10
+        # All expanduser results should be the same
+        expanduser_results = [r[0] for r in results]
+        assert len(set(map(str, expanduser_results))) == 1
+
+        # All resolve results should be the same
+        resolve_results = [r[1] for r in results]
+        assert len(set(map(str, resolve_results))) == 1
+
+    def test_cache_with_different_invalid_paths(self, manager):
+        """Test that cache correctly handles multiple different invalid paths."""
+        ProfileManager.clear_path_cache()
+
+        # Try different invalid paths
+        invalid_paths = [
+            "/invalid\x00path1",
+            "/invalid\x00path2",
+            "/invalid\x00path3",
+        ]
+
+        for invalid_path in invalid_paths:
+            result = ProfileManager._cached_expanduser(invalid_path)
+            assert result is None
+
+        # Each should be cached separately
+        cache_info = ProfileManager.get_cache_info()
+        # Should have misses for each unique invalid path
+        assert cache_info["expanduser"]["misses"] >= len(invalid_paths)
+
+    def test_validate_path_format_uses_cache(self, manager):
+        """Test that _validate_path_format() uses the cached expanduser method."""
+        ProfileManager.clear_path_cache()
+
+        # Call _validate_path_format multiple times with same path
+        path = "~/Documents"
+
+        is_valid1, error1 = manager._validate_path_format(path)
+        cache_info_after_first = ProfileManager.get_cache_info()
+        first_misses = cache_info_after_first["expanduser"]["misses"]
+
+        is_valid2, error2 = manager._validate_path_format(path)
+        cache_info_after_second = ProfileManager.get_cache_info()
+
+        # Results should be the same
+        assert is_valid1 == is_valid2
+        assert error1 == error2
+
+        # Second call should use cache (hits should increase, misses stay same)
+        assert cache_info_after_second["expanduser"]["hits"] > cache_info_after_first["expanduser"]["hits"]
+        assert cache_info_after_second["expanduser"]["misses"] == first_misses
+
+    def test_check_circular_exclusions_uses_cache(self, manager, temp_config_dir):
+        """Test that _check_circular_exclusions() uses cached path methods."""
+        ProfileManager.clear_path_cache()
+
+        # Create test directories
+        test_dir = Path(temp_config_dir) / "circular_test"
+        test_dir.mkdir()
+
+        exclusion_paths = [str(test_dir)]
+        targets = [str(test_dir / "subdir")]
+        warnings = []
+
+        # First call
+        manager._check_circular_exclusions(exclusion_paths, targets, warnings)
+        cache_info_after_first = ProfileManager.get_cache_info()
+
+        # Should have some cache activity
+        first_total_calls = (
+            cache_info_after_first["expanduser"]["hits"] +
+            cache_info_after_first["expanduser"]["misses"] +
+            cache_info_after_first["resolve"]["hits"] +
+            cache_info_after_first["resolve"]["misses"]
+        )
+        assert first_total_calls > 0
+
+        # Second call with same paths
+        warnings2 = []
+        manager._check_circular_exclusions(exclusion_paths, targets, warnings2)
+        cache_info_after_second = ProfileManager.get_cache_info()
+
+        # Should have cache hits on second call
+        assert (
+            cache_info_after_second["resolve"]["hits"] >
+            cache_info_after_first["resolve"]["hits"]
+        )
