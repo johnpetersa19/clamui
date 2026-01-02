@@ -315,6 +315,63 @@ class LogManager:
             # Catch all exceptions (including OSError, PermissionError)
             return False
 
+    def rebuild_index(self) -> bool:
+        """
+        Rebuild the log index from scratch by scanning all log files.
+
+        Used for migration from non-indexed state and recovery from index corruption.
+        Reads only id, timestamp, and type from each log file (minimal parsing).
+
+        Returns:
+            True if rebuilt successfully, False otherwise
+        """
+        with self._lock:
+            try:
+                # Ensure log directory exists
+                if not self._log_dir.exists():
+                    # No logs to index - create empty index
+                    return self._save_index({"version": 1, "entries": []})
+
+                entries = []
+
+                # Scan all JSON log files (exclude the index file itself)
+                for log_file in self._log_dir.glob("*.json"):
+                    # Skip the index file
+                    if log_file.name == INDEX_FILENAME:
+                        continue
+
+                    try:
+                        with open(log_file, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+
+                            # Extract only the required fields
+                            log_id = data.get("id")
+                            timestamp = data.get("timestamp")
+                            log_type = data.get("type")
+
+                            # Only add if all required fields are present
+                            if log_id and timestamp and log_type:
+                                entries.append({
+                                    "id": log_id,
+                                    "timestamp": timestamp,
+                                    "type": log_type
+                                })
+                    except (OSError, json.JSONDecodeError):
+                        # Skip corrupted or unreadable files
+                        continue
+
+                # Build index structure and save
+                index_data = {
+                    "version": 1,
+                    "entries": entries
+                }
+
+                return self._save_index(index_data)
+
+            except Exception:
+                # Catch any unexpected errors
+                return False
+
     def save_log(self, entry: LogEntry) -> bool:
         """
         Save a log entry to storage.
