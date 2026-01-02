@@ -7,6 +7,7 @@ Stores scan/update operation logs and provides daemon log access.
 import json
 import os
 import subprocess
+import tempfile
 import threading
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -270,6 +271,49 @@ class LogManager:
         except (OSError, json.JSONDecodeError, PermissionError):
             # Handle file read errors and JSON parsing errors gracefully
             return {"version": 1, "entries": []}
+
+    def _save_index(self, index_data: dict) -> bool:
+        """
+        Atomically save the log index to file.
+
+        Uses a temporary file and rename pattern to prevent corruption
+        during write operations (crash safety).
+
+        Args:
+            index_data: Dictionary with structure {"version": 1, "entries": [...]}
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            # Ensure parent directory exists
+            self._log_dir.mkdir(parents=True, exist_ok=True)
+
+            # Atomic write using temp file + rename
+            fd, temp_path = tempfile.mkstemp(
+                suffix=".json",
+                prefix="log_index_",
+                dir=self._log_dir,
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(index_data, f, indent=2)
+
+                # Atomic rename
+                temp_path_obj = Path(temp_path)
+                temp_path_obj.replace(self._index_path)
+                return True
+            except Exception:
+                # Clean up temp file on failure
+                try:
+                    Path(temp_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+                raise
+
+        except Exception:
+            # Catch all exceptions (including OSError, PermissionError)
+            return False
 
     def save_log(self, entry: LogEntry) -> bool:
         """
