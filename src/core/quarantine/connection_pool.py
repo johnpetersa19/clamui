@@ -46,3 +46,28 @@ class ConnectionPool:
         self._pool_size = pool_size
         self._pool: queue.Queue = queue.Queue(maxsize=pool_size)
         self._lock = threading.Lock()
+
+    def _create_connection(self) -> sqlite3.Connection:
+        """
+        Create a new SQLite connection with WAL mode and foreign keys enabled.
+
+        This method creates a connection with the same configuration as used
+        in QuarantineDatabase._get_connection() to ensure consistency.
+
+        Returns:
+            Configured SQLite connection object
+
+        Raises:
+            sqlite3.Error: If connection creation or configuration fails
+        """
+        conn = sqlite3.connect(str(self._db_path), timeout=30.0)
+        try:
+            # Enable WAL mode for better concurrency and corruption prevention
+            conn.execute("PRAGMA journal_mode=WAL")
+            # Enable foreign key constraints
+            conn.execute("PRAGMA foreign_keys=ON")
+            return conn
+        except sqlite3.Error:
+            # Close connection on configuration failure
+            conn.close()
+            raise
