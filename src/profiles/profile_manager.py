@@ -473,32 +473,47 @@ class ProfileManager:
             return
 
         for exclusion in exclusion_paths:
-            # Normalize the exclusion path
-            try:
-                if exclusion.startswith("~"):
-                    excl_path = Path(exclusion).expanduser().resolve()
-                else:
-                    excl_path = Path(exclusion).resolve()
-            except (OSError, RuntimeError, ValueError):
-                continue
+            # Normalize the exclusion path using cached methods
+            if exclusion.startswith("~"):
+                # First expand ~, then resolve
+                expanded = self._cached_expanduser(exclusion)
+                if expanded is None:
+                    continue
+                excl_path = self._cached_resolve(str(expanded))
+                if excl_path is None:
+                    continue
+            else:
+                # Just resolve
+                excl_path = self._cached_resolve(exclusion)
+                if excl_path is None:
+                    continue
 
             # Check if all targets are children of this exclusion
             all_excluded = True
             for target in targets:
-                try:
-                    if target.startswith("~"):
-                        target_path = Path(target).expanduser().resolve()
-                    else:
-                        target_path = Path(target).resolve()
-
-                    # Check if target is the same as or is a child of exclusion
-                    if not (
-                        target_path == excl_path
-                        or self._is_subpath(target_path, excl_path)
-                    ):
+                # Normalize the target path using cached methods
+                if target.startswith("~"):
+                    # First expand ~, then resolve
+                    expanded = self._cached_expanduser(target)
+                    if expanded is None:
                         all_excluded = False
                         break
-                except (OSError, RuntimeError, ValueError):
+                    target_path = self._cached_resolve(str(expanded))
+                    if target_path is None:
+                        all_excluded = False
+                        break
+                else:
+                    # Just resolve
+                    target_path = self._cached_resolve(target)
+                    if target_path is None:
+                        all_excluded = False
+                        break
+
+                # Check if target is the same as or is a child of exclusion
+                if not (
+                    target_path == excl_path
+                    or self._is_subpath(target_path, excl_path)
+                ):
                     all_excluded = False
                     break
 
