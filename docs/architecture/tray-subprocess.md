@@ -18,22 +18,22 @@ The system tray feature is split across four key files, organized by process bou
 
 ```mermaid
 graph LR
-    subgraph "Main Process - GTK4 Context"
-        App[app.py<br/>ClamUIApp<br/><b>GTK4/Adwaita</b>]
-        TrayMgr[tray_manager.py<br/>TrayManager<br/><b>GTK4</b>]
+    subgraph MainProcess["Main Process - GTK4 Context"]
+        App["app.py (ClamUIApp - GTK4/Adwaita)"]
+        TrayMgr["tray_manager.py (TrayManager - GTK4)"]
 
         App -->|imports & creates| TrayMgr
     end
 
-    subgraph "Subprocess - GTK3 Context"
-        TrayService[tray_service.py<br/>TrayService<br/><b>GTK3/AppIndicator</b>]
-        TrayIcons[tray_icons.py<br/>Icon Generator<br/><b>PIL/Python stdlib</b><br/>No GTK dependency]
+    subgraph Subprocess["Subprocess - GTK3 Context"]
+        TrayService["tray_service.py (TrayService - GTK3/AppIndicator)"]
+        TrayIcons["tray_icons.py (Icon Generator - PIL/Python stdlib, No GTK dependency)"]
 
         TrayService -->|imports & uses| TrayIcons
     end
 
-    TrayMgr -.->|spawns subprocess<br/>subprocess.Popen| TrayService
-    TrayMgr <-->|JSON IPC<br/>stdin/stdout pipes| TrayService
+    TrayMgr -.->|spawns subprocess via subprocess.Popen| TrayService
+    TrayMgr <-->|JSON IPC via stdin/stdout pipes| TrayService
 
     style App fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
     style TrayMgr fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
@@ -60,12 +60,12 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph "Main Process (GTK4)"
-        App[ClamUIApp<br/>Adw.Application]
-        TrayMgr[TrayManager]
-        StdoutReader[Stdout Reader Thread]
-        StderrReader[Stderr Reader Thread]
-        MainLoop[GTK4 Main Loop<br/>GLib]
+    subgraph MainProc["Main Process (GTK4)"]
+        App["ClamUIApp (Adw.Application)"]
+        TrayMgr["TrayManager"]
+        StdoutReader["Stdout Reader Thread"]
+        StderrReader["Stderr Reader Thread"]
+        MainLoop["GTK4 Main Loop (GLib)"]
 
         App -->|manages| TrayMgr
         TrayMgr -->|spawns via subprocess.Popen| Subprocess
@@ -76,12 +76,12 @@ graph TB
         MainLoop -->|executes callbacks| App
     end
 
-    subgraph "Subprocess (GTK3)"
-        TrayService[TrayService]
-        Indicator[AppIndicator3.Indicator]
-        Menu[GTK3.Menu]
-        StdinReader[Stdin Reader Thread]
-        GTK3Loop[GTK3 Main Loop<br/>GLib]
+    subgraph SubProc["Subprocess (GTK3)"]
+        TrayService["TrayService"]
+        Indicator["AppIndicator3.Indicator"]
+        Menu["GTK3.Menu"]
+        StdinReader["Stdin Reader Thread"]
+        GTK3Loop["GTK3 Main Loop (GLib)"]
 
         TrayService -->|creates| Indicator
         TrayService -->|creates| Menu
@@ -92,13 +92,13 @@ graph TB
         TrayService -->|writes JSON events| StdoutPipe
     end
 
-    subgraph "IPC Pipes"
-        StdinPipe[stdin pipe<br/>JSON commands]
-        StdoutPipe[stdout pipe<br/>JSON events]
-        StderrPipe[stderr pipe<br/>log output]
+    subgraph IPCPipes["IPC Pipes"]
+        StdinPipe["stdin pipe (JSON commands)"]
+        StdoutPipe["stdout pipe (JSON events)"]
+        StderrPipe["stderr pipe (log output)"]
     end
 
-    Subprocess[tray_service.py<br/>Python subprocess]
+    Subprocess["tray_service.py (Python subprocess)"]
 
     style App fill:#e1f5ff
     style TrayMgr fill:#e1f5ff
@@ -147,12 +147,12 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant App as ClamUIApp<br/>(GTK4 Main Thread)
-    participant TrayMgr as TrayManager<br/>(GTK4 Main Thread)
-    participant StdoutThread as Stdout Reader<br/>(Background Thread)
+    participant App as ClamUIApp (GTK4 Main)
+    participant TrayMgr as TrayManager (GTK4 Main)
+    participant StdoutThread as Stdout Reader (Background)
     participant Subprocess as tray_service.py
-    participant StdinThread as Stdin Reader<br/>(Background Thread)
-    participant TrayService as TrayService<br/>(GTK3 Main Thread)
+    participant StdinThread as Stdin Reader (Background)
+    participant TrayService as TrayService (GTK3 Main)
 
     Note over App,TrayMgr: Main Process (GTK4)
     Note over Subprocess,TrayService: Subprocess (GTK3)
@@ -171,7 +171,7 @@ sequenceDiagram
     StdoutThread->>StdoutThread: for line in stdout
     StdoutThread->>StdoutThread: parse JSON
     StdoutThread->>App: GLib.idle_add(callback)
-    Note over StdoutThread,App: Thread-safe callback<br/>on GTK4 main loop
+    Note over StdoutThread,App: Thread-safe callback on GTK4 main loop
 
     App->>TrayMgr: update_status("scanning")
     TrayMgr->>Subprocess: stdin.write({"action": "update_status", "status": "scanning"})
@@ -179,7 +179,7 @@ sequenceDiagram
     StdinThread->>StdinThread: for line in stdin
     StdinThread->>StdinThread: parse JSON
     StdinThread->>TrayService: GLib.idle_add(update_status, "scanning")
-    Note over StdinThread,TrayService: Thread-safe callback<br/>on GTK3 main loop
+    Note over StdinThread,TrayService: Thread-safe callback on GTK3 main loop
 
     TrayService->>TrayService: update icon
 
@@ -210,7 +210,7 @@ sequenceDiagram
     App->>TrayMgr: start()
     TrayMgr->>TrayService: spawn subprocess.Popen()
     activate TrayService
-    TrayService->>TrayService: Initialize GTK3<br/>Create AppIndicator<br/>Build menu
+    TrayService->>TrayService: Initialize GTK3, Create AppIndicator, Build menu
     TrayService-->>Pipe: {"event": "ready"}
     Pipe-->>TrayMgr: ready event
     TrayMgr->>TrayMgr: _ready = True
@@ -227,12 +227,12 @@ sequenceDiagram
     App->>TrayMgr: update_progress(45)
     TrayMgr->>Pipe: {"action": "update_progress", "percentage": 45}
     Pipe->>TrayService: command
-    TrayService->>TrayService: Update menu label:<br/>"Scanning... 45%"
+    TrayService->>TrayService: Update menu label: "Scanning... 45%"
 
     App->>TrayMgr: update_progress(100)
     TrayMgr->>Pipe: {"action": "update_progress", "percentage": 100}
     Pipe->>TrayService: command
-    TrayService->>TrayService: Update menu label:<br/>"Scanning... 100%"
+    TrayService->>TrayService: Update menu label: "Scanning... 100%"
 
     App->>TrayMgr: update_progress(0)
     TrayMgr->>Pipe: {"action": "update_progress", "percentage": 0}
@@ -241,9 +241,9 @@ sequenceDiagram
 
     Note over App,TrayService: 4. Command Flow - Profile Updates
     App->>TrayMgr: update_profiles([profiles], current_id)
-    TrayMgr->>Pipe: {"action": "update_profiles",<br/>"profiles": [...], "current_profile_id": "..."}
+    TrayMgr->>Pipe: {"action": "update_profiles", "profiles": [...], "current_profile_id": "..."}
     Pipe->>TrayService: command
-    TrayService->>TrayService: Rebuild profiles submenu<br/>Mark current profile
+    TrayService->>TrayService: Rebuild profiles submenu, Mark current profile
 
     Note over App,TrayService: 5. Menu Action Events - Quick Scan
     User->>TrayService: Click "Quick Scan"
@@ -254,10 +254,10 @@ sequenceDiagram
 
     Note over App,TrayService: 6. Menu Action Events - Profile Selection
     User->>TrayService: Click profile menu item
-    TrayService-->>Pipe: {"event": "menu_action",<br/>"action": "select_profile",<br/>"profile_id": "custom-profile-1"}
+    TrayService-->>Pipe: {"event": "menu_action", "action": "select_profile", "profile_id": "custom-profile-1"}
     Pipe-->>TrayMgr: menu_action event
     TrayMgr->>App: GLib.idle_add(on_profile_select, profile_id)
-    App->>App: Switch to profile<br/>Update UI
+    App->>App: Switch to profile, Update UI
 
     Note over App,TrayService: 7. Menu Action Events - Toggle Window
     User->>TrayService: Click "Show/Hide Window"
@@ -268,7 +268,7 @@ sequenceDiagram
     App->>TrayMgr: update_window_visible(True)
     TrayMgr->>Pipe: {"action": "update_window_visible", "visible": true}
     Pipe->>TrayService: command
-    TrayService->>TrayService: Update menu label:<br/>"Hide Window"
+    TrayService->>TrayService: Update menu label: "Hide Window"
 
     Note over App,TrayService: 8. Menu Action Events - Update Database
     User->>TrayService: Click "Update Virus Database"
