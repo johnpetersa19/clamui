@@ -217,30 +217,75 @@ See [Daemon Setup Instructions](#daemon-setup) below.
 
 ## Performance Comparison
 
+### Detailed Metrics Comparison
+
 | Aspect | Auto Mode | Daemon Backend | Clamscan Backend |
 |--------|-----------|----------------|------------------|
 | **First Scan Startup** | 3-10 sec* | <1 sec | 3-10 sec |
 | **Subsequent Scans** | 3-10 sec* | <1 sec | 3-10 sec |
-| **Scan Speed** | Fast* | Fast | Fast |
-| **Memory Usage (Baseline)** | Variable | 500MB-1GB | ~50MB |
-| **Memory Usage (During Scan)** | Variable | 500MB-1GB | 500MB-1GB |
+| **Scan Speed (Actual)** | Fast* | Fast | Fast |
+| **CPU Usage** | Medium* | Low-Medium | Medium |
+| **Memory Usage (Baseline)** | ~50MB* | 500MB-1GB | ~50MB |
+| **Memory Usage (During Scan)** | 500MB-1GB* | 500MB-1GB | 500MB-1GB |
+| **Disk I/O Per Scan** | High* | Low | High |
+| **Parallel Scanning** | Yes/No* | Yes | No |
 | **Setup Complexity** | None | Moderate | None |
 | **Reliability** | High | Medium** | High |
+| **Best For** | Most users | Power users | Occasional scans |
 
-*Auto mode performance matches daemon if available, otherwise matches clamscan
+*Auto mode characteristics depend on whether daemon is available
 **Daemon reliability depends on clamd service being properly configured and running
+
+### Performance Metrics Explained
+
+- **Startup Time**: Time from initiating scan to first file being scanned
+  - Daemon: Instant (<100ms) - database already in memory
+  - Clamscan: 3-10 seconds - must load 200-400MB database from disk
+  - Auto: Depends on daemon availability
+
+- **CPU Usage**: Processing overhead during scanning
+  - Daemon: Lower due to optimized resident process and parallel scanning
+  - Clamscan: Medium due to sequential scanning
+  - Auto: Matches selected backend
+
+- **Disk I/O**: Amount of disk reading required
+  - Daemon: Minimal - only reads files being scanned, database already cached
+  - Clamscan: High - reads entire database (200-400MB) plus scanned files
+  - Auto: Low if daemon available, high if using clamscan
+
+- **Parallel Scanning**: Ability to scan multiple files simultaneously
+  - Daemon: Yes - supports `--multiscan` for parallel processing across CPU cores
+  - Clamscan: No - always sequential file-by-file scanning
+  - Auto: Available only when daemon is used
 
 ### Real-World Performance Examples
 
 **Scanning a 1GB directory with 1000 files**:
 - **Daemon**: 30 seconds total (instant startup + 30 sec scan)
 - **Clamscan**: 40 seconds total (10 sec database load + 30 sec scan)
+- **Auto (daemon available)**: 30 seconds total
+- **Auto (daemon unavailable)**: 40 seconds total
 - **Improvement**: Daemon is ~25% faster, more noticeable with multiple scans
 
 **Running 5 consecutive scans**:
 - **Daemon**: 150 seconds total (5× 30 sec scans)
 - **Clamscan**: 200 seconds total (5× 40 sec scans including startup)
+- **Auto (daemon available)**: 150 seconds total
+- **Auto (daemon unavailable)**: 200 seconds total
 - **Improvement**: Daemon saves 50 seconds over 5 scans
+
+**Scanning a small directory (100 files, 50MB)**:
+- **Daemon**: 2 seconds total (instant startup + 2 sec scan)
+- **Clamscan**: 8 seconds total (6 sec database load + 2 sec scan)
+- **Auto (daemon available)**: 2 seconds total
+- **Auto (daemon unavailable)**: 8 seconds total
+- **Improvement**: Daemon is 4× faster - startup overhead dominates small scans
+
+**Daily scheduled scan of /home (10GB, 50,000 files)**:
+- **Daemon**: ~5 minutes (instant startup + scan time)
+- **Clamscan**: ~5.5 minutes (database load + scan time)
+- **Auto**: Varies by daemon availability
+- **Improvement**: Smaller relative improvement for large scans, but adds up over time
 
 ---
 
@@ -353,6 +398,18 @@ If you're running ClamUI as a Flatpak, the daemon must be installed on the **hos
 
 ## Troubleshooting
 
+### Quick Troubleshooting Checklist
+
+Before diving into specific issues, run through this quick checklist:
+
+- [ ] **Verify ClamAV is installed**: Run `clamscan --version` in terminal
+- [ ] **Check virus database is updated**: Ensure freshclam has run successfully
+- [ ] **Confirm backend setting**: Check **Preferences → General Settings → Scan Backend**
+- [ ] **Review recent logs**: Check **Logs View** in ClamUI for error messages
+- [ ] **Test basic scan**: Try scanning a single file to isolate the issue
+- [ ] **Check system resources**: Ensure sufficient disk space and memory available
+- [ ] **Verify file permissions**: Confirm you have read access to files being scanned
+
 ### Checking Which Backend is Active
 
 To see which backend ClamUI is currently using:
@@ -360,6 +417,7 @@ To see which backend ClamUI is currently using:
 1. Run a scan with any file/folder
 2. Check the scan results or logs - backend information is displayed
 3. Alternatively, check Components View for daemon status
+4. Look for "Using backend: daemon" or "Using backend: clamscan" in scan output
 
 ### Common Issues
 
@@ -407,6 +465,123 @@ To see which backend ClamUI is currently using:
 3. Check socket permissions (clamd socket must be readable)
 4. Review ClamUI logs for connection errors
 5. Try explicitly selecting daemon backend to see specific error
+
+#### "Database load error" or "Database initialization failed"
+
+**Symptoms**: Scan fails immediately with database-related error messages.
+
+**Possible Causes**:
+- Virus database is corrupt or incomplete
+- Database update in progress (freshclam running)
+- Insufficient disk space for database files
+- Permission issues accessing database files
+
+**Solutions**:
+1. Update virus database: Run `sudo freshclam` manually
+2. Check disk space: `df -h /var/lib/clamav`
+3. Verify database files exist: `ls -lh /var/lib/clamav/*.cvd /var/lib/clamav/*.cld`
+4. Check database ownership: `ls -l /var/lib/clamav/` (should be owned by clamav user)
+5. Wait if freshclam is running: Check `ps aux | grep freshclam`
+6. Reinstall database if corrupt: `sudo freshclam --verbose`
+
+#### Scans are extremely slow or hang
+
+**Symptoms**: Scans take much longer than expected, or appear to freeze without progress.
+
+**Possible Causes**:
+- Scanning very large files (archives, disk images)
+- Scanning network/remote filesystems with high latency
+- Insufficient system resources (low RAM, high CPU load)
+- Nested or recursive archives
+- Corrupted files causing scanner to hang
+
+**Solutions**:
+1. Check what's currently being scanned in scan progress window
+2. Add problematic paths to exclusion list if they're known safe
+3. Reduce scan scope to specific directories rather than entire filesystem
+4. Increase available RAM (close other applications)
+5. Use daemon backend for better performance
+6. Configure archive scan limits in ClamAV configuration
+7. Check system load: `top` or `htop` to see resource usage
+
+#### "Permission denied" errors during scan
+
+**Symptoms**: Some files show as "Permission denied" in scan results.
+
+**Explanation**: This is usually normal - you cannot scan files you don't have permission to read.
+
+**Solutions**:
+1. **Expected behavior**: System files owned by root cannot be scanned by regular user
+2. Run ClamUI with elevated permissions: `pkexec clamui` (use with caution)
+3. Add frequently-denied paths to exclusion list
+4. For system-wide scans, use scheduled scans with appropriate permissions
+5. Check file permissions: `ls -l /path/to/file`
+
+#### Flatpak-specific issues
+
+**Symptoms**: Issues specific to ClamUI running as Flatpak.
+
+**Common Issues**:
+- Daemon not detected even when installed
+- Cannot access certain directories
+- Permission errors on non-standard mount points
+
+**Solutions**:
+1. **Daemon not detected**:
+   - Install clamd on host system (not inside Flatpak)
+   - Verify with: `flatpak-spawn --host clamdscan --version`
+   - Check that ClamUI has host-spawn permission
+
+2. **Directory access issues**:
+   - Grant filesystem permissions: `flatpak override --user --filesystem=/path com.github.rooki.ClamUI`
+   - Or use Flatseal GUI application to manage permissions
+   - Check current permissions: `flatpak info --show-permissions com.github.rooki.ClamUI`
+
+3. **Network shares**:
+   - Flatpak may not have access to network mounts by default
+   - Grant network access if needed: `flatpak override --user --share=network com.github.rooki.ClamUI`
+
+#### Scan results show false positives
+
+**Symptoms**: Known-safe files are reported as infected.
+
+**Explanation**: False positives can occur, especially with development tools, packed executables, or test files.
+
+**Solutions**:
+1. Verify it's actually a false positive (not a real threat)
+2. Submit false positive report to ClamAV: https://www.clamav.net/reports/fp
+3. Add specific file or directory to exclusion patterns
+4. Update virus database (false positives are often fixed in updates)
+5. Check ClamAV forums/mailing list for known issues with specific signatures
+
+#### Backend switching doesn't take effect
+
+**Symptoms**: Changing backend in preferences doesn't seem to change scan behavior.
+
+**Solutions**:
+1. Close preferences window completely (changes apply on close)
+2. Restart ClamUI if behavior persists
+3. Check that the new backend is actually available (e.g., daemon is running)
+4. Verify setting is saved: Check `~/.config/clamui/settings.json`
+5. Review scan logs to confirm which backend is actually being used
+
+#### Out of memory errors during scan
+
+**Symptoms**: Scan crashes or fails with out-of-memory errors.
+
+**Possible Causes**:
+- Very large files being scanned
+- Scanning many large archive files
+- Insufficient system RAM
+- Memory leak (rare)
+
+**Solutions**:
+1. Close other memory-intensive applications
+2. Exclude very large files/archives from scan
+3. Use clamscan backend instead of daemon (can use less memory in some cases)
+4. Increase system swap space if needed
+5. Scan smaller directories at a time rather than entire filesystem
+6. Configure ClamAV limits: Check `/etc/clamav/clamd.conf` for MaxFileSize and MaxScanSize settings
 
 ### Getting Help
 
