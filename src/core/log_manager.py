@@ -411,6 +411,9 @@ class LogManager:
         """
         Retrieve stored log entries, sorted by timestamp (newest first).
 
+        Uses an index file for optimized retrieval. Falls back to full directory scan
+        if the index is missing or corrupted.
+
         Args:
             limit: Maximum number of entries to return
             log_type: Optional filter by type ("scan" or "update")
@@ -418,14 +421,61 @@ class LogManager:
         Returns:
             List of LogEntry objects
         """
-        entries = []
-
         with self._lock:
+            # Try optimized index-based approach first
+            index_data = self._load_index()
+
+            # Check if index has entries (not empty/corrupted)
+            if index_data.get("entries"):
+                try:
+                    # Start with all index entries
+                    filtered_entries = index_data["entries"]
+
+                    # Filter by type if specified
+                    if log_type is not None:
+                        filtered_entries = [
+                            entry for entry in filtered_entries
+                            if entry.get("type") == log_type
+                        ]
+
+                    # Sort by timestamp descending (newest first)
+                    filtered_entries.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+
+                    # Apply limit
+                    filtered_entries = filtered_entries[:limit]
+
+                    # Load only the needed log files by id
+                    entries = []
+                    for index_entry in filtered_entries:
+                        log_id = index_entry.get("id")
+                        if log_id:
+                            try:
+                                log_file = self._log_dir / f"{log_id}.json"
+                                if log_file.exists():
+                                    with open(log_file, "r", encoding="utf-8") as f:
+                                        data = json.load(f)
+                                        entries.append(LogEntry.from_dict(data))
+                            except (OSError, json.JSONDecodeError):
+                                # Skip corrupted or missing files
+                                continue
+
+                    return entries
+
+                except Exception:
+                    # Index-based approach failed, fall back to full scan
+                    pass
+
+            # Fallback: full directory scan (original implementation)
+            entries = []
             try:
                 if not self._log_dir.exists():
                     return entries
 
                 for log_file in self._log_dir.glob("*.json"):
+                    # Skip the index file
+                    if log_file.name == INDEX_FILENAME:
+                        continue
+
                     try:
                         with open(log_file, "r", encoding="utf-8") as f:
                             data = json.load(f)
@@ -441,9 +491,9 @@ class LogManager:
             except OSError:
                 return entries
 
-        # Sort by timestamp (newest first) and apply limit
-        entries.sort(key=lambda e: e.timestamp, reverse=True)
-        return entries[:limit]
+            # Sort by timestamp (newest first) and apply limit
+            entries.sort(key=lambda e: e.timestamp, reverse=True)
+            return entries[:limit]
 
     def get_logs_async(
         self,
