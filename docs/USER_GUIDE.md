@@ -125,19 +125,143 @@ This guide covers everything you need to know to use ClamUI effectively:
 
 ### Launching ClamUI
 
-*(This section will be completed in subtask 1.2)*
+After installing ClamUI using your preferred method, you can launch it in several ways:
+
+**From your Application Menu:**
+- Look for "ClamUI" in your desktop's application launcher
+- On GNOME, press the Super key and type "ClamUI"
+- The application appears with a shield icon
+
+**From the Terminal:**
+
+If you installed via Flatpak:
+```bash
+flatpak run com.github.rooki.ClamUI
+```
+
+If you installed via .deb package or from source:
+```bash
+clamui
+```
+
+**With Files to Scan:**
+
+You can also launch ClamUI with files or folders to scan immediately:
+
+```bash
+# Flatpak
+flatpak run com.github.rooki.ClamUI /path/to/file /path/to/folder
+
+# Native installation
+clamui /path/to/file /path/to/folder
+```
+
+When launched with file arguments, ClamUI will open with those paths pre-loaded in the scan view.
 
 ### First-Time Setup
 
-*(This section will be completed in subtask 1.2)*
+When you first launch ClamUI, the application will:
+
+1. **Check for ClamAV Installation**
+   - ClamUI requires ClamAV (the antivirus engine) to be installed on your system
+   - If ClamAV is not found, you'll see a warning message with installation instructions
+   - See the [Troubleshooting](#clamav-not-found) section if you encounter this issue
+
+2. **Create Default Scan Profiles**
+   - ClamUI automatically creates three useful scan profiles:
+     - **Quick Scan**: Scans common locations like Downloads, Desktop, and Documents
+     - **Full Scan**: Comprehensive scan of your entire home directory
+     - **Home Folder**: Scans your home directory with common exclusions
+   - You can customize these or create your own profiles later
+
+3. **Set Up Configuration Directories**
+   - Settings are saved to `~/.config/clamui/`
+   - Scan logs and quarantine data are stored in `~/.local/share/clamui/`
+   - These directories are created automatically
+
+**Updating Virus Definitions**
+
+Before your first scan, it's important to ensure your virus definitions are up to date:
+
+1. Click the **Update Database** button (cloud icon with arrow) in the header bar
+2. Click the "Update Now" button in the Update view
+3. Wait for the update to complete (this may take a few minutes on first run)
+4. You'll see a success message when definitions are current
+
+💡 **Tip**: ClamUI can check for database updates automatically. See [Database Update Settings](#database-update-settings) to enable auto-updates.
 
 ### Understanding the Main Window
 
-*(This section will be completed in subtask 1.2)*
+ClamUI uses a clean, modern interface that follows GNOME design guidelines. Here's what you'll see when you open the application:
+
+![Main Window](../screenshots/main_view.png)
+
+**Header Bar (Top)**
+
+The header bar contains your main navigation and controls:
+
+- **ClamUI Title**: Shows the application name
+- **Navigation Buttons** (left side): Six icon buttons to switch between views:
+  - 📁 **Scan Files**: Main scanning interface (default view)
+  - ☁️ **Update Database**: Update virus definitions
+  - 📄 **View Logs**: Browse scan history
+  - ⚙️ **ClamAV Components**: Check ClamAV installation status
+  - 🛡️ **Quarantine**: Manage isolated threats
+  - 📊 **Statistics**: View protection statistics and scan activity
+- **Menu Button** (right side): Access Preferences, About, and Quit
+
+**Content Area (Center)**
+
+The main content area displays the currently selected view. Each view has its own purpose:
+
+- **Scan View**: Select files/folders to scan, configure scan options, and view results
+- **Update View**: Check database status and update virus definitions
+- **Logs View**: Review past scan results and filter by date/status
+- **Components View**: Verify ClamAV installation and component versions
+- **Quarantine View**: Manage files that have been isolated due to threats
+- **Statistics View**: See charts and metrics about your scanning activity
+
+**Status Information**
+
+At the bottom of most views, you'll find:
+- ClamAV version information
+- Database status (last updated date and number of signatures)
+- Quick status indicators
 
 ### Navigating Between Views
 
-*(This section will be completed in subtask 1.2)*
+Switching between different parts of ClamUI is simple and intuitive.
+
+**Using the Navigation Buttons**
+
+The six buttons in the header bar let you quickly jump to any view:
+
+1. Click any navigation button to switch to that view
+2. The active view's button will be highlighted (pressed in)
+3. The content area updates immediately to show the selected view
+
+**Keyboard Shortcuts**
+
+ClamUI supports keyboard shortcuts for faster navigation:
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Q` | Quit ClamUI |
+| `Ctrl+,` | Open Preferences |
+
+💡 **Tip**: More keyboard shortcuts for specific actions are available in each view.
+
+**View-Specific Navigation**
+
+Some views have additional navigation within them:
+
+- **Scan View**: Switch between "Quick Actions" using scan profiles
+- **Logs View**: Filter and search through scan history
+- **Statistics View**: Change timeframe filters (7 days, 30 days, all time)
+
+**Returning to the Scan View**
+
+Click the folder icon (📁) button in the header bar at any time to return to the main scanning interface.
 
 ### Your First Scan
 
