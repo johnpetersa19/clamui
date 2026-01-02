@@ -30,24 +30,180 @@ ClamUI stores user preferences in `settings.json`, a JSON-formatted configuratio
 
 ## File Locations
 
-ClamUI follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) for file storage:
+ClamUI follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) for file storage, ensuring consistent and predictable file organization across Linux systems.
 
-| Purpose | Default Location | Environment Variable Override |
-|---------|------------------|-------------------------------|
-| **Configuration** | `~/.config/clamui/` | `XDG_CONFIG_HOME` |
-| **Data Storage** | `~/.local/share/clamui/` | `XDG_DATA_HOME` |
+### XDG Base Directories
 
-### Specific Files
+ClamUI uses two primary XDG base directories:
 
-| File | Location | Description |
-|------|----------|-------------|
+| Purpose | Default Location | Environment Variable | Description |
+|---------|------------------|----------------------|-------------|
+| **Configuration** | `~/.config/clamui/` | `XDG_CONFIG_HOME` | User-specific configuration files |
+| **Data Storage** | `~/.local/share/clamui/` | `XDG_DATA_HOME` | User-specific application data |
+
+**How XDG Directories Work:**
+- If environment variables are set, ClamUI uses those paths
+- If not set, ClamUI falls back to the standard defaults shown above
+- All paths are created automatically on first launch if they don't exist
+
+### Specific Files and Directories
+
+| File/Directory | Location | Description |
+|----------------|----------|-------------|
 | `settings.json` | `~/.config/clamui/settings.json` | User preferences and application settings |
 | `profiles.json` | `~/.config/clamui/profiles.json` | Scan profile definitions |
 | `quarantine.db` | `~/.local/share/clamui/quarantine.db` | Quarantine metadata database (SQLite) |
-| Quarantine files | `~/.local/share/clamui/quarantine/` | Quarantined file storage |
-| Scan logs | `~/.local/share/clamui/logs/` | Historical scan logs (JSON) |
+| Quarantine files | `~/.local/share/clamui/quarantine/` | Quarantined file storage directory |
+| Scan logs | `~/.local/share/clamui/logs/` | Historical scan logs (JSON files, one per scan) |
 
-**Flatpak Note:** When running as a Flatpak, these paths are sandboxed within `~/.var/app/org.clamui.ClamUI/`.
+### Environment Variable Overrides
+
+You can customize ClamUI's file locations by setting XDG environment variables before launching the application:
+
+#### `XDG_CONFIG_HOME`
+
+Controls where configuration files are stored.
+
+**Default:** `~/.config`
+
+**Example - Custom config location:**
+```bash
+# Set custom config directory
+export XDG_CONFIG_HOME="$HOME/my-config"
+
+# Launch ClamUI - will use $HOME/my-config/clamui/ for configuration
+clamui
+```
+
+**Result:**
+- Settings: `~/my-config/clamui/settings.json`
+- Profiles: `~/my-config/clamui/profiles.json`
+
+#### `XDG_DATA_HOME`
+
+Controls where application data is stored.
+
+**Default:** `~/.local/share`
+
+**Example - Custom data location:**
+```bash
+# Set custom data directory
+export XDG_DATA_HOME="$HOME/app-data"
+
+# Launch ClamUI - will use $HOME/app-data/clamui/ for data
+clamui
+```
+
+**Result:**
+- Quarantine DB: `~/app-data/clamui/quarantine.db`
+- Quarantine files: `~/app-data/clamui/quarantine/`
+- Logs: `~/app-data/clamui/logs/`
+
+#### Persistent Environment Variables
+
+To make environment variable changes permanent, add them to your shell profile:
+
+**For Bash** (`~/.bashrc` or `~/.bash_profile`):
+```bash
+export XDG_CONFIG_HOME="$HOME/my-config"
+export XDG_DATA_HOME="$HOME/app-data"
+```
+
+**For Zsh** (`~/.zshrc`):
+```bash
+export XDG_CONFIG_HOME="$HOME/my-config"
+export XDG_DATA_HOME="$HOME/app-data"
+```
+
+**For systemd user services** (if launching via desktop file):
+```bash
+# Edit ~/.config/environment.d/xdg.conf
+XDG_CONFIG_HOME=$HOME/my-config
+XDG_DATA_HOME=$HOME/app-data
+```
+
+### Flatpak-Specific Paths
+
+When running ClamUI as a Flatpak package, file paths are sandboxed for security:
+
+**Sandboxed Base Path:** `~/.var/app/org.clamui.ClamUI/`
+
+All XDG paths are relative to this sandbox directory:
+
+| File/Directory | Flatpak Location |
+|----------------|------------------|
+| **Config directory** | `~/.var/app/org.clamui.ClamUI/config/clamui/` |
+| `settings.json` | `~/.var/app/org.clamui.ClamUI/config/clamui/settings.json` |
+| `profiles.json` | `~/.var/app/org.clamui.ClamUI/config/clamui/profiles.json` |
+| **Data directory** | `~/.var/app/org.clamui.ClamUI/data/clamui/` |
+| `quarantine.db` | `~/.var/app/org.clamui.ClamUI/data/clamui/quarantine.db` |
+| Quarantine files | `~/.var/app/org.clamui.ClamUI/data/clamui/quarantine/` |
+| Scan logs | `~/.var/app/org.clamui.ClamUI/data/clamui/logs/` |
+
+**Important Notes for Flatpak:**
+- XDG environment variables still work but are interpreted within the sandbox
+- The Flatpak version can access the host filesystem through permissions
+- ClamAV binaries (`clamscan`, `freshclam`, etc.) must be installed on the **host system**, not inside the Flatpak
+- ClamUI uses `flatpak-spawn --host` to execute ClamAV commands on the host
+
+**Accessing Flatpak Files:**
+To access ClamUI configuration or logs when using Flatpak:
+```bash
+# View settings
+cat ~/.var/app/org.clamui.ClamUI/config/clamui/settings.json
+
+# View quarantine database
+sqlite3 ~/.var/app/org.clamui.ClamUI/data/clamui/quarantine.db
+
+# List scan logs
+ls -lh ~/.var/app/org.clamui.ClamUI/data/clamui/logs/
+```
+
+### Verifying Your File Locations
+
+To check which directories ClamUI is using:
+
+```bash
+# Check current XDG environment variables
+echo "Config: ${XDG_CONFIG_HOME:-$HOME/.config}/clamui/"
+echo "Data: ${XDG_DATA_HOME:-$HOME/.local/share}/clamui/"
+
+# List ClamUI configuration files
+ls -lah "${XDG_CONFIG_HOME:-$HOME/.config}/clamui/"
+
+# List ClamUI data files
+ls -lah "${XDG_DATA_HOME:-$HOME/.local/share}/clamui/"
+
+# Check disk usage
+du -sh "${XDG_DATA_HOME:-$HOME/.local/share}/clamui/"
+```
+
+### Backup and Migration
+
+To backup your ClamUI configuration and data:
+
+```bash
+# Backup configuration (settings and profiles)
+tar -czf clamui-config-backup.tar.gz -C "${XDG_CONFIG_HOME:-$HOME/.config}" clamui/
+
+# Backup data (quarantine, logs, database)
+tar -czf clamui-data-backup.tar.gz -C "${XDG_DATA_HOME:-$HOME/.local/share}" clamui/
+
+# Or backup everything
+tar -czf clamui-full-backup.tar.gz \
+  -C "${XDG_CONFIG_HOME:-$HOME/.config}" clamui/ \
+  -C "${XDG_DATA_HOME:-$HOME/.local/share}" clamui/
+```
+
+To restore from backup:
+
+```bash
+# Restore configuration
+tar -xzf clamui-config-backup.tar.gz -C "${XDG_CONFIG_HOME:-$HOME/.config}"
+
+# Restore data
+tar -xzf clamui-data-backup.tar.gz -C "${XDG_DATA_HOME:-$HOME/.local/share}"
+```
 
 ---
 
