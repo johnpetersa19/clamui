@@ -94,6 +94,7 @@ def mock_quarantine_view(quarantine_view_class, mock_quarantine_manager):
     view._count_label = mock.MagicMock()
     view._list_group = mock.MagicMock()
     view._listbox = mock.MagicMock()
+    view._listbox.get_first_child.return_value = None  # Ensure loop terminates
     view._spinner = mock.MagicMock()
     view._refresh_button = mock.MagicMock()
     view._clear_old_button = mock.MagicMock()
@@ -254,6 +255,7 @@ class TestQuarantineViewEntriesLoaded:
         view = object.__new__(quarantine_view_class)
         view._is_loading = True
         view._listbox = mock.MagicMock()
+        view._listbox.get_first_child.return_value = None  # Ensure loop terminates
         view._clear_old_button = mock.MagicMock()
         view._all_entries = []
         view._displayed_count = 0
@@ -275,6 +277,7 @@ class TestQuarantineViewEntriesLoaded:
         view = object.__new__(quarantine_view_class)
         view._is_loading = True
         view._listbox = mock.MagicMock()
+        view._listbox.get_first_child.return_value = None  # Ensure loop terminates
         view._clear_old_button = mock.MagicMock()
         view._all_entries = []
         view._displayed_count = 0
@@ -297,6 +300,7 @@ class TestQuarantineViewEntriesLoaded:
         view = object.__new__(quarantine_view_class)
         view._is_loading = True
         view._listbox = mock.MagicMock()
+        view._listbox.get_first_child.return_value = None  # Ensure loop terminates
         view._clear_old_button = mock.MagicMock()
         view._all_entries = []
         view._displayed_count = 0
