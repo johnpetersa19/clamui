@@ -954,6 +954,56 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         page.add(group)
 
+    def _create_onaccess_behavior_group(self, page: Adw.PreferencesPage):
+        """
+        Create the On-Access Behavior preferences group.
+
+        Contains settings for:
+        - OnAccessPrevention: Block access to infected files
+        - OnAccessExtraScanning: Monitor file creation/moves via inotify
+        - OnAccessDenyOnError: Deny access when scan fails
+        - OnAccessDisableDDD: Disable Directory Descent Detection
+
+        Args:
+            page: The preferences page to add the group to
+        """
+        group = Adw.PreferencesGroup()
+        group.set_title("Behavior Settings")
+        group.set_description(
+            "Configure how On-Access scanning responds to file access events"
+        )
+        group.set_header_suffix(self._create_permission_indicator())
+
+        # OnAccessPrevention switch
+        prevention_row = Adw.SwitchRow()
+        prevention_row.set_title("Prevention Mode")
+        prevention_row.set_subtitle("Block access to infected files")
+        self._onaccess_widgets['OnAccessPrevention'] = prevention_row
+        group.add(prevention_row)
+
+        # OnAccessExtraScanning switch
+        extra_scanning_row = Adw.SwitchRow()
+        extra_scanning_row.set_title("Extra Scanning")
+        extra_scanning_row.set_subtitle("Monitor file creation/moves via inotify")
+        self._onaccess_widgets['OnAccessExtraScanning'] = extra_scanning_row
+        group.add(extra_scanning_row)
+
+        # OnAccessDenyOnError switch
+        deny_on_error_row = Adw.SwitchRow()
+        deny_on_error_row.set_title("Deny on Error")
+        deny_on_error_row.set_subtitle("Deny access when scan fails (requires Prevention)")
+        self._onaccess_widgets['OnAccessDenyOnError'] = deny_on_error_row
+        group.add(deny_on_error_row)
+
+        # OnAccessDisableDDD switch
+        disable_ddd_row = Adw.SwitchRow()
+        disable_ddd_row.set_title("Disable DDD")
+        disable_ddd_row.set_subtitle("Disable Directory Descent Detection")
+        self._onaccess_widgets['OnAccessDisableDDD'] = disable_ddd_row
+        group.add(disable_ddd_row)
+
+        page.add(group)
+
     def _create_scheduled_scans_page(self):
         """
         Create the Scheduled Scans configuration page.
