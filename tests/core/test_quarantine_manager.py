@@ -11,11 +11,9 @@ import pytest
 
 # Import directly - quarantine modules use GLib only for async callbacks,
 # which are mocked in tests via GLib.idle_add patching
-from src.core.quarantine.database import QuarantineDatabase, QuarantineEntry
+from src.core.quarantine.database import QuarantineEntry
 from src.core.quarantine.file_handler import (
-    FileOperationResult,
     FileOperationStatus,
-    SecureFileHandler,
 )
 from src.core.quarantine.manager import (
     QuarantineManager,
@@ -213,6 +211,7 @@ class TestQuarantineManager:
 
         # Calculate expected hash
         import hashlib
+
         expected_hash = hashlib.sha256(content).hexdigest()
 
         result = manager.quarantine_file(test_file, "TestThreat")
@@ -316,6 +315,7 @@ class TestQuarantineManagerRestore:
 
         # Remove the nested directory
         import shutil
+
         shutil.rmtree(os.path.join(temp_dir, "nested"))
 
         # Restore should recreate the directory structure
@@ -337,11 +337,12 @@ class TestQuarantineManagerRestore:
         # Manually update the database to have a protected path
         # This simulates a corrupted/manipulated database
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/etc/malicious.conf", qresult.entry.id)
+            ("/etc/malicious.conf", qresult.entry.id),
         )
         conn.commit()
         conn.close()
@@ -366,11 +367,12 @@ class TestQuarantineManagerRestore:
 
         # Update database to /etc path
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/etc/passwd", qresult.entry.id)
+            ("/etc/passwd", qresult.entry.id),
         )
         conn.commit()
         conn.close()
@@ -393,11 +395,12 @@ class TestQuarantineManagerRestore:
 
         # Update database to /var path
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/var/lib/important.db", qresult.entry.id)
+            ("/var/lib/important.db", qresult.entry.id),
         )
         conn.commit()
         conn.close()
@@ -420,11 +423,12 @@ class TestQuarantineManagerRestore:
 
         # Update database to /usr path
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/usr/bin/malicious", qresult.entry.id)
+            ("/usr/bin/malicious", qresult.entry.id),
         )
         conn.commit()
         conn.close()
@@ -451,11 +455,11 @@ class TestQuarantineManagerRestore:
 
         # Update database to /bin path
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
-            "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/bin/bash", qresult.entry.id)
+            "UPDATE quarantine SET original_path = ? WHERE id = ?", ("/bin/bash", qresult.entry.id)
         )
         conn.commit()
         conn.close()
@@ -479,11 +483,12 @@ class TestQuarantineManagerRestore:
 
         # Update database to /root path
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/root/.bashrc", qresult.entry.id)
+            ("/root/.bashrc", qresult.entry.id),
         )
         conn.commit()
         conn.close()
@@ -506,11 +511,12 @@ class TestQuarantineManagerRestore:
 
         # Update database to path with newline injection
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/tmp/file\nmalicious.txt", qresult.entry.id)
+            ("/tmp/file\nmalicious.txt", qresult.entry.id),
         )
         conn.commit()
         conn.close()
@@ -533,11 +539,12 @@ class TestQuarantineManagerRestore:
 
         # Update database to path with null byte
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/tmp/file\x00malicious.txt", qresult.entry.id)
+            ("/tmp/file\x00malicious.txt", qresult.entry.id),
         )
         conn.commit()
         conn.close()
@@ -560,11 +567,12 @@ class TestQuarantineManagerRestore:
 
         # Update database to path that uses .. to reach /etc
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/home/user/../../etc/passwd", qresult.entry.id)
+            ("/home/user/../../etc/passwd", qresult.entry.id),
         )
         conn.commit()
         conn.close()
@@ -610,6 +618,7 @@ class TestQuarantineManagerRestore:
         # Step 2: Attack - Attacker gains file access and modifies the database
         # This simulates using: sqlite3 quarantine.db "UPDATE quarantine SET original_path = '/etc/passwd' WHERE id = 1"
         import sqlite3
+
         db_path = manager._database._db_path
         conn = sqlite3.connect(db_path)
 
@@ -617,7 +626,7 @@ class TestQuarantineManagerRestore:
         malicious_path = "/etc/passwd"
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            (malicious_path, original_entry_id)
+            (malicious_path, original_entry_id),
         )
         conn.commit()
         conn.close()
@@ -645,7 +654,7 @@ class TestQuarantineManagerRestore:
         # Attack vector 2: Injection characters (path traversal + newline injection)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/tmp/safe\n/etc/shadow", original_entry_id)
+            ("/tmp/safe\n/etc/shadow", original_entry_id),
         )
         conn.commit()
         conn.close()
@@ -659,7 +668,7 @@ class TestQuarantineManagerRestore:
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/tmp/safe\x00/etc/shadow", original_entry_id)
+            ("/tmp/safe\x00/etc/shadow", original_entry_id),
         )
         conn.commit()
         conn.close()
@@ -673,7 +682,7 @@ class TestQuarantineManagerRestore:
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/root/.ssh/authorized_keys", original_entry_id)
+            ("/root/.ssh/authorized_keys", original_entry_id),
         )
         conn.commit()
         conn.close()
@@ -686,8 +695,7 @@ class TestQuarantineManagerRestore:
         # Attack vector 5: System binaries directory
         conn = sqlite3.connect(db_path)
         conn.execute(
-            "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            ("/bin/bash", original_entry_id)
+            "UPDATE quarantine SET original_path = ? WHERE id = ?", ("/bin/bash", original_entry_id)
         )
         conn.commit()
         conn.close()
@@ -702,7 +710,7 @@ class TestQuarantineManagerRestore:
         conn = sqlite3.connect(db_path)
         conn.execute(
             "UPDATE quarantine SET original_path = ? WHERE id = ?",
-            (safe_restore_path, original_entry_id)
+            (safe_restore_path, original_entry_id),
         )
         conn.commit()
         conn.close()
@@ -1321,12 +1329,14 @@ class TestQuarantineManagerThreadSafety:
                 count = manager.get_entry_count()
                 total_size = manager.get_total_size()
                 with lock:
-                    results.append({
-                        "thread": thread_id,
-                        "entries": len(entries),
-                        "count": count,
-                        "total_size": total_size,
-                    })
+                    results.append(
+                        {
+                            "thread": thread_id,
+                            "entries": len(entries),
+                            "count": count,
+                            "total_size": total_size,
+                        }
+                    )
             except Exception as e:
                 with lock:
                     errors.append(str(e))
@@ -1434,6 +1444,7 @@ class TestQuarantineManagerEdgeCases:
 
         # Delete the directory
         import shutil
+
         shutil.rmtree(os.path.join(temp_dir, "will"))
 
         # Restore should recreate the directory
@@ -1444,7 +1455,6 @@ class TestQuarantineManagerEdgeCases:
 
     def test_status_mapping_all_file_statuses(self, manager):
         """Test that all FileOperationStatus values are mapped correctly."""
-        from src.core.quarantine.file_handler import FileOperationStatus
 
         # Test the internal status mapping method
         mappings = {

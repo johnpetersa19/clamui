@@ -2,11 +2,7 @@
 """Unit tests for the SecureFileHandler path validation."""
 
 import os
-import tempfile
 from pathlib import Path
-from unittest import mock
-
-import pytest
 
 from src.core.quarantine.file_handler import (
     FileOperationStatus,
@@ -17,7 +13,7 @@ from src.core.quarantine.file_handler import (
 class TestValidateRestorePath:
     """Tests for SecureFileHandler.validate_restore_path() method."""
 
-    def test_valid_user_home_path(self, tmp_path):
+    def test_valid_user_home_path(self):
         """Test that paths in user home directory are accepted."""
         handler = SecureFileHandler()
 
@@ -311,10 +307,7 @@ class TestRestoreFromQuarantineValidation:
         quarantine_file.write_text("fake quarantined content")
 
         # Try to restore to a protected directory
-        result = handler.restore_from_quarantine(
-            str(quarantine_file),
-            "/etc/malicious.conf"
-        )
+        result = handler.restore_from_quarantine(str(quarantine_file), "/etc/malicious.conf")
 
         assert result.status == FileOperationStatus.INVALID_RESTORE_PATH
         assert result.error_message is not None
@@ -330,10 +323,7 @@ class TestRestoreFromQuarantineValidation:
         quarantine_file.write_text("fake quarantined content")
 
         # Try to restore to a path with newline injection
-        result = handler.restore_from_quarantine(
-            str(quarantine_file),
-            "/tmp/file\nmalicious.txt"
-        )
+        result = handler.restore_from_quarantine(str(quarantine_file), "/tmp/file\nmalicious.txt")
 
         assert result.status == FileOperationStatus.INVALID_RESTORE_PATH
         assert result.error_message is not None
@@ -350,10 +340,7 @@ class TestRestoreFromQuarantineValidation:
 
         # Try to restore to a safe location
         safe_restore_path = str(tmp_path / "restored" / "file.txt")
-        result = handler.restore_from_quarantine(
-            str(quarantine_file),
-            safe_restore_path
-        )
+        result = handler.restore_from_quarantine(str(quarantine_file), safe_restore_path)
 
         # Should not fail due to path validation
         # (might fail for other reasons like missing hash, but not INVALID_RESTORE_PATH)
@@ -367,10 +354,7 @@ class TestRestoreFromQuarantineValidation:
         quarantine_file = tmp_path / "quarantine" / "nonexistent.quar"
 
         # Try to restore to protected directory
-        result = handler.restore_from_quarantine(
-            str(quarantine_file),
-            "/etc/malicious.conf"
-        )
+        result = handler.restore_from_quarantine(str(quarantine_file), "/etc/malicious.conf")
 
         # Should fail with INVALID_RESTORE_PATH, not FILE_NOT_FOUND
         # This proves validation happens before checking if source exists
