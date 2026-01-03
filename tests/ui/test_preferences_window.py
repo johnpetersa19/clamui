@@ -618,6 +618,274 @@ class TestPreferencesWindowPopulateClamdFields:
         mock_widget.set_value.assert_not_called()
 
 
+class TestPreferencesWindowPopulateOnAccessFields:
+    """Tests for on-access field population."""
+
+    def test_populate_onaccess_fields_returns_when_no_config(self, preferences_window_class, mock_gi_modules):
+        """Test that population returns early when no config."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = None
+        window._onaccess_widgets = {}
+
+        # Should not raise
+        window._populate_onaccess_fields()
+
+    def test_populate_onaccess_fields_sets_include_path(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessIncludePath is populated from multiple values."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_values = mock.MagicMock(return_value=["/home", "/var"])
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessIncludePath')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessIncludePath': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_text.assert_called_with("/home, /var")
+
+    def test_populate_onaccess_fields_sets_exclude_path(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessExcludePath is populated from multiple values."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_values = mock.MagicMock(return_value=["/tmp", "/proc"])
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessExcludePath')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessExcludePath': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_text.assert_called_with("/tmp, /proc")
+
+    def test_populate_onaccess_fields_sets_prevention_true(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessPrevention is set to True when config says 'yes'."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "yes"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessPrevention')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessPrevention': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_active.assert_called_with(True)
+
+    def test_populate_onaccess_fields_sets_prevention_false(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessPrevention is set to False when config says 'no'."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "no"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessPrevention')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessPrevention': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_active.assert_called_with(False)
+
+    def test_populate_onaccess_fields_sets_extra_scanning(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessExtraScanning is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "yes"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessExtraScanning')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessExtraScanning': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_active.assert_called_with(True)
+
+    def test_populate_onaccess_fields_sets_deny_on_error(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessDenyOnError is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "yes"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessDenyOnError')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessDenyOnError': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_active.assert_called_with(True)
+
+    def test_populate_onaccess_fields_sets_disable_ddd(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessDisableDDD is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "no"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessDisableDDD')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessDisableDDD': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_active.assert_called_with(False)
+
+    def test_populate_onaccess_fields_sets_max_threads(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessMaxThreads is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "5"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessMaxThreads')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessMaxThreads': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_value.assert_called_with(5)
+
+    def test_populate_onaccess_fields_handles_invalid_max_threads(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that invalid OnAccessMaxThreads is handled."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "invalid"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessMaxThreads')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessMaxThreads': mock_widget}
+
+        # Should not raise
+        window._populate_onaccess_fields()
+
+        mock_widget.set_value.assert_not_called()
+
+    def test_populate_onaccess_fields_sets_max_file_size(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessMaxFileSize is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "100"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessMaxFileSize')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessMaxFileSize': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_value.assert_called_with(100)
+
+    def test_populate_onaccess_fields_handles_invalid_max_file_size(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that invalid OnAccessMaxFileSize is handled."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "not_a_number"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessMaxFileSize')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessMaxFileSize': mock_widget}
+
+        # Should not raise
+        window._populate_onaccess_fields()
+
+        mock_widget.set_value.assert_not_called()
+
+    def test_populate_onaccess_fields_sets_curl_timeout(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessCurlTimeout is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "30"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessCurlTimeout')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessCurlTimeout': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_value.assert_called_with(30)
+
+    def test_populate_onaccess_fields_sets_retry_attempts(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessRetryAttempts is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "3"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessRetryAttempts')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessRetryAttempts': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_value.assert_called_with(3)
+
+    def test_populate_onaccess_fields_sets_exclude_uname(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessExcludeUname is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "clamav"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessExcludeUname')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessExcludeUname': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_text.assert_called_with("clamav")
+
+    def test_populate_onaccess_fields_sets_exclude_uid(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessExcludeUID is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "1000"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessExcludeUID')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessExcludeUID': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_value.assert_called_with(1000)
+
+    def test_populate_onaccess_fields_handles_invalid_exclude_uid(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that invalid OnAccessExcludeUID is handled."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "invalid_uid"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessExcludeUID')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessExcludeUID': mock_widget}
+
+        # Should not raise
+        window._populate_onaccess_fields()
+
+        mock_widget.set_value.assert_not_called()
+
+    def test_populate_onaccess_fields_sets_exclude_root_uid(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that OnAccessExcludeRootUID is populated."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_value.return_value = "yes"
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessExcludeRootUID')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessExcludeRootUID': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_active.assert_called_with(True)
+
+    def test_populate_onaccess_fields_empty_paths_not_set(self, preferences_window_class, mock_clamav_config, mock_gi_modules):
+        """Test that empty path lists do not trigger set_text."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_config = mock_clamav_config
+        mock_clamav_config.get_values = mock.MagicMock(return_value=[])
+        mock_clamav_config.has_key = mock.MagicMock(side_effect=lambda k: k == 'OnAccessIncludePath')
+
+        mock_widget = mock.MagicMock()
+        window._onaccess_widgets = {'OnAccessIncludePath': mock_widget}
+
+        window._populate_onaccess_fields()
+
+        mock_widget.set_text.assert_not_called()
+
+
 class TestPreferencesWindowPopulateScheduledFields:
     """Tests for scheduled fields population."""
 
