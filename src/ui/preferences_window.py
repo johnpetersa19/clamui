@@ -4,13 +4,12 @@ Preferences window for ClamUI with ClamAV configuration settings.
 """
 
 import threading
-import time
 from pathlib import Path
 
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, Gio, GLib
+from gi.repository import Gtk, Adw, GLib
 
 from src.core.clamav_config import (
     parse_config,
