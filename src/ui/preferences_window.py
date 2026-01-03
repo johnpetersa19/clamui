@@ -1344,6 +1344,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
             try:
                 self._clamd_config, error = parse_config(self._clamd_conf_path)
                 self._populate_clamd_fields()
+                self._populate_onaccess_fields()
             except Exception as e:
                 print(f"Error loading clamd.conf: {e}")
 
@@ -1515,9 +1516,6 @@ class PreferencesWindow(Adw.PreferencesWindow):
             self._clamd_widgets['LogSyslog'].set_active(
                 self._clamd_config.get_value('LogSyslog').lower() == 'yes'
             )
-
-        # Populate On-Access fields (also from clamd.conf)
-        self._populate_onaccess_fields()
 
     def _populate_onaccess_fields(self):
         """
