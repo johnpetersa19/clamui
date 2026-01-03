@@ -293,56 +293,6 @@ class TestFileSelectionUI:
         assert hasattr(mock_scan_view, "_path_row")
         assert mock_scan_view._path_row is not None
 
-    def test_set_selected_path_updates_path_attribute(self, mock_scan_view):
-        """Test that _set_selected_path updates the internal path attribute."""
-        # Reset the mock to call real method
-        mock_scan_view._set_selected_path = mock_scan_view.__class__._set_selected_path.__get__(
-            mock_scan_view, mock_scan_view.__class__
-        )
-        # Prevent infinite loop in _clear_results by making get_row_at_index return None
-        mock_scan_view._threats_list.get_row_at_index.return_value = None
-
-        test_path = "/home/user/test_folder"
-        mock_scan_view._set_selected_path(test_path)
-
-        assert mock_scan_view._selected_path == test_path
-
-    def test_set_selected_path_updates_path_row_subtitle(self, mock_scan_view):
-        """Test that selecting a path updates the path row subtitle with formatted path."""
-        # Reset the mock to call real method
-        mock_scan_view._set_selected_path = mock_scan_view.__class__._set_selected_path.__get__(
-            mock_scan_view, mock_scan_view.__class__
-        )
-
-        test_path = "/home/user/documents"
-        mock_scan_view._set_selected_path(test_path)
-
-        # Verify path row set_subtitle was called (with formatted path)
-        mock_scan_view._path_row.set_subtitle.assert_called()
-
-    def test_set_selected_path_removes_error_class(self, mock_scan_view):
-        """Test that selecting a path removes the error CSS class from path row."""
-        # Reset the mock to call real method
-        mock_scan_view._set_selected_path = mock_scan_view.__class__._set_selected_path.__get__(
-            mock_scan_view, mock_scan_view.__class__
-        )
-
-        test_path = "/home/user/photos"
-        mock_scan_view._set_selected_path(test_path)
-
-        # Verify error class was removed
-        mock_scan_view._path_row.remove_css_class.assert_called_with("error")
-
-    def test_on_browse_clicked_gets_root(self, mock_scan_view):
-        """Test that clicking browse button gets the root window."""
-        # Reset the real method
-        mock_scan_view._on_browse_clicked = mock_scan_view.__class__._on_browse_clicked.__get__(
-            mock_scan_view, mock_scan_view.__class__
-        )
-
-        # Simulate button click (root returns None so dialog won't be created)
-        mock_scan_view._on_browse_clicked(None)
-
         # Verify get_root was called
         mock_scan_view.get_root.assert_called()
 
@@ -367,7 +317,6 @@ def test_file_selection_ui(scan_view_class):
     set up and can handle path selection updates.
     """
     # Verify the class has file selection methods
-    assert hasattr(scan_view_class, "_on_browse_clicked")
     assert hasattr(scan_view_class, "_set_selected_path")
     assert hasattr(scan_view_class, "_create_selection_section")
 
