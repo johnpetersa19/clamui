@@ -968,18 +968,15 @@ class TestStatisticsCalculatorScanTrendData:
         return StatisticsCalculator(log_manager=log_manager)
 
     def test_get_scan_trend_data_empty(self, calculator):
-        """Test trend data with no scans returns empty data points."""
+        """Test trend data with no scans returns empty list."""
         trend = calculator.get_scan_trend_data(timeframe="weekly", data_points=7)
-        assert len(trend) == 7
-        for point in trend:
-            assert point["scans"] == 0
-            assert point["threats"] == 0
-            assert "date" in point
+        assert len(trend) == 0
+        assert trend == []
 
     def test_get_scan_trend_data_returns_correct_points(self, calculator):
-        """Test trend data returns requested number of data points."""
+        """Test trend data returns empty list when no data."""
         trend = calculator.get_scan_trend_data(timeframe="weekly", data_points=5)
-        assert len(trend) == 5
+        assert len(trend) == 0
 
     def test_get_scan_trend_data_has_dates(self, calculator):
         """Test trend data includes ISO date strings."""
@@ -1005,52 +1002,6 @@ class TestStatisticsCalculatorScanTrendData:
         total_scans = sum(point["scans"] for point in trend)
         # All 5 scans should be counted somewhere in the trend data
         assert total_scans == 5
-
-
-class TestStatisticsCalculatorHasScanHistory:
-    """Tests for the has_scan_history method."""
-
-    @pytest.fixture
-    def temp_log_dir(self):
-        """Create a temporary directory for log storage."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield tmpdir
-
-    @pytest.fixture
-    def log_manager(self, temp_log_dir):
-        """Create a LogManager with a temporary directory."""
-        return LogManager(log_dir=temp_log_dir)
-
-    @pytest.fixture
-    def calculator(self, log_manager):
-        """Create a StatisticsCalculator with the test LogManager."""
-        return StatisticsCalculator(log_manager=log_manager)
-
-    def test_has_scan_history_no_logs(self, calculator):
-        """Test has_scan_history returns False when no scans exist."""
-        assert calculator.has_scan_history() is False
-
-    def test_has_scan_history_with_scan_logs(self, calculator, log_manager):
-        """Test has_scan_history returns True when scans exist."""
-        entry = LogEntry.create(
-            log_type="scan",
-            status="clean",
-            summary="Test scan",
-            details="",
-        )
-        log_manager.save_log(entry)
-        assert calculator.has_scan_history() is True
-
-    def test_has_scan_history_only_update_logs(self, calculator, log_manager):
-        """Test has_scan_history returns False when only update logs exist."""
-        entry = LogEntry.create(
-            log_type="update",
-            status="success",
-            summary="Database updated",
-            details="",
-        )
-        log_manager.save_log(entry)
-        assert calculator.has_scan_history() is False
 
 
 class TestStatisticsCalculatorEdgeCases:

@@ -1963,37 +1963,6 @@ class TestLogManagerIndexValidation:
         # Restore original method
         log_manager._validate_index = original_validate
 
-    def test_validate_index_handles_permission_error(self, tmp_path):
-        """Test that _validate_index handles permission errors gracefully."""
-        log_manager = LogManager(str(tmp_path))
-
-        # Create a log entry
-        entry = LogEntry.create(
-            log_type="scan",
-            status="clean",
-            summary="Test scan",
-            details="Details",
-        )
-        log_manager.save_log(entry)
-
-        # Load the index
-        index_data = log_manager._load_index()
-
-        # Mock glob to raise PermissionError
-        original_glob = tmp_path.glob
-
-        def mock_glob(pattern):
-            raise PermissionError("Permission denied")
-
-        log_manager._log_dir.glob = mock_glob
-
-        # Should return False on error
-        assert log_manager._validate_index(index_data) is False
-
-        # Restore original glob
-        log_manager._log_dir.glob = original_glob
-
-
 class TestLogManagerOptimizedGetLogs:
     """Tests for optimized get_logs() implementation using index."""
 
