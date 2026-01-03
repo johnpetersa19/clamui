@@ -9,7 +9,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from typing import TYPE_CHECKING
 
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, GLib, GObject, Gtk
 
 from .utils import add_row_icon
 
@@ -589,6 +589,10 @@ class PatternEntryDialog(Adw.Dialog):
         dialog.connect("response", on_response)
         dialog.present(parent_window)
     """
+
+    __gsignals__ = {
+        "response": (GObject.SignalFlags.RUN_LAST, None, (str,))
+    }
 
     def __init__(self, **kwargs):
         """Initialize the pattern entry dialog."""

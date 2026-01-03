@@ -11,7 +11,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -589,3 +589,107 @@ def get_config_summary(config: ClamAVConfig) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+def validate_config(config: ClamAVConfig) -> Tuple[bool, List[str]]:
+    """
+    Validate all options in a ClamAVConfig object.
+
+    Args:
+        config: The ClamAVConfig object to validate
+
+    Returns:
+        Tuple of (is_valid, list_of_errors):
+        - (True, []) if all options are valid
+        - (False, [error1, error2, ...]) if there are validation errors
+    """
+    errors = []
+    for key, value_list in config.values.items():
+        for config_value in value_list:
+            is_valid, error_msg = validate_option(key, config_value.value)
+            if not is_valid:
+                errors.append(error_msg)
+
+    return (len(errors) == 0, errors)
+
+
+def backup_config(file_path: str) -> None:
+    """
+    Create a backup of a configuration file.
+
+    Creates a timestamped backup in the same directory as the original file.
+
+    Args:
+        file_path: Path to the configuration file to backup
+    """
+    path = Path(file_path)
+    if not path.exists():
+        return
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = path.with_suffix(f".bak.{timestamp}")
+
+    try:
+        shutil.copy2(path, backup_path)
+    except (PermissionError, IOError):
+        # Silently fail - backup is best effort
+        pass
+
+
+def write_config_with_elevation(config: ClamAVConfig) -> Tuple[bool, Optional[str]]:
+    """
+    Write a configuration file with elevated privileges using pkexec.
+
+    This is needed for system config files like /etc/clamav/*.conf
+    that require root privileges to modify.
+
+    Args:
+        config: The ClamAVConfig object to write
+
+    Returns:
+        Tuple of (success, error_message):
+        - (True, None) on success
+        - (False, error_message) on failure
+    """
+    if not config.file_path:
+        return (False, "No file path specified in config object")
+
+    try:
+        # Write config to a temporary file first
+        content = config.to_string()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        try:
+            # Use pkexec to copy the temp file to the target location
+            result = subprocess.run(
+                ["pkexec", "cp", tmp_path, str(config.file_path)],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+                return (False, f"Failed to write config: {error_msg}")
+
+            # Set proper permissions
+            subprocess.run(
+                ["pkexec", "chmod", "644", str(config.file_path)],
+                capture_output=True,
+            )
+
+            return (True, None)
+
+        finally:
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    except FileNotFoundError:
+        return (False, "pkexec not found - cannot elevate privileges")
+    except Exception as e:
+        return (False, f"Unexpected error: {str(e)}")
