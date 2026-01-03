@@ -1004,6 +1004,62 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         page.add(group)
 
+    def _create_onaccess_performance_group(self, page: Adw.PreferencesPage):
+        """
+        Create the On-Access Performance preferences group.
+
+        Contains settings for:
+        - OnAccessMaxThreads: Maximum number of scanning threads
+        - OnAccessMaxFileSize: Maximum file size to scan (in MB)
+        - OnAccessCurlTimeout: Timeout for curl operations (seconds)
+        - OnAccessRetryAttempts: Number of retry attempts when scan fails
+
+        Args:
+            page: The preferences page to add the group to
+        """
+        group = Adw.PreferencesGroup()
+        group.set_title("Performance Settings")
+        group.set_description("Configure On-Access scanning performance and limits")
+        group.set_header_suffix(self._create_permission_indicator())
+
+        # OnAccessMaxThreads spin row (1-64)
+        max_threads_row = Adw.SpinRow.new_with_range(1, 64, 1)
+        max_threads_row.set_title("Max Threads")
+        max_threads_row.set_subtitle("Maximum number of scanning threads")
+        max_threads_row.set_numeric(True)
+        max_threads_row.set_snap_to_ticks(True)
+        self._onaccess_widgets['OnAccessMaxThreads'] = max_threads_row
+        group.add(max_threads_row)
+
+        # OnAccessMaxFileSize spin row (in MB, 0-4000)
+        max_file_size_row = Adw.SpinRow.new_with_range(0, 4000, 1)
+        max_file_size_row.set_title("Max File Size (MB)")
+        max_file_size_row.set_subtitle("Maximum file size to scan (0 = unlimited)")
+        max_file_size_row.set_numeric(True)
+        max_file_size_row.set_snap_to_ticks(True)
+        self._onaccess_widgets['OnAccessMaxFileSize'] = max_file_size_row
+        group.add(max_file_size_row)
+
+        # OnAccessCurlTimeout spin row (in seconds, 0-3600)
+        curl_timeout_row = Adw.SpinRow.new_with_range(0, 3600, 1)
+        curl_timeout_row.set_title("Curl Timeout (seconds)")
+        curl_timeout_row.set_subtitle("Timeout for remote scanning operations (0 = disabled)")
+        curl_timeout_row.set_numeric(True)
+        curl_timeout_row.set_snap_to_ticks(True)
+        self._onaccess_widgets['OnAccessCurlTimeout'] = curl_timeout_row
+        group.add(curl_timeout_row)
+
+        # OnAccessRetryAttempts spin row (0-10)
+        retry_attempts_row = Adw.SpinRow.new_with_range(0, 10, 1)
+        retry_attempts_row.set_title("Retry Attempts")
+        retry_attempts_row.set_subtitle("Number of retry attempts when scan fails")
+        retry_attempts_row.set_numeric(True)
+        retry_attempts_row.set_snap_to_ticks(True)
+        self._onaccess_widgets['OnAccessRetryAttempts'] = retry_attempts_row
+        group.add(retry_attempts_row)
+
+        page.add(group)
+
     def _create_scheduled_scans_page(self):
         """
         Create the Scheduled Scans configuration page.
