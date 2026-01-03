@@ -37,6 +37,7 @@ class TestQuarantineStatus:
         assert QuarantineStatus.ALREADY_QUARANTINED.value == "already_quarantined"
         assert QuarantineStatus.ENTRY_NOT_FOUND.value == "entry_not_found"
         assert QuarantineStatus.RESTORE_DESTINATION_EXISTS.value == "restore_destination_exists"
+        assert QuarantineStatus.INVALID_RESTORE_PATH.value == "invalid_restore_path"
         assert QuarantineStatus.ERROR.value == "error"
 
 
@@ -322,6 +323,252 @@ class TestQuarantineManagerRestore:
 
         assert result.is_success is True
         assert Path(file_path).exists()
+
+    def test_restore_to_protected_directory_rejected(self, manager, temp_dir):
+        """Test restore to protected system directory is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Manually update the database to have a protected path
+        # This simulates a corrupted/manipulated database
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/etc/malicious.conf", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        # Attempt to restore should be rejected
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert result.error_message is not None
+        assert "protected" in result.error_message.lower()
+
+    def test_restore_to_etc_directory_rejected(self, manager, temp_dir):
+        """Test restore to /etc directory is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Update database to /etc path
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/etc/passwd", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert "/etc" in result.error_message
+
+    def test_restore_to_var_directory_rejected(self, manager, temp_dir):
+        """Test restore to /var directory is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Update database to /var path
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/var/lib/important.db", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert "/var" in result.error_message
+
+    def test_restore_to_usr_directory_rejected(self, manager, temp_dir):
+        """Test restore to /usr directory is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Update database to /usr path
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/usr/bin/malicious", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert "/usr" in result.error_message
+
+    def test_restore_to_bin_directory_rejected(self, manager, temp_dir):
+        """Test restore to /bin directory is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Update database to /bin path
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/bin/bash", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert "/bin" in result.error_message
+
+    def test_restore_to_root_directory_rejected(self, manager, temp_dir):
+        """Test restore to /root directory is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Update database to /root path
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/root/.bashrc", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert "/root" in result.error_message
+
+    def test_restore_with_injection_characters_rejected(self, manager, temp_dir):
+        """Test restore to path with injection characters is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Update database to path with newline injection
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/tmp/file\nmalicious.txt", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert "newline" in result.error_message.lower()
+
+    def test_restore_with_null_byte_rejected(self, manager, temp_dir):
+        """Test restore to path with null byte is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Update database to path with null byte
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/tmp/file\x00malicious.txt", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert "null" in result.error_message.lower()
+
+    def test_restore_with_parent_traversal_to_protected_rejected(self, manager, temp_dir):
+        """Test restore with path traversal to protected directory is rejected."""
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+
+        qresult = manager.quarantine_file(file_path, "TestThreat")
+        assert qresult.is_success is True
+
+        # Update database to path that uses .. to reach /etc
+        import sqlite3
+        db_path = manager._database._db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "UPDATE quarantine SET original_path = ? WHERE id = ?",
+            ("/home/user/../../etc/passwd", qresult.entry.id)
+        )
+        conn.commit()
+        conn.close()
+
+        result = manager.restore_file(qresult.entry.id)
+
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.INVALID_RESTORE_PATH
+        assert "protected" in result.error_message.lower()
 
 
 class TestQuarantineManagerDelete:
@@ -1065,6 +1312,7 @@ class TestQuarantineManagerEdgeCases:
             FileOperationStatus.PERMISSION_DENIED: QuarantineStatus.PERMISSION_DENIED,
             FileOperationStatus.DISK_FULL: QuarantineStatus.DISK_FULL,
             FileOperationStatus.ALREADY_EXISTS: QuarantineStatus.ALREADY_QUARANTINED,
+            FileOperationStatus.INVALID_RESTORE_PATH: QuarantineStatus.INVALID_RESTORE_PATH,
             FileOperationStatus.ERROR: QuarantineStatus.ERROR,
         }
 
