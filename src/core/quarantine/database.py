@@ -63,6 +63,9 @@ class QuarantineDatabase:
     quarantine entries with thread-safe operations.
     """
 
+    # Database file permission: owner read/write only (prevents other users from reading sensitive metadata)
+    DB_FILE_PERMISSIONS = 0o600
+
     def __init__(self, db_path: Optional[str] = None, pool_size: int = 3):
         """
         Initialize the QuarantineDatabase.
