@@ -452,97 +452,27 @@ class StatisticsCalculator:
             is_protected = False
         elif last_scan_age_hours > self.SCAN_WARNING_THRESHOLD_HOURS:
             level = ProtectionLevel.AT_RISK
-            message = "Last scan was over a week ago"
+            message = "Last scan was over 7 days ago"
             is_protected = False
-        elif definition_age_hours is not None:
-            if definition_age_hours > self.DEFINITION_CRITICAL_THRESHOLD_HOURS:
-                level = ProtectionLevel.AT_RISK
-                message = "Virus definitions are outdated (over 7 days old)"
-                is_protected = False
-            elif definition_age_hours > self.DEFINITION_WARNING_THRESHOLD_HOURS:
-                level = ProtectionLevel.PROTECTED
-                message = "System protected, but definitions should be updated"
-                is_protected = True
-            else:
-                level = ProtectionLevel.PROTECTED
-                message = "System is protected"
-                is_protected = True
+        elif definition_age_hours is not None and definition_age_hours > self.DEFINITION_CRITICAL_THRESHOLD_HOURS:
+            level = ProtectionLevel.AT_RISK
+            message = "Virus definitions are over 7 days old"
+            is_protected = False
+        elif definition_age_hours is not None and definition_age_hours > self.DEFINITION_WARNING_THRESHOLD_HOURS:
+            level = ProtectionLevel.AT_RISK
+            message = "Virus definitions are over 1 day old"
+            is_protected = False
         else:
-            # No definition info but scan is recent
             level = ProtectionLevel.PROTECTED
-            message = "System protected (definition status unknown)"
+            message = "System is protected"
             is_protected = True
 
         return ProtectionStatus(
             level=level.value,
             last_scan_timestamp=last_scan_timestamp,
-            last_scan_age_hours=round(last_scan_age_hours, 2) if last_scan_age_hours else None,
+            last_scan_age_hours=last_scan_age_hours,
             last_definition_update=last_definition_update,
-            definition_age_hours=round(definition_age_hours, 2) if definition_age_hours else None,
+            definition_age_hours=definition_age_hours,
             message=message,
             is_protected=is_protected,
         )
-
-    def get_scan_trend_data(self, timeframe: str = "weekly", data_points: int = 7) -> list[dict]:
-        """
-        Get scan activity trend data for charting.
-
-        Returns aggregated scan counts grouped by time intervals.
-
-        Args:
-            timeframe: One of 'daily', 'weekly', 'monthly', or 'all'
-            data_points: Number of data points to return
-
-        Returns:
-            List of dictionaries with timestamp and scan metrics
-        """
-        all_entries = self._get_cached_logs(limit=10000, log_type="scan")
-        entries = self._filter_entries_by_timeframe(all_entries, timeframe)
-
-        if not entries:
-            return []
-
-        # Group by time intervals
-        datetime.now()
-        trend_data: dict[str, dict] = {}
-
-        for entry in entries:
-            entry_time = self._parse_timestamp(entry.timestamp)
-            if not entry_time:
-                continue
-
-            # Create bucket key based on timeframe
-            if timeframe == Timeframe.DAILY.value:
-                bucket_key = entry_time.strftime("%Y-%m-%d %H:00")
-            elif timeframe == Timeframe.WEEKLY.value:
-                bucket_key = entry_time.strftime("%Y-W%U")
-            elif timeframe == Timeframe.MONTHLY.value:
-                bucket_key = entry_time.strftime("%Y-%m")
-            else:
-                bucket_key = entry_time.strftime("%Y-%m-%d")
-
-            if bucket_key not in trend_data:
-                trend_data[bucket_key] = {
-                    "timestamp": bucket_key,
-                    "scans": 0,
-                    "threats": 0,
-                    "clean": 0,
-                    "infected": 0,
-                }
-
-            trend_data[bucket_key]["scans"] += 1
-            trend_data[bucket_key]["threats"] += self._extract_threats_found(entry)
-
-            if entry.status == "clean":
-                trend_data[bucket_key]["clean"] += 1
-            elif entry.status == "infected":
-                trend_data[bucket_key]["infected"] += 1
-
-        # Convert to sorted list and limit data points
-        sorted_trend = sorted(trend_data.values(), key=lambda x: x["timestamp"])
-
-        # Return only the most recent data_points
-        if len(sorted_trend) > data_points:
-            sorted_trend = sorted_trend[-data_points:]
-
-        return sorted_trend
