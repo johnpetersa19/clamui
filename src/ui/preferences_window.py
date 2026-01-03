@@ -1099,6 +1099,20 @@ class PreferencesWindow(Adw.PreferencesWindow):
         warning_row.add_prefix(warning_icon)
         group.add(warning_row)
 
+        # Help text row with instructions on how to find the clamav user
+        help_row = Adw.ActionRow()
+        help_row.set_title("How to find the ClamAV user")
+        help_row.set_subtitle(
+            "Run 'id clamav' or 'grep clamav /etc/passwd' in terminal. "
+            "Common usernames: 'clamav', 'clamscan', or 'clamwin'. "
+            "The UID is typically 999 or similar."
+        )
+        # Add help icon as prefix
+        help_icon = Gtk.Image.new_from_icon_name("help-about-symbolic")
+        help_icon.set_margin_start(6)
+        help_row.add_prefix(help_icon)
+        group.add(help_row)
+
         # OnAccessExcludeUname entry row
         exclude_uname_row = Adw.EntryRow()
         exclude_uname_row.set_title("Exclude Username")
