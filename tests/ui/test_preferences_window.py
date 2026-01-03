@@ -393,6 +393,238 @@ class TestPreferencesWindowCollectClamdData:
         assert result['LogSyslog'] == 'no'
 
 
+class TestPreferencesWindowCollectOnAccessData:
+    """Tests for on-access data collection."""
+
+    def test_collect_onaccess_data_returns_empty_when_unavailable(self, preferences_window_class, mock_gi_modules):
+        """Test that empty dict is returned when clamd unavailable."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = False
+
+        result = window._collect_onaccess_data()
+
+        assert result == {}
+
+    def test_collect_onaccess_data_returns_dict_when_available(self, preferences_window_class, mock_gi_modules):
+        """Test that dict is returned when clamd available with all settings."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {
+            'OnAccessIncludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="/home, /var")),
+            'OnAccessExcludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="/tmp, /proc")),
+            'OnAccessPrevention': mock.MagicMock(get_active=mock.MagicMock(return_value=True)),
+            'OnAccessExtraScanning': mock.MagicMock(get_active=mock.MagicMock(return_value=True)),
+            'OnAccessDenyOnError': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDisableDDD': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessMaxThreads': mock.MagicMock(get_value=mock.MagicMock(return_value=5)),
+            'OnAccessMaxFileSize': mock.MagicMock(get_value=mock.MagicMock(return_value=100)),
+            'OnAccessCurlTimeout': mock.MagicMock(get_value=mock.MagicMock(return_value=30)),
+            'OnAccessRetryAttempts': mock.MagicMock(get_value=mock.MagicMock(return_value=3)),
+            'OnAccessExcludeUname': mock.MagicMock(get_text=mock.MagicMock(return_value="clamav")),
+            'OnAccessExcludeUID': mock.MagicMock(get_value=mock.MagicMock(return_value=1000)),
+            'OnAccessExcludeRootUID': mock.MagicMock(get_active=mock.MagicMock(return_value=True)),
+        }
+
+        result = window._collect_onaccess_data()
+
+        assert result['OnAccessIncludePath'] == ['/home', '/var']
+        assert result['OnAccessExcludePath'] == ['/tmp', '/proc']
+        assert result['OnAccessPrevention'] == 'yes'
+        assert result['OnAccessExtraScanning'] == 'yes'
+        assert result['OnAccessDenyOnError'] == 'no'
+        assert result['OnAccessDisableDDD'] == 'no'
+        assert result['OnAccessMaxThreads'] == '5'
+        assert result['OnAccessMaxFileSize'] == '100'
+        assert result['OnAccessCurlTimeout'] == '30'
+        assert result['OnAccessRetryAttempts'] == '3'
+        assert result['OnAccessExcludeUname'] == 'clamav'
+        assert result['OnAccessExcludeUID'] == '1000'
+        assert result['OnAccessExcludeRootUID'] == 'yes'
+
+    def test_collect_onaccess_data_parses_include_paths(self, preferences_window_class, mock_gi_modules):
+        """Test that include paths are parsed from comma-separated values."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {
+            'OnAccessIncludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="/home/user, /var/data, /opt")),
+            'OnAccessExcludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessPrevention': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessExtraScanning': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDenyOnError': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDisableDDD': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessMaxThreads': mock.MagicMock(get_value=mock.MagicMock(return_value=5)),
+            'OnAccessMaxFileSize': mock.MagicMock(get_value=mock.MagicMock(return_value=100)),
+            'OnAccessCurlTimeout': mock.MagicMock(get_value=mock.MagicMock(return_value=30)),
+            'OnAccessRetryAttempts': mock.MagicMock(get_value=mock.MagicMock(return_value=3)),
+            'OnAccessExcludeUname': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludeUID': mock.MagicMock(get_value=mock.MagicMock(return_value=0)),
+            'OnAccessExcludeRootUID': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+        }
+
+        result = window._collect_onaccess_data()
+
+        assert result['OnAccessIncludePath'] == ['/home/user', '/var/data', '/opt']
+
+    def test_collect_onaccess_data_excludes_empty_paths(self, preferences_window_class, mock_gi_modules):
+        """Test that empty paths are not included in result."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {
+            'OnAccessIncludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="   ")),
+            'OnAccessPrevention': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessExtraScanning': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDenyOnError': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDisableDDD': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessMaxThreads': mock.MagicMock(get_value=mock.MagicMock(return_value=5)),
+            'OnAccessMaxFileSize': mock.MagicMock(get_value=mock.MagicMock(return_value=100)),
+            'OnAccessCurlTimeout': mock.MagicMock(get_value=mock.MagicMock(return_value=30)),
+            'OnAccessRetryAttempts': mock.MagicMock(get_value=mock.MagicMock(return_value=3)),
+            'OnAccessExcludeUname': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludeUID': mock.MagicMock(get_value=mock.MagicMock(return_value=0)),
+            'OnAccessExcludeRootUID': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+        }
+
+        result = window._collect_onaccess_data()
+
+        assert 'OnAccessIncludePath' not in result
+        assert 'OnAccessExcludePath' not in result
+
+    def test_collect_onaccess_data_behavior_switches_yes_no(self, preferences_window_class, mock_gi_modules):
+        """Test that behavior switches correctly return 'yes' and 'no' values."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {
+            'OnAccessIncludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessPrevention': mock.MagicMock(get_active=mock.MagicMock(return_value=True)),
+            'OnAccessExtraScanning': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDenyOnError': mock.MagicMock(get_active=mock.MagicMock(return_value=True)),
+            'OnAccessDisableDDD': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessMaxThreads': mock.MagicMock(get_value=mock.MagicMock(return_value=5)),
+            'OnAccessMaxFileSize': mock.MagicMock(get_value=mock.MagicMock(return_value=100)),
+            'OnAccessCurlTimeout': mock.MagicMock(get_value=mock.MagicMock(return_value=30)),
+            'OnAccessRetryAttempts': mock.MagicMock(get_value=mock.MagicMock(return_value=3)),
+            'OnAccessExcludeUname': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludeUID': mock.MagicMock(get_value=mock.MagicMock(return_value=0)),
+            'OnAccessExcludeRootUID': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+        }
+
+        result = window._collect_onaccess_data()
+
+        assert result['OnAccessPrevention'] == 'yes'
+        assert result['OnAccessExtraScanning'] == 'no'
+        assert result['OnAccessDenyOnError'] == 'yes'
+        assert result['OnAccessDisableDDD'] == 'no'
+
+    def test_collect_onaccess_data_performance_settings_as_strings(self, preferences_window_class, mock_gi_modules):
+        """Test that performance settings are returned as string numbers."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {
+            'OnAccessIncludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessPrevention': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessExtraScanning': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDenyOnError': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDisableDDD': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessMaxThreads': mock.MagicMock(get_value=mock.MagicMock(return_value=10)),
+            'OnAccessMaxFileSize': mock.MagicMock(get_value=mock.MagicMock(return_value=250)),
+            'OnAccessCurlTimeout': mock.MagicMock(get_value=mock.MagicMock(return_value=60)),
+            'OnAccessRetryAttempts': mock.MagicMock(get_value=mock.MagicMock(return_value=5)),
+            'OnAccessExcludeUname': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludeUID': mock.MagicMock(get_value=mock.MagicMock(return_value=0)),
+            'OnAccessExcludeRootUID': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+        }
+
+        result = window._collect_onaccess_data()
+
+        assert result['OnAccessMaxThreads'] == '10'
+        assert result['OnAccessMaxFileSize'] == '250'
+        assert result['OnAccessCurlTimeout'] == '60'
+        assert result['OnAccessRetryAttempts'] == '5'
+        # Verify they're strings
+        assert isinstance(result['OnAccessMaxThreads'], str)
+        assert isinstance(result['OnAccessMaxFileSize'], str)
+
+    def test_collect_onaccess_data_excludes_empty_username(self, preferences_window_class, mock_gi_modules):
+        """Test that empty username is not included in result."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {
+            'OnAccessIncludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessPrevention': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessExtraScanning': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDenyOnError': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDisableDDD': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessMaxThreads': mock.MagicMock(get_value=mock.MagicMock(return_value=5)),
+            'OnAccessMaxFileSize': mock.MagicMock(get_value=mock.MagicMock(return_value=100)),
+            'OnAccessCurlTimeout': mock.MagicMock(get_value=mock.MagicMock(return_value=30)),
+            'OnAccessRetryAttempts': mock.MagicMock(get_value=mock.MagicMock(return_value=3)),
+            'OnAccessExcludeUname': mock.MagicMock(get_text=mock.MagicMock(return_value="   ")),
+            'OnAccessExcludeUID': mock.MagicMock(get_value=mock.MagicMock(return_value=0)),
+            'OnAccessExcludeRootUID': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+        }
+
+        result = window._collect_onaccess_data()
+
+        assert 'OnAccessExcludeUname' not in result
+
+    def test_collect_onaccess_data_exclude_uid_as_string(self, preferences_window_class, mock_gi_modules):
+        """Test that ExcludeUID is always included as a string number."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {
+            'OnAccessIncludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessPrevention': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessExtraScanning': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDenyOnError': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDisableDDD': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessMaxThreads': mock.MagicMock(get_value=mock.MagicMock(return_value=5)),
+            'OnAccessMaxFileSize': mock.MagicMock(get_value=mock.MagicMock(return_value=100)),
+            'OnAccessCurlTimeout': mock.MagicMock(get_value=mock.MagicMock(return_value=30)),
+            'OnAccessRetryAttempts': mock.MagicMock(get_value=mock.MagicMock(return_value=3)),
+            'OnAccessExcludeUname': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludeUID': mock.MagicMock(get_value=mock.MagicMock(return_value=1001)),
+            'OnAccessExcludeRootUID': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+        }
+
+        result = window._collect_onaccess_data()
+
+        assert result['OnAccessExcludeUID'] == '1001'
+        assert isinstance(result['OnAccessExcludeUID'], str)
+
+    def test_collect_onaccess_data_exclude_root_uid_yes_no(self, preferences_window_class, mock_gi_modules):
+        """Test that ExcludeRootUID returns 'yes' or 'no'."""
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {
+            'OnAccessIncludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludePath': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessPrevention': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessExtraScanning': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDenyOnError': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessDisableDDD': mock.MagicMock(get_active=mock.MagicMock(return_value=False)),
+            'OnAccessMaxThreads': mock.MagicMock(get_value=mock.MagicMock(return_value=5)),
+            'OnAccessMaxFileSize': mock.MagicMock(get_value=mock.MagicMock(return_value=100)),
+            'OnAccessCurlTimeout': mock.MagicMock(get_value=mock.MagicMock(return_value=30)),
+            'OnAccessRetryAttempts': mock.MagicMock(get_value=mock.MagicMock(return_value=3)),
+            'OnAccessExcludeUname': mock.MagicMock(get_text=mock.MagicMock(return_value="")),
+            'OnAccessExcludeUID': mock.MagicMock(get_value=mock.MagicMock(return_value=0)),
+            'OnAccessExcludeRootUID': mock.MagicMock(get_active=mock.MagicMock(return_value=True)),
+        }
+
+        result = window._collect_onaccess_data()
+        assert result['OnAccessExcludeRootUID'] == 'yes'
+
+        # Test with False
+        window._onaccess_widgets['OnAccessExcludeRootUID'].get_active.return_value = False
+        result = window._collect_onaccess_data()
+        assert result['OnAccessExcludeRootUID'] == 'no'
+
+
 class TestPreferencesWindowCollectScheduledData:
     """Tests for scheduled scan data collection."""
 
