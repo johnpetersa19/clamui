@@ -810,6 +810,7 @@ class TestPreferencesWindowUISetup:
         window._create_database_page = mock.MagicMock()
         window._create_scanner_page = mock.MagicMock()
         window._create_scheduled_scans_page = mock.MagicMock()
+        window._create_onaccess_page = mock.MagicMock()
         window._create_exclusions_page = mock.MagicMock()
         window._create_save_page = mock.MagicMock()
 
@@ -818,8 +819,216 @@ class TestPreferencesWindowUISetup:
         window._create_database_page.assert_called_once()
         window._create_scanner_page.assert_called_once()
         window._create_scheduled_scans_page.assert_called_once()
+        window._create_onaccess_page.assert_called_once()
         window._create_exclusions_page.assert_called_once()
         window._create_save_page.assert_called_once()
+
+
+class TestPreferencesWindowOnAccessPage:
+    """Tests for On-Access page creation."""
+
+    def test_create_onaccess_page_sets_title_and_icon(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_page creates page with correct title and icon."""
+        adw = mock_gi_modules['adw']
+        mock_page = mock.MagicMock()
+        adw.PreferencesPage.return_value = mock_page
+
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = False
+        window._onaccess_widgets = {}
+        window.add = mock.MagicMock()
+        window._create_permission_indicator = mock.MagicMock()
+
+        window._create_onaccess_page()
+
+        mock_page.set_title.assert_called_with("On Access")
+        mock_page.set_icon_name.assert_called_with("security-high-symbolic")
+
+    def test_create_onaccess_page_adds_page_to_window(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_page adds the page to the window."""
+        adw = mock_gi_modules['adw']
+        mock_page = mock.MagicMock()
+        adw.PreferencesPage.return_value = mock_page
+
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = False
+        window._onaccess_widgets = {}
+        window.add = mock.MagicMock()
+        window._create_permission_indicator = mock.MagicMock()
+
+        window._create_onaccess_page()
+
+        window.add.assert_called_once_with(mock_page)
+
+    def test_create_onaccess_page_creates_groups_when_clamd_available(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_page creates all groups when clamd is available."""
+        adw = mock_gi_modules['adw']
+        mock_page = mock.MagicMock()
+        adw.PreferencesPage.return_value = mock_page
+
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = True
+        window._onaccess_widgets = {}
+        window.add = mock.MagicMock()
+        window._create_permission_indicator = mock.MagicMock()
+        window._create_onaccess_paths_group = mock.MagicMock()
+        window._create_onaccess_behavior_group = mock.MagicMock()
+        window._create_onaccess_performance_group = mock.MagicMock()
+        window._create_onaccess_exclusions_group = mock.MagicMock()
+
+        window._create_onaccess_page()
+
+        window._create_onaccess_paths_group.assert_called_once_with(mock_page)
+        window._create_onaccess_behavior_group.assert_called_once_with(mock_page)
+        window._create_onaccess_performance_group.assert_called_once_with(mock_page)
+        window._create_onaccess_exclusions_group.assert_called_once_with(mock_page)
+
+    def test_create_onaccess_page_shows_unavailable_when_clamd_missing(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_page shows status message when clamd unavailable."""
+        adw = mock_gi_modules['adw']
+        mock_page = mock.MagicMock()
+        mock_group = mock.MagicMock()
+        mock_row = mock.MagicMock()
+        adw.PreferencesPage.return_value = mock_page
+        adw.PreferencesGroup.return_value = mock_group
+        adw.ActionRow.return_value = mock_row
+
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = False
+        window._onaccess_widgets = {}
+        window.add = mock.MagicMock()
+        window._create_permission_indicator = mock.MagicMock()
+
+        window._create_onaccess_page()
+
+        # Should create a status group
+        mock_group.set_title.assert_called_with("Configuration Status")
+        mock_row.set_title.assert_called_with("On Access Configuration")
+        mock_row.set_subtitle.assert_called_with("clamd.conf not found - On Access settings unavailable")
+
+    def test_create_onaccess_page_does_not_create_groups_when_clamd_missing(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_page doesn't create groups when clamd unavailable."""
+        adw = mock_gi_modules['adw']
+        mock_page = mock.MagicMock()
+        adw.PreferencesPage.return_value = mock_page
+
+        window = object.__new__(preferences_window_class)
+        window._clamd_available = False
+        window._onaccess_widgets = {}
+        window.add = mock.MagicMock()
+        window._create_permission_indicator = mock.MagicMock()
+        window._create_onaccess_paths_group = mock.MagicMock()
+        window._create_onaccess_behavior_group = mock.MagicMock()
+        window._create_onaccess_performance_group = mock.MagicMock()
+        window._create_onaccess_exclusions_group = mock.MagicMock()
+
+        window._create_onaccess_page()
+
+        window._create_onaccess_paths_group.assert_not_called()
+        window._create_onaccess_behavior_group.assert_not_called()
+        window._create_onaccess_performance_group.assert_not_called()
+        window._create_onaccess_exclusions_group.assert_not_called()
+
+    def test_create_onaccess_paths_group_creates_widgets(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_paths_group creates path entry widgets."""
+        adw = mock_gi_modules['adw']
+        gtk = mock_gi_modules['gtk']
+        mock_page = mock.MagicMock()
+        mock_group = mock.MagicMock()
+        mock_entry_row = mock.MagicMock()
+        mock_image = mock.MagicMock()
+
+        adw.PreferencesGroup.return_value = mock_group
+        adw.EntryRow.return_value = mock_entry_row
+        gtk.Image.new_from_icon_name.return_value = mock_image
+
+        window = object.__new__(preferences_window_class)
+        window._onaccess_widgets = {}
+        window._create_permission_indicator = mock.MagicMock(return_value=mock.MagicMock())
+
+        window._create_onaccess_paths_group(mock_page)
+
+        # Should create include and exclude path widgets
+        assert 'OnAccessIncludePath' in window._onaccess_widgets
+        assert 'OnAccessExcludePath' in window._onaccess_widgets
+        mock_page.add.assert_called_once_with(mock_group)
+
+    def test_create_onaccess_behavior_group_creates_switches(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_behavior_group creates behavior switch widgets."""
+        adw = mock_gi_modules['adw']
+        mock_page = mock.MagicMock()
+        mock_group = mock.MagicMock()
+        mock_switch_row = mock.MagicMock()
+
+        adw.PreferencesGroup.return_value = mock_group
+        adw.SwitchRow.return_value = mock_switch_row
+
+        window = object.__new__(preferences_window_class)
+        window._onaccess_widgets = {}
+        window._create_permission_indicator = mock.MagicMock(return_value=mock.MagicMock())
+
+        window._create_onaccess_behavior_group(mock_page)
+
+        # Should create behavior switch widgets
+        assert 'OnAccessPrevention' in window._onaccess_widgets
+        assert 'OnAccessExtraScanning' in window._onaccess_widgets
+        assert 'OnAccessDenyOnError' in window._onaccess_widgets
+        assert 'OnAccessDisableDDD' in window._onaccess_widgets
+        mock_page.add.assert_called_once_with(mock_group)
+
+    def test_create_onaccess_performance_group_creates_spin_rows(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_performance_group creates spin row widgets."""
+        adw = mock_gi_modules['adw']
+        mock_page = mock.MagicMock()
+        mock_group = mock.MagicMock()
+        mock_spin_row = mock.MagicMock()
+
+        adw.PreferencesGroup.return_value = mock_group
+        adw.SpinRow.new_with_range.return_value = mock_spin_row
+
+        window = object.__new__(preferences_window_class)
+        window._onaccess_widgets = {}
+        window._create_permission_indicator = mock.MagicMock(return_value=mock.MagicMock())
+
+        window._create_onaccess_performance_group(mock_page)
+
+        # Should create performance spin widgets
+        assert 'OnAccessMaxThreads' in window._onaccess_widgets
+        assert 'OnAccessMaxFileSize' in window._onaccess_widgets
+        assert 'OnAccessCurlTimeout' in window._onaccess_widgets
+        assert 'OnAccessRetryAttempts' in window._onaccess_widgets
+        mock_page.add.assert_called_once_with(mock_group)
+
+    def test_create_onaccess_exclusions_group_creates_widgets(self, preferences_window_class, mock_gi_modules):
+        """Test that _create_onaccess_exclusions_group creates exclusion widgets."""
+        adw = mock_gi_modules['adw']
+        gtk = mock_gi_modules['gtk']
+        mock_page = mock.MagicMock()
+        mock_group = mock.MagicMock()
+        mock_entry_row = mock.MagicMock()
+        mock_switch_row = mock.MagicMock()
+        mock_spin_row = mock.MagicMock()
+        mock_action_row = mock.MagicMock()
+        mock_image = mock.MagicMock()
+
+        adw.PreferencesGroup.return_value = mock_group
+        adw.EntryRow.return_value = mock_entry_row
+        adw.SwitchRow.return_value = mock_switch_row
+        adw.SpinRow.new_with_range.return_value = mock_spin_row
+        adw.ActionRow.return_value = mock_action_row
+        gtk.Image.new_from_icon_name.return_value = mock_image
+
+        window = object.__new__(preferences_window_class)
+        window._onaccess_widgets = {}
+        window._create_permission_indicator = mock.MagicMock(return_value=mock.MagicMock())
+
+        window._create_onaccess_exclusions_group(mock_page)
+
+        # Should create exclusion widgets
+        assert 'OnAccessExcludeUname' in window._onaccess_widgets
+        assert 'OnAccessExcludeUID' in window._onaccess_widgets
+        assert 'OnAccessExcludeRootUID' in window._onaccess_widgets
+        mock_page.add.assert_called_once_with(mock_group)
 
 
 class TestPreferencesWindowLoadConfigs:
@@ -890,7 +1099,7 @@ class TestPreferencesWindowSaveConfigsThread:
             window._show_success_dialog = mock.MagicMock()
 
             mock_button = mock.MagicMock()
-            window._save_configs_thread({}, {}, {}, mock_button)
+            window._save_configs_thread({}, {}, {}, {}, mock_button)
 
             mock_backup.assert_called_with("/etc/clamav/freshclam.conf")
 
@@ -917,7 +1126,7 @@ class TestPreferencesWindowSaveConfigsThread:
             window._show_error_dialog = mock.MagicMock()
 
             mock_button = mock.MagicMock()
-            window._save_configs_thread({'key': 'value'}, {}, {}, mock_button)
+            window._save_configs_thread({'key': 'value'}, {}, {}, {}, mock_button)
 
             window._show_error_dialog.assert_called_once()
             assert "Permission denied" in str(window._show_error_dialog.call_args)
