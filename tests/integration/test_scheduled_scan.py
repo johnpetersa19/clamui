@@ -296,10 +296,12 @@ class TestQuarantineFunctionality:
     @pytest.fixture
     def manager(self, temp_environment):
         """Create a QuarantineManager for testing."""
-        return QuarantineManager(
+        mgr = QuarantineManager(
             quarantine_directory=str(temp_environment["quarantine_dir"]),
             database_path=str(temp_environment["db_path"]),
         )
+        yield mgr
+        mgr._database.close()
 
     def create_test_file(
         self, source_dir: Path, name: str = "test_threat.exe", content: bytes = b"malware content"

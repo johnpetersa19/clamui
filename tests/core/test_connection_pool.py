@@ -32,6 +32,7 @@ class TestConnectionPoolInit:
         assert pool._total_connections == 0
         assert pool._closed is False
         assert isinstance(pool._pool, queue.Queue)
+        pool.close_all()
 
     def test_init_with_custom_pool_size(self, temp_db_path):
         """Test ConnectionPool initialization with custom pool size."""
@@ -39,11 +40,13 @@ class TestConnectionPoolInit:
         assert pool._pool_size == 10
         assert pool._total_connections == 0
         assert pool._closed is False
+        pool.close_all()
 
     def test_init_with_minimum_pool_size(self, temp_db_path):
         """Test ConnectionPool initialization with minimum pool size."""
         pool = ConnectionPool(temp_db_path, pool_size=1)
         assert pool._pool_size == 1
+        pool.close_all()
 
     def test_init_with_invalid_pool_size(self, temp_db_path):
         """Test ConnectionPool raises ValueError for pool_size < 1."""
@@ -76,7 +79,9 @@ class TestConnectionPoolCreateConnection:
     @pytest.fixture
     def pool(self, temp_db_path):
         """Create a ConnectionPool instance."""
-        return ConnectionPool(temp_db_path, pool_size=3)
+        p = ConnectionPool(temp_db_path, pool_size=3)
+        yield p
+        p.close_all()
 
     def test_create_connection_returns_connection(self, pool):
         """Test _create_connection returns a sqlite3.Connection object."""
@@ -137,7 +142,9 @@ class TestConnectionPoolAcquire:
     @pytest.fixture
     def pool(self, temp_db_path):
         """Create a ConnectionPool instance."""
-        return ConnectionPool(temp_db_path, pool_size=3)
+        p = ConnectionPool(temp_db_path, pool_size=3)
+        yield p
+        p.close_all()
 
     def test_acquire_creates_new_connection_when_pool_empty(self, pool):
         """Test acquire creates a new connection when pool is empty."""
@@ -258,7 +265,9 @@ class TestConnectionPoolRelease:
     @pytest.fixture
     def pool(self, temp_db_path):
         """Create a ConnectionPool instance."""
-        return ConnectionPool(temp_db_path, pool_size=3)
+        p = ConnectionPool(temp_db_path, pool_size=3)
+        yield p
+        p.close_all()
 
     def test_release_returns_valid_connection_to_pool(self, pool):
         """Test release returns valid connection to pool."""
@@ -324,7 +333,9 @@ class TestConnectionPoolGetConnection:
     @pytest.fixture
     def pool(self, temp_db_path):
         """Create a ConnectionPool instance."""
-        return ConnectionPool(temp_db_path, pool_size=3)
+        p = ConnectionPool(temp_db_path, pool_size=3)
+        yield p
+        p.close_all()
 
     def test_get_connection_acquires_and_releases(self, pool):
         """Test get_connection acquires connection on entry and releases on exit."""

@@ -106,10 +106,12 @@ class TestQuarantineManager:
         """Create a QuarantineManager with temporary directories."""
         quarantine_dir = os.path.join(temp_dir, "quarantine")
         db_path = os.path.join(temp_dir, "quarantine.db")
-        return QuarantineManager(
+        mgr = QuarantineManager(
             quarantine_directory=quarantine_dir,
             database_path=db_path,
         )
+        yield mgr
+        mgr._database.close()
 
     @pytest.fixture
     def test_file(self, temp_dir):
@@ -246,10 +248,12 @@ class TestQuarantineManagerRestore:
         """Create a QuarantineManager with temporary directories."""
         quarantine_dir = os.path.join(temp_dir, "quarantine")
         db_path = os.path.join(temp_dir, "quarantine.db")
-        return QuarantineManager(
+        mgr = QuarantineManager(
             quarantine_directory=quarantine_dir,
             database_path=db_path,
         )
+        yield mgr
+        mgr._database.close()
 
     @pytest.fixture
     def quarantined_file(self, manager, temp_dir):
@@ -426,10 +430,12 @@ class TestQuarantineManagerDelete:
         """Create a QuarantineManager with temporary directories."""
         quarantine_dir = os.path.join(temp_dir, "quarantine")
         db_path = os.path.join(temp_dir, "quarantine.db")
-        return QuarantineManager(
+        mgr = QuarantineManager(
             quarantine_directory=quarantine_dir,
             database_path=db_path,
         )
+        yield mgr
+        mgr._database.close()
 
     @pytest.fixture
     def quarantined_file(self, manager, temp_dir):
@@ -490,10 +496,12 @@ class TestQuarantineManagerQueries:
         """Create a QuarantineManager with temporary directories."""
         quarantine_dir = os.path.join(temp_dir, "quarantine")
         db_path = os.path.join(temp_dir, "quarantine.db")
-        return QuarantineManager(
+        mgr = QuarantineManager(
             quarantine_directory=quarantine_dir,
             database_path=db_path,
         )
+        yield mgr
+        mgr._database.close()
 
     def test_get_all_entries(self, manager, temp_dir):
         """Test retrieving all quarantined entries."""

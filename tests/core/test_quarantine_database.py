@@ -110,13 +110,16 @@ class TestQuarantineDatabase:
     def db(self, temp_db_dir):
         """Create a QuarantineDatabase with a temporary database."""
         db_path = os.path.join(temp_db_dir, "test_quarantine.db")
-        return QuarantineDatabase(db_path=db_path)
+        database = QuarantineDatabase(db_path=db_path)
+        yield database
+        database.close()
 
     def test_init_creates_database_directory(self, temp_db_dir):
         """Test that QuarantineDatabase creates the database directory on init."""
         db_path = os.path.join(temp_db_dir, "subdir", "nested", "quarantine.db")
         _db = QuarantineDatabase(db_path=db_path)
         assert Path(db_path).parent.exists()
+        _db.close()
 
     def test_init_with_default_directory(self, monkeypatch):
         """Test QuarantineDatabase uses XDG_DATA_HOME by default."""
@@ -125,6 +128,7 @@ class TestQuarantineDatabase:
             db = QuarantineDatabase()
             expected_path = Path(tmpdir) / "clamui" / "quarantine.db"
             assert db._db_path == expected_path
+            db.close()
 
     def test_init_creates_schema(self, db, temp_db_dir):
         """Test that database schema is created on init."""
