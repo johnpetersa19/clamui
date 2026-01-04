@@ -343,13 +343,37 @@ class QuarantineView(Gtk.Box):
                 self._clear_old_button.set_sensitive(False)
                 return False
 
-            # Display initial batch with pagination
-            initial_limit = min(INITIAL_DISPLAY_LIMIT, len(entries))
-            self._display_entry_batch(0, initial_limit)
+            # If search is active, apply filter to maintain filtered view across refresh
+            if self._search_query:
+                # Update filtered entries based on current search query
+                self._filtered_entries = self._filter_entries()
 
-            # Add "Load More" button if there are more entries
-            if len(entries) > INITIAL_DISPLAY_LIMIT:
-                self._add_load_more_button()
+                # If filtered results are empty, show placeholder and return
+                if not self._filtered_entries:
+                    self._clear_old_button.set_sensitive(True)
+                    return False
+
+                # Display filtered results with pagination
+                entries_to_display = self._filtered_entries
+            else:
+                # No search active, display all entries
+                entries_to_display = entries
+
+            # Display initial batch with pagination
+            initial_limit = min(INITIAL_DISPLAY_LIMIT, len(entries_to_display))
+
+            # Temporarily swap entries for display
+            original_entries = self._all_entries
+            self._all_entries = entries_to_display
+            try:
+                self._display_entry_batch(0, initial_limit)
+
+                # Add "Load More" button if there are more entries
+                if len(entries_to_display) > INITIAL_DISPLAY_LIMIT:
+                    self._add_load_more_button()
+            finally:
+                # Restore original entries
+                self._all_entries = original_entries
 
             # Enable clear old button if there are entries
             self._clear_old_button.set_sensitive(True)
