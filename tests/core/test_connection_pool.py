@@ -1,7 +1,6 @@
 # ClamUI ConnectionPool Tests
 """Unit tests for the ConnectionPool class."""
 
-import contextlib
 import queue
 import sqlite3
 import tempfile
@@ -60,8 +59,8 @@ class TestConnectionPoolInit:
         """Test ConnectionPool creates a threading lock."""
         pool = ConnectionPool(temp_db_path)
         # Check that _lock has the lock interface (acquire and release methods)
-        assert hasattr(pool._lock, 'acquire')
-        assert hasattr(pool._lock, 'release')
+        assert hasattr(pool._lock, "acquire")
+        assert hasattr(pool._lock, "release")
         assert callable(pool._lock.acquire)
         assert callable(pool._lock.release)
 
@@ -382,10 +381,8 @@ class TestConnectionPoolGetConnection:
 
     def test_get_connection_releases_on_exception(self, pool):
         """Test get_connection releases connection even when exception occurs."""
-        initial_count = pool._total_connections
-
         try:
-            with pool.get_connection() as conn:
+            with pool.get_connection():
                 raise ValueError("Test exception")
         except ValueError:
             pass

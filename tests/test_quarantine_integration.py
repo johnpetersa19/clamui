@@ -531,7 +531,6 @@ class TestConfigChange:
         manager2._database.close()
 
 
-
 class TestEdgeCases:
     """Integration tests for edge cases and error handling."""
 

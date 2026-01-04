@@ -7,21 +7,19 @@ import threading
 from pathlib import Path
 
 import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, GLib
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, GLib, Gtk
 
 from src.core.clamav_config import (
+    backup_config,
     parse_config,
-    ClamAVConfig,
     validate_config,
     write_config_with_elevation,
-    backup_config,
 )
-from src.core.scheduler import Scheduler, ScheduleFrequency
-from src.core.scanner import validate_pattern
+from src.core.scheduler import Scheduler
 from src.ui.utils import add_row_icon
-
 
 # Preset exclusion templates for common development directories
 # These are directory patterns commonly excluded from scans for performance
@@ -30,37 +28,32 @@ PRESET_EXCLUSIONS = [
         "pattern": "node_modules",
         "type": "directory",
         "enabled": True,
-        "description": "Node.js dependencies"
+        "description": "Node.js dependencies",
     },
-    {
-        "pattern": ".git",
-        "type": "directory",
-        "enabled": True,
-        "description": "Git repository data"
-    },
+    {"pattern": ".git", "type": "directory", "enabled": True, "description": "Git repository data"},
     {
         "pattern": ".venv",
         "type": "directory",
         "enabled": True,
-        "description": "Python virtual environment"
+        "description": "Python virtual environment",
     },
     {
         "pattern": "build",
         "type": "directory",
         "enabled": True,
-        "description": "Build output directory"
+        "description": "Build output directory",
     },
     {
         "pattern": "dist",
         "type": "directory",
         "enabled": True,
-        "description": "Distribution output directory"
+        "description": "Distribution output directory",
     },
     {
         "pattern": "__pycache__",
         "type": "directory",
         "enabled": True,
-        "description": "Python bytecode cache"
+        "description": "Python bytecode cache",
     },
 ]
 
@@ -186,10 +179,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Create file location group
         self._create_file_location_group(
-            page,
-            "Configuration File",
-            self._freshclam_conf_path,
-            "freshclam.conf location"
+            page, "Configuration File", self._freshclam_conf_path, "freshclam.conf location"
         )
 
         # Create paths group
@@ -204,11 +194,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         self.add(page)
 
     def _create_file_location_group(
-        self,
-        page: Adw.PreferencesPage,
-        title: str,
-        file_path: str,
-        description: str
+        self, page: Adw.PreferencesPage, title: str, file_path: str, description: str
     ):
         """
         Create a group showing the configuration file location.
@@ -251,8 +237,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Connect click handler to open folder
         open_folder_button.connect(
-            "clicked",
-            lambda btn: self._open_folder_in_file_manager(parent_dir)
+            "clicked", lambda btn: self._open_folder_in_file_manager(parent_dir)
         )
 
         path_row.add_suffix(open_folder_button)
@@ -270,8 +255,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
         Args:
             folder_path: The folder path to open
         """
-        import subprocess
         import os
+        import subprocess
 
         if not os.path.exists(folder_path):
             # Show error if folder doesn't exist
@@ -286,9 +271,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         try:
             # Use xdg-open on Linux to open folder in default file manager
             subprocess.Popen(
-                ['xdg-open', folder_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                ["xdg-open", folder_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
         except Exception as e:
             # Show error dialog if opening fails
@@ -326,7 +309,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         folder_icon = Gtk.Image.new_from_icon_name("folder-symbolic")
         folder_icon.set_margin_start(6)
         database_dir_row.add_prefix(folder_icon)
-        self._freshclam_widgets['DatabaseDirectory'] = database_dir_row
+        self._freshclam_widgets["DatabaseDirectory"] = database_dir_row
         group.add(database_dir_row)
 
         # UpdateLogFile row
@@ -338,7 +321,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         log_icon = Gtk.Image.new_from_icon_name("text-x-generic-symbolic")
         log_icon.set_margin_start(6)
         log_file_row.add_prefix(log_icon)
-        self._freshclam_widgets['UpdateLogFile'] = log_file_row
+        self._freshclam_widgets["UpdateLogFile"] = log_file_row
         group.add(log_file_row)
 
         # NotifyClamd row
@@ -350,21 +333,21 @@ class PreferencesWindow(Adw.PreferencesWindow):
         notify_icon = Gtk.Image.new_from_icon_name("emblem-system-symbolic")
         notify_icon.set_margin_start(6)
         notify_clamd_row.add_prefix(notify_icon)
-        self._freshclam_widgets['NotifyClamd'] = notify_clamd_row
+        self._freshclam_widgets["NotifyClamd"] = notify_clamd_row
         group.add(notify_clamd_row)
 
         # LogVerbose switch row
         log_verbose_row = Adw.SwitchRow()
         log_verbose_row.set_title("Verbose Logging")
         log_verbose_row.set_subtitle("Enable detailed logging for database updates")
-        self._freshclam_widgets['LogVerbose'] = log_verbose_row
+        self._freshclam_widgets["LogVerbose"] = log_verbose_row
         group.add(log_verbose_row)
 
         # LogSyslog switch row
         log_syslog_row = Adw.SwitchRow()
         log_syslog_row.set_title("Syslog Logging")
         log_syslog_row.set_subtitle("Send log messages to system log")
-        self._freshclam_widgets['LogSyslog'] = log_syslog_row
+        self._freshclam_widgets["LogSyslog"] = log_syslog_row
         group.add(log_syslog_row)
 
         page.add(group)
@@ -391,7 +374,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         checks_row.set_subtitle("Number of update checks per day (0 to disable)")
         checks_row.set_numeric(True)
         checks_row.set_snap_to_ticks(True)
-        self._freshclam_widgets['Checks'] = checks_row
+        self._freshclam_widgets["Checks"] = checks_row
         group.add(checks_row)
 
         # DatabaseMirror entry row (primary mirror)
@@ -403,7 +386,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         mirror_icon = Gtk.Image.new_from_icon_name("network-server-symbolic")
         mirror_icon.set_margin_start(6)
         mirror_row.add_prefix(mirror_icon)
-        self._freshclam_widgets['DatabaseMirror'] = mirror_row
+        self._freshclam_widgets["DatabaseMirror"] = mirror_row
         group.add(mirror_row)
 
         page.add(group)
@@ -435,7 +418,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         server_icon = Gtk.Image.new_from_icon_name("network-workgroup-symbolic")
         server_icon.set_margin_start(6)
         proxy_server_row.add_prefix(server_icon)
-        self._freshclam_widgets['HTTPProxyServer'] = proxy_server_row
+        self._freshclam_widgets["HTTPProxyServer"] = proxy_server_row
         group.add(proxy_server_row)
 
         # HTTPProxyPort spin row (1-65535)
@@ -444,7 +427,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         proxy_port_row.set_subtitle("Proxy server port number (0 to disable)")
         proxy_port_row.set_numeric(True)
         proxy_port_row.set_snap_to_ticks(True)
-        self._freshclam_widgets['HTTPProxyPort'] = proxy_port_row
+        self._freshclam_widgets["HTTPProxyPort"] = proxy_port_row
         group.add(proxy_port_row)
 
         # HTTPProxyUsername entry row
@@ -456,13 +439,13 @@ class PreferencesWindow(Adw.PreferencesWindow):
         user_icon = Gtk.Image.new_from_icon_name("avatar-default-symbolic")
         user_icon.set_margin_start(6)
         proxy_user_row.add_prefix(user_icon)
-        self._freshclam_widgets['HTTPProxyUsername'] = proxy_user_row
+        self._freshclam_widgets["HTTPProxyUsername"] = proxy_user_row
         group.add(proxy_user_row)
 
         # HTTPProxyPassword entry row (with password input)
         proxy_pass_row = Adw.PasswordEntryRow()
         proxy_pass_row.set_title("Proxy Password")
-        self._freshclam_widgets['HTTPProxyPassword'] = proxy_pass_row
+        self._freshclam_widgets["HTTPProxyPassword"] = proxy_pass_row
         group.add(proxy_pass_row)
 
         page.add(group)
@@ -477,7 +460,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Check if clamd.conf exists and create appropriate content
         try:
-            with open(self._clamd_conf_path, 'r') as f:
+            with open(self._clamd_conf_path):
                 self._clamd_available = True
         except FileNotFoundError:
             self._clamd_available = False
@@ -487,10 +470,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Create file location group
         self._create_file_location_group(
-            page,
-            "Configuration File",
-            self._clamd_conf_path,
-            "clamd.conf location"
+            page, "Configuration File", self._clamd_conf_path, "clamd.conf location"
         )
 
         if self._clamd_available:
@@ -538,42 +518,42 @@ class PreferencesWindow(Adw.PreferencesWindow):
         scan_pe_row = Adw.SwitchRow()
         scan_pe_row.set_title("Scan PE Files")
         scan_pe_row.set_subtitle("Scan Windows/DOS executable files")
-        self._clamd_widgets['ScanPE'] = scan_pe_row
+        self._clamd_widgets["ScanPE"] = scan_pe_row
         group.add(scan_pe_row)
 
         # ScanELF switch
         scan_elf_row = Adw.SwitchRow()
         scan_elf_row.set_title("Scan ELF Files")
         scan_elf_row.set_subtitle("Scan Unix/Linux executable files")
-        self._clamd_widgets['ScanELF'] = scan_elf_row
+        self._clamd_widgets["ScanELF"] = scan_elf_row
         group.add(scan_elf_row)
 
         # ScanOLE2 switch
         scan_ole2_row = Adw.SwitchRow()
         scan_ole2_row.set_title("Scan OLE2 Files")
         scan_ole2_row.set_subtitle("Scan Microsoft Office documents")
-        self._clamd_widgets['ScanOLE2'] = scan_ole2_row
+        self._clamd_widgets["ScanOLE2"] = scan_ole2_row
         group.add(scan_ole2_row)
 
         # ScanPDF switch
         scan_pdf_row = Adw.SwitchRow()
         scan_pdf_row.set_title("Scan PDF Files")
         scan_pdf_row.set_subtitle("Scan PDF documents")
-        self._clamd_widgets['ScanPDF'] = scan_pdf_row
+        self._clamd_widgets["ScanPDF"] = scan_pdf_row
         group.add(scan_pdf_row)
 
         # ScanHTML switch
         scan_html_row = Adw.SwitchRow()
         scan_html_row.set_title("Scan HTML Files")
         scan_html_row.set_subtitle("Scan HTML documents")
-        self._clamd_widgets['ScanHTML'] = scan_html_row
+        self._clamd_widgets["ScanHTML"] = scan_html_row
         group.add(scan_html_row)
 
         # ScanArchive switch
         scan_archive_row = Adw.SwitchRow()
         scan_archive_row.set_title("Scan Archive Files")
         scan_archive_row.set_subtitle("Scan compressed archives (ZIP, RAR, etc.)")
-        self._clamd_widgets['ScanArchive'] = scan_archive_row
+        self._clamd_widgets["ScanArchive"] = scan_archive_row
         group.add(scan_archive_row)
 
         page.add(group)
@@ -602,7 +582,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         max_file_size_row.set_subtitle("Maximum file size to scan (0 = unlimited)")
         max_file_size_row.set_numeric(True)
         max_file_size_row.set_snap_to_ticks(True)
-        self._clamd_widgets['MaxFileSize'] = max_file_size_row
+        self._clamd_widgets["MaxFileSize"] = max_file_size_row
         group.add(max_file_size_row)
 
         # MaxScanSize spin row (in MB, 0-4000)
@@ -611,7 +591,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         max_scan_size_row.set_subtitle("Maximum total scan size (0 = unlimited)")
         max_scan_size_row.set_numeric(True)
         max_scan_size_row.set_snap_to_ticks(True)
-        self._clamd_widgets['MaxScanSize'] = max_scan_size_row
+        self._clamd_widgets["MaxScanSize"] = max_scan_size_row
         group.add(max_scan_size_row)
 
         # MaxRecursion spin row (0-255)
@@ -620,7 +600,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         max_recursion_row.set_subtitle("Maximum recursion depth for archives")
         max_recursion_row.set_numeric(True)
         max_recursion_row.set_snap_to_ticks(True)
-        self._clamd_widgets['MaxRecursion'] = max_recursion_row
+        self._clamd_widgets["MaxRecursion"] = max_recursion_row
         group.add(max_recursion_row)
 
         # MaxFiles spin row (0-1000000)
@@ -629,7 +609,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         max_files_row.set_subtitle("Maximum number of files to scan in archive (0 = unlimited)")
         max_files_row.set_numeric(True)
         max_files_row.set_snap_to_ticks(True)
-        self._clamd_widgets['MaxFiles'] = max_files_row
+        self._clamd_widgets["MaxFiles"] = max_files_row
         group.add(max_files_row)
 
         page.add(group)
@@ -660,21 +640,21 @@ class PreferencesWindow(Adw.PreferencesWindow):
         log_icon = Gtk.Image.new_from_icon_name("text-x-generic-symbolic")
         log_icon.set_margin_start(6)
         log_file_row.add_prefix(log_icon)
-        self._clamd_widgets['LogFile'] = log_file_row
+        self._clamd_widgets["LogFile"] = log_file_row
         group.add(log_file_row)
 
         # LogVerbose switch
         log_verbose_row = Adw.SwitchRow()
         log_verbose_row.set_title("Verbose Logging")
         log_verbose_row.set_subtitle("Enable detailed scanner logging")
-        self._clamd_widgets['LogVerbose'] = log_verbose_row
+        self._clamd_widgets["LogVerbose"] = log_verbose_row
         group.add(log_verbose_row)
 
         # LogSyslog switch
         log_syslog_row = Adw.SwitchRow()
         log_syslog_row.set_title("Syslog Logging")
         log_syslog_row.set_subtitle("Send log messages to system log")
-        self._clamd_widgets['LogSyslog'] = log_syslog_row
+        self._clamd_widgets["LogSyslog"] = log_syslog_row
         group.add(log_syslog_row)
 
         page.add(group)
@@ -783,7 +763,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         subtitles = {
             0: "Recommended — Automatically uses daemon if available, falls back to clamscan for reliability",
             1: "Fastest — Instant startup with in-memory database, requires clamd service running",
-            2: "Most compatible — Works anywhere, loads database each scan (3-10 sec startup)"
+            2: "Most compatible — Works anywhere, loads database each scan (3-10 sec startup)",
         }
         row.set_subtitle(subtitles.get(selected, subtitles[0]))
 
@@ -859,9 +839,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         try:
             # Use xdg-open on Linux to open file in default application
             subprocess.Popen(
-                ['xdg-open', str(docs_path)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                ["xdg-open", str(docs_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
         except Exception as e:
             # Show error dialog if opening fails
@@ -939,7 +917,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         include_icon = Gtk.Image.new_from_icon_name("folder-symbolic")
         include_icon.set_margin_start(6)
         include_path_row.add_prefix(include_icon)
-        self._onaccess_widgets['OnAccessIncludePath'] = include_path_row
+        self._onaccess_widgets["OnAccessIncludePath"] = include_path_row
         group.add(include_path_row)
 
         # OnAccessExcludePath row
@@ -951,7 +929,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         exclude_icon = Gtk.Image.new_from_icon_name("folder-symbolic")
         exclude_icon.set_margin_start(6)
         exclude_path_row.add_prefix(exclude_icon)
-        self._onaccess_widgets['OnAccessExcludePath'] = exclude_path_row
+        self._onaccess_widgets["OnAccessExcludePath"] = exclude_path_row
         group.add(exclude_path_row)
 
         page.add(group)
@@ -971,37 +949,35 @@ class PreferencesWindow(Adw.PreferencesWindow):
         """
         group = Adw.PreferencesGroup()
         group.set_title("Behavior Settings")
-        group.set_description(
-            "Configure how On-Access scanning responds to file access events"
-        )
+        group.set_description("Configure how On-Access scanning responds to file access events")
         group.set_header_suffix(self._create_permission_indicator())
 
         # OnAccessPrevention switch
         prevention_row = Adw.SwitchRow()
         prevention_row.set_title("Prevention Mode")
         prevention_row.set_subtitle("Block access to infected files")
-        self._onaccess_widgets['OnAccessPrevention'] = prevention_row
+        self._onaccess_widgets["OnAccessPrevention"] = prevention_row
         group.add(prevention_row)
 
         # OnAccessExtraScanning switch
         extra_scanning_row = Adw.SwitchRow()
         extra_scanning_row.set_title("Extra Scanning")
         extra_scanning_row.set_subtitle("Monitor file creation/moves via inotify")
-        self._onaccess_widgets['OnAccessExtraScanning'] = extra_scanning_row
+        self._onaccess_widgets["OnAccessExtraScanning"] = extra_scanning_row
         group.add(extra_scanning_row)
 
         # OnAccessDenyOnError switch
         deny_on_error_row = Adw.SwitchRow()
         deny_on_error_row.set_title("Deny on Error")
         deny_on_error_row.set_subtitle("Deny access when scan fails (requires Prevention)")
-        self._onaccess_widgets['OnAccessDenyOnError'] = deny_on_error_row
+        self._onaccess_widgets["OnAccessDenyOnError"] = deny_on_error_row
         group.add(deny_on_error_row)
 
         # OnAccessDisableDDD switch
         disable_ddd_row = Adw.SwitchRow()
         disable_ddd_row.set_title("Disable DDD")
         disable_ddd_row.set_subtitle("Disable Directory Descent Detection")
-        self._onaccess_widgets['OnAccessDisableDDD'] = disable_ddd_row
+        self._onaccess_widgets["OnAccessDisableDDD"] = disable_ddd_row
         group.add(disable_ddd_row)
 
         page.add(group)
@@ -1030,7 +1006,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         max_threads_row.set_subtitle("Maximum number of scanning threads")
         max_threads_row.set_numeric(True)
         max_threads_row.set_snap_to_ticks(True)
-        self._onaccess_widgets['OnAccessMaxThreads'] = max_threads_row
+        self._onaccess_widgets["OnAccessMaxThreads"] = max_threads_row
         group.add(max_threads_row)
 
         # OnAccessMaxFileSize spin row (in MB, 0-4000)
@@ -1039,7 +1015,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         max_file_size_row.set_subtitle("Maximum file size to scan (0 = unlimited)")
         max_file_size_row.set_numeric(True)
         max_file_size_row.set_snap_to_ticks(True)
-        self._onaccess_widgets['OnAccessMaxFileSize'] = max_file_size_row
+        self._onaccess_widgets["OnAccessMaxFileSize"] = max_file_size_row
         group.add(max_file_size_row)
 
         # OnAccessCurlTimeout spin row (in seconds, 0-3600)
@@ -1048,7 +1024,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         curl_timeout_row.set_subtitle("Timeout for remote scanning operations (0 = disabled)")
         curl_timeout_row.set_numeric(True)
         curl_timeout_row.set_snap_to_ticks(True)
-        self._onaccess_widgets['OnAccessCurlTimeout'] = curl_timeout_row
+        self._onaccess_widgets["OnAccessCurlTimeout"] = curl_timeout_row
         group.add(curl_timeout_row)
 
         # OnAccessRetryAttempts spin row (0-10)
@@ -1057,7 +1033,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         retry_attempts_row.set_subtitle("Number of retry attempts when scan fails")
         retry_attempts_row.set_numeric(True)
         retry_attempts_row.set_snap_to_ticks(True)
-        self._onaccess_widgets['OnAccessRetryAttempts'] = retry_attempts_row
+        self._onaccess_widgets["OnAccessRetryAttempts"] = retry_attempts_row
         group.add(retry_attempts_row)
 
         page.add(group)
@@ -1108,7 +1084,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         user_icon = Gtk.Image.new_from_icon_name("avatar-default-symbolic")
         user_icon.set_margin_start(6)
         exclude_uname_row.add_prefix(user_icon)
-        self._onaccess_widgets['OnAccessExcludeUname'] = exclude_uname_row
+        self._onaccess_widgets["OnAccessExcludeUname"] = exclude_uname_row
         group.add(exclude_uname_row)
 
         # OnAccessExcludeUID spin row (0-65534)
@@ -1117,14 +1093,14 @@ class PreferencesWindow(Adw.PreferencesWindow):
         exclude_uid_row.set_subtitle("User ID to exclude from On-Access scanning")
         exclude_uid_row.set_numeric(True)
         exclude_uid_row.set_snap_to_ticks(True)
-        self._onaccess_widgets['OnAccessExcludeUID'] = exclude_uid_row
+        self._onaccess_widgets["OnAccessExcludeUID"] = exclude_uid_row
         group.add(exclude_uid_row)
 
         # OnAccessExcludeRootUID switch
         exclude_root_row = Adw.SwitchRow()
         exclude_root_row.set_title("Exclude Root User")
         exclude_root_row.set_subtitle("Exclude root (UID 0) from On-Access scanning")
-        self._onaccess_widgets['OnAccessExcludeRootUID'] = exclude_root_row
+        self._onaccess_widgets["OnAccessExcludeRootUID"] = exclude_root_row
         group.add(exclude_root_row)
 
         page.add(group)
@@ -1151,7 +1127,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         enable_scheduled_row = Adw.SwitchRow()
         enable_scheduled_row.set_title("Enable Scheduled Scans")
         enable_scheduled_row.set_subtitle("Run automatic scans at specified intervals")
-        self._scheduled_widgets['enabled'] = enable_scheduled_row
+        self._scheduled_widgets["enabled"] = enable_scheduled_row
         group.add(enable_scheduled_row)
 
         # Schedule frequency dropdown
@@ -1164,14 +1140,14 @@ class PreferencesWindow(Adw.PreferencesWindow):
         frequency_row.set_model(frequency_model)
         frequency_row.set_selected(1)  # Default to Daily
         frequency_row.set_title("Scan Frequency")
-        self._scheduled_widgets['frequency'] = frequency_row
+        self._scheduled_widgets["frequency"] = frequency_row
         group.add(frequency_row)
 
         # Time picker (schedule_time)
         time_row = Adw.EntryRow()
         time_row.set_title("Scan Time (24-hour format, e.g. 02:00)")
         time_row.set_text("02:00")
-        self._scheduled_widgets['time'] = time_row
+        self._scheduled_widgets["time"] = time_row
         group.add(time_row)
 
         # Day of week dropdown (for weekly scans)
@@ -1183,23 +1159,25 @@ class PreferencesWindow(Adw.PreferencesWindow):
         day_of_week_row.set_selected(0)  # Default to Monday
         day_of_week_row.set_title("Day of Week")
         day_of_week_row.set_subtitle("For weekly scans")
-        self._scheduled_widgets['day_of_week'] = day_of_week_row
+        self._scheduled_widgets["day_of_week"] = day_of_week_row
         group.add(day_of_week_row)
 
         # Day of month spinner (for monthly scans)
         day_of_month_row = Adw.SpinRow()
         day_of_month_row.set_title("Day of Month")
         day_of_month_row.set_subtitle("For monthly scans (1-28)")
-        adjustment = Gtk.Adjustment(value=1, lower=1, upper=28, step_increment=1, page_increment=5, page_size=0)
+        adjustment = Gtk.Adjustment(
+            value=1, lower=1, upper=28, step_increment=1, page_increment=5, page_size=0
+        )
         day_of_month_row.set_adjustment(adjustment)
-        self._scheduled_widgets['day_of_month'] = day_of_month_row
+        self._scheduled_widgets["day_of_month"] = day_of_month_row
         group.add(day_of_month_row)
 
         # Scan targets entry (schedule_targets)
         targets_row = Adw.EntryRow()
         targets_row.set_title("Scan Targets (comma-separated paths)")
         targets_row.set_text(str(Path.home()))
-        self._scheduled_widgets['targets'] = targets_row
+        self._scheduled_widgets["targets"] = targets_row
         group.add(targets_row)
 
         # Skip on battery switch
@@ -1207,7 +1185,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         skip_battery_row.set_title("Skip on Battery")
         skip_battery_row.set_subtitle("Don't run scheduled scans when on battery power")
         skip_battery_row.set_active(True)
-        self._scheduled_widgets['skip_on_battery'] = skip_battery_row
+        self._scheduled_widgets["skip_on_battery"] = skip_battery_row
         group.add(skip_battery_row)
 
         # Auto-quarantine switch
@@ -1215,7 +1193,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         auto_quarantine_row.set_title("Auto-Quarantine")
         auto_quarantine_row.set_subtitle("Automatically quarantine detected threats")
         auto_quarantine_row.set_active(False)
-        self._scheduled_widgets['auto_quarantine'] = auto_quarantine_row
+        self._scheduled_widgets["auto_quarantine"] = auto_quarantine_row
         group.add(auto_quarantine_row)
 
         page.add(group)
@@ -1459,70 +1437,70 @@ class PreferencesWindow(Adw.PreferencesWindow):
             return
 
         # Populate DatabaseDirectory
-        if self._freshclam_config.has_key('DatabaseDirectory'):
-            self._freshclam_widgets['DatabaseDirectory'].set_text(
-                self._freshclam_config.get_value('DatabaseDirectory')
+        if self._freshclam_config.has_key("DatabaseDirectory"):
+            self._freshclam_widgets["DatabaseDirectory"].set_text(
+                self._freshclam_config.get_value("DatabaseDirectory")
             )
 
         # Populate UpdateLogFile
-        if self._freshclam_config.has_key('UpdateLogFile'):
-            self._freshclam_widgets['UpdateLogFile'].set_text(
-                self._freshclam_config.get_value('UpdateLogFile')
+        if self._freshclam_config.has_key("UpdateLogFile"):
+            self._freshclam_widgets["UpdateLogFile"].set_text(
+                self._freshclam_config.get_value("UpdateLogFile")
             )
 
         # Populate NotifyClamd
-        if self._freshclam_config.has_key('NotifyClamd'):
-            self._freshclam_widgets['NotifyClamd'].set_text(
-                self._freshclam_config.get_value('NotifyClamd')
+        if self._freshclam_config.has_key("NotifyClamd"):
+            self._freshclam_widgets["NotifyClamd"].set_text(
+                self._freshclam_config.get_value("NotifyClamd")
             )
 
         # Populate LogVerbose
-        if self._freshclam_config.has_key('LogVerbose'):
-            self._freshclam_widgets['LogVerbose'].set_active(
-                self._freshclam_config.get_value('LogVerbose').lower() == 'yes'
+        if self._freshclam_config.has_key("LogVerbose"):
+            self._freshclam_widgets["LogVerbose"].set_active(
+                self._freshclam_config.get_value("LogVerbose").lower() == "yes"
             )
 
         # Populate LogSyslog
-        if self._freshclam_config.has_key('LogSyslog'):
-            self._freshclam_widgets['LogSyslog'].set_active(
-                self._freshclam_config.get_value('LogSyslog').lower() == 'yes'
+        if self._freshclam_config.has_key("LogSyslog"):
+            self._freshclam_widgets["LogSyslog"].set_active(
+                self._freshclam_config.get_value("LogSyslog").lower() == "yes"
             )
 
         # Populate Checks
-        if self._freshclam_config.has_key('Checks'):
+        if self._freshclam_config.has_key("Checks"):
             try:
-                checks_value = int(self._freshclam_config.get_value('Checks'))
-                self._freshclam_widgets['Checks'].set_value(checks_value)
+                checks_value = int(self._freshclam_config.get_value("Checks"))
+                self._freshclam_widgets["Checks"].set_value(checks_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate DatabaseMirror
-        if self._freshclam_config.has_key('DatabaseMirror'):
-            self._freshclam_widgets['DatabaseMirror'].set_text(
-                self._freshclam_config.get_value('DatabaseMirror')
+        if self._freshclam_config.has_key("DatabaseMirror"):
+            self._freshclam_widgets["DatabaseMirror"].set_text(
+                self._freshclam_config.get_value("DatabaseMirror")
             )
 
         # Populate proxy settings
-        if self._freshclam_config.has_key('HTTPProxyServer'):
-            self._freshclam_widgets['HTTPProxyServer'].set_text(
-                self._freshclam_config.get_value('HTTPProxyServer')
+        if self._freshclam_config.has_key("HTTPProxyServer"):
+            self._freshclam_widgets["HTTPProxyServer"].set_text(
+                self._freshclam_config.get_value("HTTPProxyServer")
             )
 
-        if self._freshclam_config.has_key('HTTPProxyPort'):
+        if self._freshclam_config.has_key("HTTPProxyPort"):
             try:
-                port_value = int(self._freshclam_config.get_value('HTTPProxyPort'))
-                self._freshclam_widgets['HTTPProxyPort'].set_value(port_value)
+                port_value = int(self._freshclam_config.get_value("HTTPProxyPort"))
+                self._freshclam_widgets["HTTPProxyPort"].set_value(port_value)
             except (ValueError, TypeError):
                 pass
 
-        if self._freshclam_config.has_key('HTTPProxyUsername'):
-            self._freshclam_widgets['HTTPProxyUsername'].set_text(
-                self._freshclam_config.get_value('HTTPProxyUsername')
+        if self._freshclam_config.has_key("HTTPProxyUsername"):
+            self._freshclam_widgets["HTTPProxyUsername"].set_text(
+                self._freshclam_config.get_value("HTTPProxyUsername")
             )
 
-        if self._freshclam_config.has_key('HTTPProxyPassword'):
-            self._freshclam_widgets['HTTPProxyPassword'].set_text(
-                self._freshclam_config.get_value('HTTPProxyPassword')
+        if self._freshclam_config.has_key("HTTPProxyPassword"):
+            self._freshclam_widgets["HTTPProxyPassword"].set_text(
+                self._freshclam_config.get_value("HTTPProxyPassword")
             )
 
     def _populate_clamd_fields(self):
@@ -1535,87 +1513,87 @@ class PreferencesWindow(Adw.PreferencesWindow):
             return
 
         # Populate ScanPE
-        if self._clamd_config.has_key('ScanPE'):
-            self._clamd_widgets['ScanPE'].set_active(
-                self._clamd_config.get_value('ScanPE').lower() == 'yes'
+        if self._clamd_config.has_key("ScanPE"):
+            self._clamd_widgets["ScanPE"].set_active(
+                self._clamd_config.get_value("ScanPE").lower() == "yes"
             )
 
         # Populate ScanELF
-        if self._clamd_config.has_key('ScanELF'):
-            self._clamd_widgets['ScanELF'].set_active(
-                self._clamd_config.get_value('ScanELF').lower() == 'yes'
+        if self._clamd_config.has_key("ScanELF"):
+            self._clamd_widgets["ScanELF"].set_active(
+                self._clamd_config.get_value("ScanELF").lower() == "yes"
             )
 
         # Populate ScanOLE2
-        if self._clamd_config.has_key('ScanOLE2'):
-            self._clamd_widgets['ScanOLE2'].set_active(
-                self._clamd_config.get_value('ScanOLE2').lower() == 'yes'
+        if self._clamd_config.has_key("ScanOLE2"):
+            self._clamd_widgets["ScanOLE2"].set_active(
+                self._clamd_config.get_value("ScanOLE2").lower() == "yes"
             )
 
         # Populate ScanPDF
-        if self._clamd_config.has_key('ScanPDF'):
-            self._clamd_widgets['ScanPDF'].set_active(
-                self._clamd_config.get_value('ScanPDF').lower() == 'yes'
+        if self._clamd_config.has_key("ScanPDF"):
+            self._clamd_widgets["ScanPDF"].set_active(
+                self._clamd_config.get_value("ScanPDF").lower() == "yes"
             )
 
         # Populate ScanHTML
-        if self._clamd_config.has_key('ScanHTML'):
-            self._clamd_widgets['ScanHTML'].set_active(
-                self._clamd_config.get_value('ScanHTML').lower() == 'yes'
+        if self._clamd_config.has_key("ScanHTML"):
+            self._clamd_widgets["ScanHTML"].set_active(
+                self._clamd_config.get_value("ScanHTML").lower() == "yes"
             )
 
         # Populate ScanArchive
-        if self._clamd_config.has_key('ScanArchive'):
-            self._clamd_widgets['ScanArchive'].set_active(
-                self._clamd_config.get_value('ScanArchive').lower() == 'yes'
+        if self._clamd_config.has_key("ScanArchive"):
+            self._clamd_widgets["ScanArchive"].set_active(
+                self._clamd_config.get_value("ScanArchive").lower() == "yes"
             )
 
         # Populate MaxFileSize
-        if self._clamd_config.has_key('MaxFileSize'):
+        if self._clamd_config.has_key("MaxFileSize"):
             try:
-                size_value = int(self._clamd_config.get_value('MaxFileSize'))
-                self._clamd_widgets['MaxFileSize'].set_value(size_value)
+                size_value = int(self._clamd_config.get_value("MaxFileSize"))
+                self._clamd_widgets["MaxFileSize"].set_value(size_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate MaxScanSize
-        if self._clamd_config.has_key('MaxScanSize'):
+        if self._clamd_config.has_key("MaxScanSize"):
             try:
-                scan_size_value = int(self._clamd_config.get_value('MaxScanSize'))
-                self._clamd_widgets['MaxScanSize'].set_value(scan_size_value)
+                scan_size_value = int(self._clamd_config.get_value("MaxScanSize"))
+                self._clamd_widgets["MaxScanSize"].set_value(scan_size_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate MaxRecursion
-        if self._clamd_config.has_key('MaxRecursion'):
+        if self._clamd_config.has_key("MaxRecursion"):
             try:
-                recursion_value = int(self._clamd_config.get_value('MaxRecursion'))
-                self._clamd_widgets['MaxRecursion'].set_value(recursion_value)
+                recursion_value = int(self._clamd_config.get_value("MaxRecursion"))
+                self._clamd_widgets["MaxRecursion"].set_value(recursion_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate MaxFiles
-        if self._clamd_config.has_key('MaxFiles'):
+        if self._clamd_config.has_key("MaxFiles"):
             try:
-                files_value = int(self._clamd_config.get_value('MaxFiles'))
-                self._clamd_widgets['MaxFiles'].set_value(files_value)
+                files_value = int(self._clamd_config.get_value("MaxFiles"))
+                self._clamd_widgets["MaxFiles"].set_value(files_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate LogFile
-        if self._clamd_config.has_key('LogFile'):
-            self._clamd_widgets['LogFile'].set_text(self._clamd_config.get_value('LogFile'))
+        if self._clamd_config.has_key("LogFile"):
+            self._clamd_widgets["LogFile"].set_text(self._clamd_config.get_value("LogFile"))
 
         # Populate LogVerbose
-        if self._clamd_config.has_key('LogVerbose'):
-            self._clamd_widgets['LogVerbose'].set_active(
-                self._clamd_config.get_value('LogVerbose').lower() == 'yes'
+        if self._clamd_config.has_key("LogVerbose"):
+            self._clamd_widgets["LogVerbose"].set_active(
+                self._clamd_config.get_value("LogVerbose").lower() == "yes"
             )
 
         # Populate LogSyslog
-        if self._clamd_config.has_key('LogSyslog'):
-            self._clamd_widgets['LogSyslog'].set_active(
-                self._clamd_config.get_value('LogSyslog').lower() == 'yes'
+        if self._clamd_config.has_key("LogSyslog"):
+            self._clamd_widgets["LogSyslog"].set_active(
+                self._clamd_config.get_value("LogSyslog").lower() == "yes"
             )
 
     def _populate_onaccess_fields(self):
@@ -1630,95 +1608,91 @@ class PreferencesWindow(Adw.PreferencesWindow):
             return
 
         # Populate OnAccessIncludePath (comma-separated paths)
-        if self._clamd_config.has_key('OnAccessIncludePath'):
-            values = self._clamd_config.get_values('OnAccessIncludePath')
+        if self._clamd_config.has_key("OnAccessIncludePath"):
+            values = self._clamd_config.get_values("OnAccessIncludePath")
             if values:
-                self._onaccess_widgets['OnAccessIncludePath'].set_text(
-                    ', '.join(values)
-                )
+                self._onaccess_widgets["OnAccessIncludePath"].set_text(", ".join(values))
 
         # Populate OnAccessExcludePath (comma-separated paths)
-        if self._clamd_config.has_key('OnAccessExcludePath'):
-            values = self._clamd_config.get_values('OnAccessExcludePath')
+        if self._clamd_config.has_key("OnAccessExcludePath"):
+            values = self._clamd_config.get_values("OnAccessExcludePath")
             if values:
-                self._onaccess_widgets['OnAccessExcludePath'].set_text(
-                    ', '.join(values)
-                )
+                self._onaccess_widgets["OnAccessExcludePath"].set_text(", ".join(values))
 
         # Populate OnAccessPrevention (switch)
-        if self._clamd_config.has_key('OnAccessPrevention'):
-            self._onaccess_widgets['OnAccessPrevention'].set_active(
-                self._clamd_config.get_value('OnAccessPrevention').lower() == 'yes'
+        if self._clamd_config.has_key("OnAccessPrevention"):
+            self._onaccess_widgets["OnAccessPrevention"].set_active(
+                self._clamd_config.get_value("OnAccessPrevention").lower() == "yes"
             )
 
         # Populate OnAccessExtraScanning (switch)
-        if self._clamd_config.has_key('OnAccessExtraScanning'):
-            self._onaccess_widgets['OnAccessExtraScanning'].set_active(
-                self._clamd_config.get_value('OnAccessExtraScanning').lower() == 'yes'
+        if self._clamd_config.has_key("OnAccessExtraScanning"):
+            self._onaccess_widgets["OnAccessExtraScanning"].set_active(
+                self._clamd_config.get_value("OnAccessExtraScanning").lower() == "yes"
             )
 
         # Populate OnAccessDenyOnError (switch)
-        if self._clamd_config.has_key('OnAccessDenyOnError'):
-            self._onaccess_widgets['OnAccessDenyOnError'].set_active(
-                self._clamd_config.get_value('OnAccessDenyOnError').lower() == 'yes'
+        if self._clamd_config.has_key("OnAccessDenyOnError"):
+            self._onaccess_widgets["OnAccessDenyOnError"].set_active(
+                self._clamd_config.get_value("OnAccessDenyOnError").lower() == "yes"
             )
 
         # Populate OnAccessDisableDDD (switch)
-        if self._clamd_config.has_key('OnAccessDisableDDD'):
-            self._onaccess_widgets['OnAccessDisableDDD'].set_active(
-                self._clamd_config.get_value('OnAccessDisableDDD').lower() == 'yes'
+        if self._clamd_config.has_key("OnAccessDisableDDD"):
+            self._onaccess_widgets["OnAccessDisableDDD"].set_active(
+                self._clamd_config.get_value("OnAccessDisableDDD").lower() == "yes"
             )
 
         # Populate OnAccessMaxThreads (spin)
-        if self._clamd_config.has_key('OnAccessMaxThreads'):
+        if self._clamd_config.has_key("OnAccessMaxThreads"):
             try:
-                threads_value = int(self._clamd_config.get_value('OnAccessMaxThreads'))
-                self._onaccess_widgets['OnAccessMaxThreads'].set_value(threads_value)
+                threads_value = int(self._clamd_config.get_value("OnAccessMaxThreads"))
+                self._onaccess_widgets["OnAccessMaxThreads"].set_value(threads_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate OnAccessMaxFileSize (spin, in MB)
-        if self._clamd_config.has_key('OnAccessMaxFileSize'):
+        if self._clamd_config.has_key("OnAccessMaxFileSize"):
             try:
-                size_value = int(self._clamd_config.get_value('OnAccessMaxFileSize'))
-                self._onaccess_widgets['OnAccessMaxFileSize'].set_value(size_value)
+                size_value = int(self._clamd_config.get_value("OnAccessMaxFileSize"))
+                self._onaccess_widgets["OnAccessMaxFileSize"].set_value(size_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate OnAccessCurlTimeout (spin, in seconds)
-        if self._clamd_config.has_key('OnAccessCurlTimeout'):
+        if self._clamd_config.has_key("OnAccessCurlTimeout"):
             try:
-                timeout_value = int(self._clamd_config.get_value('OnAccessCurlTimeout'))
-                self._onaccess_widgets['OnAccessCurlTimeout'].set_value(timeout_value)
+                timeout_value = int(self._clamd_config.get_value("OnAccessCurlTimeout"))
+                self._onaccess_widgets["OnAccessCurlTimeout"].set_value(timeout_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate OnAccessRetryAttempts (spin)
-        if self._clamd_config.has_key('OnAccessRetryAttempts'):
+        if self._clamd_config.has_key("OnAccessRetryAttempts"):
             try:
-                retry_value = int(self._clamd_config.get_value('OnAccessRetryAttempts'))
-                self._onaccess_widgets['OnAccessRetryAttempts'].set_value(retry_value)
+                retry_value = int(self._clamd_config.get_value("OnAccessRetryAttempts"))
+                self._onaccess_widgets["OnAccessRetryAttempts"].set_value(retry_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate OnAccessExcludeUname (entry)
-        if self._clamd_config.has_key('OnAccessExcludeUname'):
-            self._onaccess_widgets['OnAccessExcludeUname'].set_text(
-                self._clamd_config.get_value('OnAccessExcludeUname')
+        if self._clamd_config.has_key("OnAccessExcludeUname"):
+            self._onaccess_widgets["OnAccessExcludeUname"].set_text(
+                self._clamd_config.get_value("OnAccessExcludeUname")
             )
 
         # Populate OnAccessExcludeUID (spin)
-        if self._clamd_config.has_key('OnAccessExcludeUID'):
+        if self._clamd_config.has_key("OnAccessExcludeUID"):
             try:
-                uid_value = int(self._clamd_config.get_value('OnAccessExcludeUID'))
-                self._onaccess_widgets['OnAccessExcludeUID'].set_value(uid_value)
+                uid_value = int(self._clamd_config.get_value("OnAccessExcludeUID"))
+                self._onaccess_widgets["OnAccessExcludeUID"].set_value(uid_value)
             except (ValueError, TypeError):
                 pass
 
         # Populate OnAccessExcludeRootUID (switch)
-        if self._clamd_config.has_key('OnAccessExcludeRootUID'):
-            self._onaccess_widgets['OnAccessExcludeRootUID'].set_active(
-                self._clamd_config.get_value('OnAccessExcludeRootUID').lower() == 'yes'
+        if self._clamd_config.has_key("OnAccessExcludeRootUID"):
+            self._onaccess_widgets["OnAccessExcludeRootUID"].set_active(
+                self._clamd_config.get_value("OnAccessExcludeRootUID").lower() == "yes"
             )
 
     def _on_save_clicked(self, button: Gtk.Button):
@@ -1764,7 +1738,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         # Run save in background thread
         save_thread = threading.Thread(
             target=self._save_configs_thread,
-            args=(freshclam_updates, clamd_updates, onaccess_updates, scheduled_updates, button)
+            args=(freshclam_updates, clamd_updates, onaccess_updates, scheduled_updates, button),
         )
         save_thread.daemon = True
         save_thread.start()
@@ -1779,51 +1753,53 @@ class PreferencesWindow(Adw.PreferencesWindow):
         updates = {}
 
         # Collect DatabaseDirectory
-        db_dir = self._freshclam_widgets['DatabaseDirectory'].get_text()
+        db_dir = self._freshclam_widgets["DatabaseDirectory"].get_text()
         if db_dir:
-            updates['DatabaseDirectory'] = db_dir
+            updates["DatabaseDirectory"] = db_dir
 
         # Collect UpdateLogFile
-        log_file = self._freshclam_widgets['UpdateLogFile'].get_text()
+        log_file = self._freshclam_widgets["UpdateLogFile"].get_text()
         if log_file:
-            updates['UpdateLogFile'] = log_file
+            updates["UpdateLogFile"] = log_file
 
         # Collect NotifyClamd
-        notify_clamd = self._freshclam_widgets['NotifyClamd'].get_text()
+        notify_clamd = self._freshclam_widgets["NotifyClamd"].get_text()
         if notify_clamd:
-            updates['NotifyClamd'] = notify_clamd
+            updates["NotifyClamd"] = notify_clamd
 
         # Collect LogVerbose
-        updates['LogVerbose'] = 'yes' if self._freshclam_widgets['LogVerbose'].get_active() else 'no'
+        updates["LogVerbose"] = (
+            "yes" if self._freshclam_widgets["LogVerbose"].get_active() else "no"
+        )
 
         # Collect LogSyslog
-        updates['LogSyslog'] = 'yes' if self._freshclam_widgets['LogSyslog'].get_active() else 'no'
+        updates["LogSyslog"] = "yes" if self._freshclam_widgets["LogSyslog"].get_active() else "no"
 
         # Collect Checks
-        checks_value = int(self._freshclam_widgets['Checks'].get_value())
-        updates['Checks'] = str(checks_value)
+        checks_value = int(self._freshclam_widgets["Checks"].get_value())
+        updates["Checks"] = str(checks_value)
 
         # Collect DatabaseMirror
-        mirror = self._freshclam_widgets['DatabaseMirror'].get_text()
+        mirror = self._freshclam_widgets["DatabaseMirror"].get_text()
         if mirror:
-            updates['DatabaseMirror'] = mirror
+            updates["DatabaseMirror"] = mirror
 
         # Collect proxy settings
-        proxy_server = self._freshclam_widgets['HTTPProxyServer'].get_text()
+        proxy_server = self._freshclam_widgets["HTTPProxyServer"].get_text()
         if proxy_server:
-            updates['HTTPProxyServer'] = proxy_server
+            updates["HTTPProxyServer"] = proxy_server
 
-        proxy_port = int(self._freshclam_widgets['HTTPProxyPort'].get_value())
+        proxy_port = int(self._freshclam_widgets["HTTPProxyPort"].get_value())
         if proxy_port > 0:
-            updates['HTTPProxyPort'] = str(proxy_port)
+            updates["HTTPProxyPort"] = str(proxy_port)
 
-        proxy_user = self._freshclam_widgets['HTTPProxyUsername'].get_text()
+        proxy_user = self._freshclam_widgets["HTTPProxyUsername"].get_text()
         if proxy_user:
-            updates['HTTPProxyUsername'] = proxy_user
+            updates["HTTPProxyUsername"] = proxy_user
 
-        proxy_pass = self._freshclam_widgets['HTTPProxyPassword'].get_text()
+        proxy_pass = self._freshclam_widgets["HTTPProxyPassword"].get_text()
         if proxy_pass:
-            updates['HTTPProxyPassword'] = proxy_pass
+            updates["HTTPProxyPassword"] = proxy_pass
 
         return updates
 
@@ -1840,26 +1816,26 @@ class PreferencesWindow(Adw.PreferencesWindow):
         updates = {}
 
         # Collect scan settings
-        updates['ScanPE'] = 'yes' if self._clamd_widgets['ScanPE'].get_active() else 'no'
-        updates['ScanELF'] = 'yes' if self._clamd_widgets['ScanELF'].get_active() else 'no'
-        updates['ScanOLE2'] = 'yes' if self._clamd_widgets['ScanOLE2'].get_active() else 'no'
-        updates['ScanPDF'] = 'yes' if self._clamd_widgets['ScanPDF'].get_active() else 'no'
-        updates['ScanHTML'] = 'yes' if self._clamd_widgets['ScanHTML'].get_active() else 'no'
-        updates['ScanArchive'] = 'yes' if self._clamd_widgets['ScanArchive'].get_active() else 'no'
+        updates["ScanPE"] = "yes" if self._clamd_widgets["ScanPE"].get_active() else "no"
+        updates["ScanELF"] = "yes" if self._clamd_widgets["ScanELF"].get_active() else "no"
+        updates["ScanOLE2"] = "yes" if self._clamd_widgets["ScanOLE2"].get_active() else "no"
+        updates["ScanPDF"] = "yes" if self._clamd_widgets["ScanPDF"].get_active() else "no"
+        updates["ScanHTML"] = "yes" if self._clamd_widgets["ScanHTML"].get_active() else "no"
+        updates["ScanArchive"] = "yes" if self._clamd_widgets["ScanArchive"].get_active() else "no"
 
         # Collect performance settings
-        updates['MaxFileSize'] = str(int(self._clamd_widgets['MaxFileSize'].get_value()))
-        updates['MaxScanSize'] = str(int(self._clamd_widgets['MaxScanSize'].get_value()))
-        updates['MaxRecursion'] = str(int(self._clamd_widgets['MaxRecursion'].get_value()))
-        updates['MaxFiles'] = str(int(self._clamd_widgets['MaxFiles'].get_value()))
+        updates["MaxFileSize"] = str(int(self._clamd_widgets["MaxFileSize"].get_value()))
+        updates["MaxScanSize"] = str(int(self._clamd_widgets["MaxScanSize"].get_value()))
+        updates["MaxRecursion"] = str(int(self._clamd_widgets["MaxRecursion"].get_value()))
+        updates["MaxFiles"] = str(int(self._clamd_widgets["MaxFiles"].get_value()))
 
         # Collect logging settings
-        log_file = self._clamd_widgets['LogFile'].get_text()
+        log_file = self._clamd_widgets["LogFile"].get_text()
         if log_file:
-            updates['LogFile'] = log_file
+            updates["LogFile"] = log_file
 
-        updates['LogVerbose'] = 'yes' if self._clamd_widgets['LogVerbose'].get_active() else 'no'
-        updates['LogSyslog'] = 'yes' if self._clamd_widgets['LogSyslog'].get_active() else 'no'
+        updates["LogVerbose"] = "yes" if self._clamd_widgets["LogVerbose"].get_active() else "no"
+        updates["LogSyslog"] = "yes" if self._clamd_widgets["LogSyslog"].get_active() else "no"
 
         return updates
 
@@ -1876,57 +1852,57 @@ class PreferencesWindow(Adw.PreferencesWindow):
         updates = {}
 
         # Collect path settings (comma-separated entries become multiple values)
-        include_path = self._onaccess_widgets['OnAccessIncludePath'].get_text().strip()
+        include_path = self._onaccess_widgets["OnAccessIncludePath"].get_text().strip()
         if include_path:
             # Split comma-separated paths and store as list for multi-value config
-            updates['OnAccessIncludePath'] = [
-                p.strip() for p in include_path.split(',') if p.strip()
+            updates["OnAccessIncludePath"] = [
+                p.strip() for p in include_path.split(",") if p.strip()
             ]
 
-        exclude_path = self._onaccess_widgets['OnAccessExcludePath'].get_text().strip()
+        exclude_path = self._onaccess_widgets["OnAccessExcludePath"].get_text().strip()
         if exclude_path:
-            updates['OnAccessExcludePath'] = [
-                p.strip() for p in exclude_path.split(',') if p.strip()
+            updates["OnAccessExcludePath"] = [
+                p.strip() for p in exclude_path.split(",") if p.strip()
             ]
 
         # Collect behavior switches
-        updates['OnAccessPrevention'] = (
-            'yes' if self._onaccess_widgets['OnAccessPrevention'].get_active() else 'no'
+        updates["OnAccessPrevention"] = (
+            "yes" if self._onaccess_widgets["OnAccessPrevention"].get_active() else "no"
         )
-        updates['OnAccessExtraScanning'] = (
-            'yes' if self._onaccess_widgets['OnAccessExtraScanning'].get_active() else 'no'
+        updates["OnAccessExtraScanning"] = (
+            "yes" if self._onaccess_widgets["OnAccessExtraScanning"].get_active() else "no"
         )
-        updates['OnAccessDenyOnError'] = (
-            'yes' if self._onaccess_widgets['OnAccessDenyOnError'].get_active() else 'no'
+        updates["OnAccessDenyOnError"] = (
+            "yes" if self._onaccess_widgets["OnAccessDenyOnError"].get_active() else "no"
         )
-        updates['OnAccessDisableDDD'] = (
-            'yes' if self._onaccess_widgets['OnAccessDisableDDD'].get_active() else 'no'
+        updates["OnAccessDisableDDD"] = (
+            "yes" if self._onaccess_widgets["OnAccessDisableDDD"].get_active() else "no"
         )
 
         # Collect performance settings (spin rows)
-        updates['OnAccessMaxThreads'] = str(
-            int(self._onaccess_widgets['OnAccessMaxThreads'].get_value())
+        updates["OnAccessMaxThreads"] = str(
+            int(self._onaccess_widgets["OnAccessMaxThreads"].get_value())
         )
-        updates['OnAccessMaxFileSize'] = str(
-            int(self._onaccess_widgets['OnAccessMaxFileSize'].get_value())
+        updates["OnAccessMaxFileSize"] = str(
+            int(self._onaccess_widgets["OnAccessMaxFileSize"].get_value())
         )
-        updates['OnAccessCurlTimeout'] = str(
-            int(self._onaccess_widgets['OnAccessCurlTimeout'].get_value())
+        updates["OnAccessCurlTimeout"] = str(
+            int(self._onaccess_widgets["OnAccessCurlTimeout"].get_value())
         )
-        updates['OnAccessRetryAttempts'] = str(
-            int(self._onaccess_widgets['OnAccessRetryAttempts'].get_value())
+        updates["OnAccessRetryAttempts"] = str(
+            int(self._onaccess_widgets["OnAccessRetryAttempts"].get_value())
         )
 
         # Collect user exclusion settings
-        exclude_uname = self._onaccess_widgets['OnAccessExcludeUname'].get_text().strip()
+        exclude_uname = self._onaccess_widgets["OnAccessExcludeUname"].get_text().strip()
         if exclude_uname:
-            updates['OnAccessExcludeUname'] = exclude_uname
+            updates["OnAccessExcludeUname"] = exclude_uname
 
-        updates['OnAccessExcludeUID'] = str(
-            int(self._onaccess_widgets['OnAccessExcludeUID'].get_value())
+        updates["OnAccessExcludeUID"] = str(
+            int(self._onaccess_widgets["OnAccessExcludeUID"].get_value())
         )
-        updates['OnAccessExcludeRootUID'] = (
-            'yes' if self._onaccess_widgets['OnAccessExcludeRootUID'].get_active() else 'no'
+        updates["OnAccessExcludeRootUID"] = (
+            "yes" if self._onaccess_widgets["OnAccessExcludeRootUID"].get_active() else "no"
         )
 
         return updates
@@ -1939,21 +1915,23 @@ class PreferencesWindow(Adw.PreferencesWindow):
             Dictionary of scheduled scan settings to save
         """
         frequency_map = ["hourly", "daily", "weekly", "monthly"]
-        selected_frequency = self._scheduled_widgets['frequency'].get_selected()
+        selected_frequency = self._scheduled_widgets["frequency"].get_selected()
 
         # Parse targets from comma-separated string
-        targets_text = self._scheduled_widgets['targets'].get_text()
+        targets_text = self._scheduled_widgets["targets"].get_text()
         targets = [t.strip() for t in targets_text.split(",") if t.strip()]
 
         return {
-            "scheduled_scans_enabled": self._scheduled_widgets['enabled'].get_active(),
-            "schedule_frequency": frequency_map[selected_frequency] if selected_frequency < len(frequency_map) else "daily",
-            "schedule_time": self._scheduled_widgets['time'].get_text().strip() or "02:00",
+            "scheduled_scans_enabled": self._scheduled_widgets["enabled"].get_active(),
+            "schedule_frequency": frequency_map[selected_frequency]
+            if selected_frequency < len(frequency_map)
+            else "daily",
+            "schedule_time": self._scheduled_widgets["time"].get_text().strip() or "02:00",
             "schedule_targets": targets,
-            "schedule_day_of_week": self._scheduled_widgets['day_of_week'].get_selected(),
-            "schedule_day_of_month": int(self._scheduled_widgets['day_of_month'].get_value()),
-            "schedule_skip_on_battery": self._scheduled_widgets['skip_on_battery'].get_active(),
-            "schedule_auto_quarantine": self._scheduled_widgets['auto_quarantine'].get_active(),
+            "schedule_day_of_week": self._scheduled_widgets["day_of_week"].get_selected(),
+            "schedule_day_of_month": int(self._scheduled_widgets["day_of_month"].get_value()),
+            "schedule_skip_on_battery": self._scheduled_widgets["skip_on_battery"].get_active(),
+            "schedule_auto_quarantine": self._scheduled_widgets["auto_quarantine"].get_active(),
         }
 
     def _populate_scheduled_fields(self):
@@ -1963,44 +1941,44 @@ class PreferencesWindow(Adw.PreferencesWindow):
         Loads settings from the settings manager and updates the UI widgets.
         """
         # Enable/disable switch
-        self._scheduled_widgets['enabled'].set_active(
+        self._scheduled_widgets["enabled"].set_active(
             self._settings_manager.get("scheduled_scans_enabled", False)
         )
 
         # Frequency dropdown
         freq = self._settings_manager.get("schedule_frequency", "daily")
         freq_map = {"hourly": 0, "daily": 1, "weekly": 2, "monthly": 3}
-        self._scheduled_widgets['frequency'].set_selected(freq_map.get(freq, 1))
+        self._scheduled_widgets["frequency"].set_selected(freq_map.get(freq, 1))
 
         # Time entry
-        self._scheduled_widgets['time'].set_text(
+        self._scheduled_widgets["time"].set_text(
             self._settings_manager.get("schedule_time", "02:00")
         )
 
         # Targets entry
         targets = self._settings_manager.get("schedule_targets", [])
         if targets:
-            self._scheduled_widgets['targets'].set_text(", ".join(targets))
+            self._scheduled_widgets["targets"].set_text(", ".join(targets))
         else:
-            self._scheduled_widgets['targets'].set_text(str(Path.home()))
+            self._scheduled_widgets["targets"].set_text(str(Path.home()))
 
         # Day of week dropdown
-        self._scheduled_widgets['day_of_week'].set_selected(
+        self._scheduled_widgets["day_of_week"].set_selected(
             self._settings_manager.get("schedule_day_of_week", 0)
         )
 
         # Day of month spinner
-        self._scheduled_widgets['day_of_month'].set_value(
+        self._scheduled_widgets["day_of_month"].set_value(
             self._settings_manager.get("schedule_day_of_month", 1)
         )
 
         # Skip on battery switch
-        self._scheduled_widgets['skip_on_battery'].set_active(
+        self._scheduled_widgets["skip_on_battery"].set_active(
             self._settings_manager.get("schedule_skip_on_battery", True)
         )
 
         # Auto-quarantine switch
-        self._scheduled_widgets['auto_quarantine'].set_active(
+        self._scheduled_widgets["auto_quarantine"].set_active(
             self._settings_manager.get("schedule_auto_quarantine", False)
         )
 
@@ -2010,7 +1988,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
         clamd_updates: dict,
         onaccess_updates: dict,
         scheduled_updates: dict,
-        button: Gtk.Button
+        button: Gtk.Button,
     ):
         """
         Save configuration files in a background thread.
@@ -2080,16 +2058,12 @@ class PreferencesWindow(Adw.PreferencesWindow):
             GLib.idle_add(
                 self._show_success_dialog,
                 "Configuration Saved",
-                "Configuration changes have been applied successfully."
+                "Configuration changes have been applied successfully.",
             )
         except Exception as e:
             # Store error for thread-safe handling
             self._scheduler_error = str(e)
-            GLib.idle_add(
-                self._show_error_dialog,
-                "Save Failed",
-                str(e)
-            )
+            GLib.idle_add(self._show_error_dialog, "Save Failed", str(e))
         finally:
             self._is_saving = False
             GLib.idle_add(button.set_sensitive, True)

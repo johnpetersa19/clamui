@@ -46,9 +46,7 @@ class ScanView(Gtk.Box):
     - Results display area
     """
 
-    def __init__(
-        self, settings_manager: "SettingsManager | None" = None, **kwargs
-    ):
+    def __init__(self, settings_manager: "SettingsManager | None" = None, **kwargs):
         """
         Initialize the scan view.
 
@@ -93,8 +91,8 @@ class ScanView(Gtk.Box):
         self._view_results_button: Gtk.Button | None = None
 
         # Profile management state
-        self._selected_profile: "ScanProfile | None" = None
-        self._profile_list: list["ScanProfile"] = []
+        self._selected_profile: ScanProfile | None = None
+        self._profile_list: list[ScanProfile] = []
         self._profile_string_list: Gtk.StringList | None = None
         self._profile_dropdown: Gtk.DropDown | None = None
 
@@ -274,9 +272,7 @@ class ScanView(Gtk.Box):
             }
         """)
         Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
     def _setup_drop_target(self):
@@ -631,7 +627,11 @@ class ScanView(Gtk.Box):
 
         # Set initial folder if a path is already selected
         if self._selected_path:
-            parent_dir = os.path.dirname(self._selected_path) if os.path.isfile(self._selected_path) else self._selected_path
+            parent_dir = (
+                os.path.dirname(self._selected_path)
+                if os.path.isfile(self._selected_path)
+                else self._selected_path
+            )
             if os.path.isdir(parent_dir):
                 dialog.set_initial_folder(Gio.File.new_for_path(parent_dir))
 
@@ -665,7 +665,11 @@ class ScanView(Gtk.Box):
 
         # Set initial folder if a path is already selected
         if self._selected_path:
-            initial_dir = self._selected_path if os.path.isdir(self._selected_path) else os.path.dirname(self._selected_path)
+            initial_dir = (
+                self._selected_path
+                if os.path.isdir(self._selected_path)
+                else os.path.dirname(self._selected_path)
+            )
             if os.path.isdir(initial_dir):
                 dialog.set_initial_folder(Gio.File.new_for_path(initial_dir))
 
@@ -720,7 +724,9 @@ class ScanView(Gtk.Box):
         # EICAR Test button
         self._eicar_button = Gtk.Button()
         self._eicar_button.set_label("EICAR Test")
-        self._eicar_button.set_tooltip_text("Run a scan with EICAR test file to verify antivirus detection")
+        self._eicar_button.set_tooltip_text(
+            "Run a scan with EICAR test file to verify antivirus detection"
+        )
         self._eicar_button.set_size_request(120, -1)
         self._eicar_button.connect("clicked", self._on_eicar_test_clicked)
         button_box.append(self._eicar_button)
@@ -824,7 +830,7 @@ class ScanView(Gtk.Box):
         dialog = ScanResultsDialog(
             scan_result=self._current_result,
             quarantine_manager=self._quarantine_manager,
-            settings_manager=self._settings_manager
+            settings_manager=self._settings_manager,
         )
         dialog.present(root)
 
@@ -860,10 +866,7 @@ class ScanView(Gtk.Box):
         try:
             # Create EICAR test file in system temp directory
             with tempfile.NamedTemporaryFile(
-                mode="w",
-                suffix=".txt",
-                prefix="eicar_test_",
-                delete=False
+                mode="w", suffix=".txt", prefix="eicar_test_", delete=False
             ) as f:
                 f.write(EICAR_TEST_STRING)
                 self._eicar_temp_path = f.name
@@ -874,7 +877,7 @@ class ScanView(Gtk.Box):
             self._path_row.set_subtitle("Testing antivirus detection")
             self._start_scanning()
 
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error(f"Failed to create EICAR test file: {e}")
             self._status_banner.set_title(f"Failed to create EICAR test file: {e}")
             self._status_banner.add_css_class("error")
@@ -912,6 +915,7 @@ class ScanView(Gtk.Box):
     def _run_scan_async(self):
         """Run the scan in a background thread."""
         import threading
+
         thread = threading.Thread(target=self._scan_worker, daemon=True)
         thread.start()
         return False

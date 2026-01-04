@@ -4,11 +4,9 @@
 import os
 import sqlite3
 import tempfile
-import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -446,4 +444,3 @@ class TestQuarantineDatabase:
 
         old_entries = db.get_old_entries(days=30)
         assert len(old_entries) == 0
-

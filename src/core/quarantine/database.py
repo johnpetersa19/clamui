@@ -183,8 +183,8 @@ class QuarantineDatabase:
         # Database files to secure (main db + WAL mode files)
         db_files = [
             self._db_path,  # Main database file
-            Path(str(self._db_path) + '-wal'),  # Write-Ahead Log file
-            Path(str(self._db_path) + '-shm'),  # Shared Memory file
+            Path(str(self._db_path) + "-wal"),  # Write-Ahead Log file
+            Path(str(self._db_path) + "-shm"),  # Shared Memory file
         ]
 
         for db_file in db_files:

@@ -14,16 +14,13 @@ import pytest
 from src.core.threat_classifier import (
     CRITICAL_PATTERNS,
     HIGH_PATTERNS,
-    HIGH_PRIORITY_CATEGORY_PATTERNS,
     LOW_PATTERNS,
-    LOW_PRIORITY_CATEGORY_PATTERNS,
     MEDIUM_PATTERNS,
     ThreatSeverity,
     categorize_threat,
     classify_threat_severity,
     classify_threat_severity_str,
 )
-
 
 # =============================================================================
 # ThreatSeverity Enum Tests
@@ -432,6 +429,6 @@ class TestClassificationIntegration:
             threat = f"Test.{pattern}.Agent"
             category = categorize_threat(threat)
             # Either in dangerous categories or defaults
-            assert (
-                category in dangerous_categories or category == "Virus"
-            ), f"Critical pattern '{pattern}' got unexpected category '{category}'"
+            assert category in dangerous_categories or category == "Virus", (
+                f"Critical pattern '{pattern}' got unexpected category '{category}'"
+            )

@@ -13,7 +13,6 @@ import contextlib
 import hashlib
 import os
 import shutil
-import stat
 import threading
 import uuid
 from dataclasses import dataclass
@@ -729,12 +728,14 @@ class SecureFileHandler:
             for file_path in self._quarantine_dir.iterdir():
                 if file_path.is_file():
                     stat_info = file_path.stat()
-                    files.append({
-                        "filename": file_path.name,
-                        "size": stat_info.st_size,
-                        "path": str(file_path),
-                        "modified": stat_info.st_mtime,
-                    })
+                    files.append(
+                        {
+                            "filename": file_path.name,
+                            "size": stat_info.st_size,
+                            "path": str(file_path),
+                            "modified": stat_info.st_mtime,
+                        }
+                    )
         except PermissionError:
             pass
         except OSError:

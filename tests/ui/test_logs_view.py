@@ -688,7 +688,7 @@ class TestLogsViewDisplayLogDetails:
         view._statistics_calculator.extract_entry_statistics.return_value = {
             "files_scanned": 0,
             "directories_scanned": 0,
-            "duration": 0
+            "duration": 0,
         }
 
         view._display_log_details(mock_log_entry)
@@ -796,9 +796,7 @@ class TestLogsViewStatisticsSummary:
         call_args = mock_buffer.set_text.call_args[0][0]
         assert "Statistics Summary:" not in call_args
 
-    def test_statistics_summary_duration_formatting_seconds(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_duration_formatting_seconds(self, logs_view_class, mock_log_entry):
         """Test that duration under 60 seconds is formatted correctly."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -824,9 +822,7 @@ class TestLogsViewStatisticsSummary:
         call_args = mock_buffer.set_text.call_args[0][0]
         assert "Duration: 45.50 seconds" in call_args
 
-    def test_statistics_summary_duration_formatting_minutes(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_duration_formatting_minutes(self, logs_view_class, mock_log_entry):
         """Test that duration between 60 and 3600 seconds is formatted as minutes."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -852,9 +848,7 @@ class TestLogsViewStatisticsSummary:
         call_args = mock_buffer.set_text.call_args[0][0]
         assert "Duration: 2m 5s" in call_args
 
-    def test_statistics_summary_duration_formatting_hours(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_duration_formatting_hours(self, logs_view_class, mock_log_entry):
         """Test that duration over 3600 seconds is formatted as hours."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -909,9 +903,7 @@ class TestLogsViewStatisticsSummary:
         # Directories and duration should not appear (zero values)
         assert "Directories Scanned: 0" not in call_args
 
-    def test_statistics_summary_with_thousands_separator(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_with_thousands_separator(self, logs_view_class, mock_log_entry):
         """Test that large numbers use thousands separator."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()

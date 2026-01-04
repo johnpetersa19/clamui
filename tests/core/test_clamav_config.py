@@ -2,12 +2,8 @@
 """Unit tests for the ClamAV configuration module."""
 
 import contextlib
-import os
-import stat
 import tempfile
-import time
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -15,8 +11,6 @@ from src.core.clamav_config import (
     ClamAVConfig,
     ClamAVConfigValue,
     parse_config,
-    validate_option,
-    write_config,
 )
 
 
@@ -202,5 +196,3 @@ class TestParseConfig:
 
         assert error is None
         assert len(config.raw_lines) > 0
-
-

@@ -771,7 +771,11 @@ class LogsView(Gtk.Box):
             stats = self._statistics_calculator.extract_entry_statistics(entry)
 
             # Only show statistics section if we have meaningful data
-            if stats["files_scanned"] > 0 or stats["directories_scanned"] > 0 or stats["duration"] > 0:
+            if (
+                stats["files_scanned"] > 0
+                or stats["directories_scanned"] > 0
+                or stats["duration"] > 0
+            ):
                 lines.append("Statistics Summary:")
                 lines.append("-" * 50)
 

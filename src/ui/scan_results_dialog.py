@@ -53,7 +53,7 @@ class ScanResultsDialog(Adw.Dialog):
         scan_result: ScanResult,
         quarantine_manager: QuarantineManager,
         settings_manager: "SettingsManager | None" = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize the scan results dialog.
@@ -206,9 +206,7 @@ class ScanResultsDialog(Adw.Dialog):
             )
 
         if self._scan_result.error_message:
-            stats_content.append(
-                self._create_stat_row("Error:", self._scan_result.error_message)
-            )
+            stats_content.append(self._create_stat_row("Error:", self._scan_result.error_message))
 
         expander.add_row(stats_content)
         stats_group.add(expander)
@@ -357,9 +355,7 @@ class ScanResultsDialog(Adw.Dialog):
         quarantine_btn.set_label("Quarantine")
         quarantine_btn.add_css_class("pill")
         quarantine_btn.add_css_class("threat-action-btn")
-        quarantine_btn.connect(
-            "clicked", lambda btn: self._on_quarantine_single(btn, threat)
-        )
+        quarantine_btn.connect("clicked", lambda btn: self._on_quarantine_single(btn, threat))
         actions_box.append(quarantine_btn)
 
         # Exclude button
@@ -368,9 +364,7 @@ class ScanResultsDialog(Adw.Dialog):
         exclude_btn.add_css_class("pill")
         exclude_btn.add_css_class("threat-action-btn")
         exclude_btn.set_tooltip_text("Add file path to exclusion list")
-        exclude_btn.connect(
-            "clicked", lambda btn: self._on_add_exclusion(btn, threat)
-        )
+        exclude_btn.connect("clicked", lambda btn: self._on_add_exclusion(btn, threat))
         actions_box.append(exclude_btn)
 
         # Copy Path button
@@ -379,9 +373,7 @@ class ScanResultsDialog(Adw.Dialog):
         copy_btn.add_css_class("pill")
         copy_btn.add_css_class("flat")
         copy_btn.add_css_class("threat-action-btn")
-        copy_btn.connect(
-            "clicked", lambda btn: self._on_copy_path(btn, threat)
-        )
+        copy_btn.connect("clicked", lambda btn: self._on_copy_path(btn, threat))
         actions_box.append(copy_btn)
 
         content_box.append(actions_box)
@@ -391,9 +383,7 @@ class ScanResultsDialog(Adw.Dialog):
 
     def _on_quarantine_single(self, button: Gtk.Button, threat: ThreatDetail):
         """Quarantine a single threat file."""
-        result = self._quarantine_manager.quarantine_file(
-            threat.file_path, threat.threat_name
-        )
+        result = self._quarantine_manager.quarantine_file(threat.file_path, threat.threat_name)
 
         if result.status == QuarantineStatus.SUCCESS:
             button.set_label("Quarantined")
@@ -476,9 +466,7 @@ class ScanResultsDialog(Adw.Dialog):
                         f"Failed to quarantine {threat.file_path}: {result.error_message}"
                     )
 
-            GLib.idle_add(
-                self._on_quarantine_all_complete, success_count, error_count
-            )
+            GLib.idle_add(self._on_quarantine_all_complete, success_count, error_count)
 
         thread = threading.Thread(target=quarantine_worker, daemon=True)
         thread.start()

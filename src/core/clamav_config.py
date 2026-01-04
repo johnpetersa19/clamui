@@ -11,7 +11,6 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -423,7 +422,7 @@ CONFIG_OPTION_TYPES = {
 }
 
 
-def validate_option(key: str, value: str) -> Tuple[bool, Optional[str]]:
+def validate_option(key: str, value: str) -> tuple[bool, str | None]:
     """
     Validate a configuration option value.
 
@@ -486,7 +485,7 @@ def validate_option(key: str, value: str) -> Tuple[bool, Optional[str]]:
     return (True, None)
 
 
-def write_config(config: ClamAVConfig) -> Tuple[bool, Optional[str]]:
+def write_config(config: ClamAVConfig) -> tuple[bool, str | None]:
     """
     Write a configuration object back to its file.
 
@@ -515,13 +514,13 @@ def write_config(config: ClamAVConfig) -> Tuple[bool, Optional[str]]:
         return (True, None)
     except PermissionError:
         return (False, f"Permission denied: Cannot write to {config.file_path}")
-    except IOError as e:
+    except OSError as e:
         return (False, f"Error writing configuration file: {str(e)}")
     except Exception as e:
         return (False, f"Unexpected error writing configuration: {str(e)}")
 
 
-def validate_config_file(file_path: str) -> Tuple[bool, list[str]]:
+def validate_config_file(file_path: str) -> tuple[bool, list[str]]:
     """
     Validate all options in a configuration file.
 
@@ -569,7 +568,7 @@ def get_config_summary(config: ClamAVConfig) -> str:
     lines.append("")
 
     # Group by type
-    by_type: Dict[str, List[Tuple[str, List[str]]]] = {}
+    by_type: dict[str, list[tuple[str, list[str]]]] = {}
     for key, value_list in sorted(config.values.items()):
         option_type = CONFIG_OPTION_TYPES.get(key, {}).get("type", "unknown")
         if option_type not in by_type:
@@ -591,7 +590,7 @@ def get_config_summary(config: ClamAVConfig) -> str:
     return "\n".join(lines)
 
 
-def validate_config(config: ClamAVConfig) -> Tuple[bool, List[str]]:
+def validate_config(config: ClamAVConfig) -> tuple[bool, list[str]]:
     """
     Validate all options in a ClamAVConfig object.
 
@@ -631,12 +630,12 @@ def backup_config(file_path: str) -> None:
 
     try:
         shutil.copy2(path, backup_path)
-    except (PermissionError, IOError):
+    except (OSError, PermissionError):
         # Silently fail - backup is best effort
         pass
 
 
-def write_config_with_elevation(config: ClamAVConfig) -> Tuple[bool, Optional[str]]:
+def write_config_with_elevation(config: ClamAVConfig) -> tuple[bool, str | None]:
     """
     Write a configuration file with elevated privileges using pkexec.
 

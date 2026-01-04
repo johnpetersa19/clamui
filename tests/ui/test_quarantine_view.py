@@ -740,9 +740,7 @@ class TestQuarantineViewSearchIntegration:
         view._create_no_results_state.assert_called_once()
         view._listbox.set_placeholder.assert_called_with(no_results_widget)
 
-    def test_entries_to_display_returns_filtered_when_search_active(
-        self, quarantine_view_class
-    ):
+    def test_entries_to_display_returns_filtered_when_search_active(self, quarantine_view_class):
         """Test that _entries_to_display returns filtered entries when search is active."""
         view = object.__new__(quarantine_view_class)
 
@@ -765,9 +763,7 @@ class TestQuarantineViewSearchIntegration:
         assert result == [entry1]
         assert len(result) == 1
 
-    def test_entries_to_display_returns_all_when_search_inactive(
-        self, quarantine_view_class
-    ):
+    def test_entries_to_display_returns_all_when_search_inactive(self, quarantine_view_class):
         """Test that _entries_to_display returns all entries when search is inactive."""
         view = object.__new__(quarantine_view_class)
 
@@ -827,9 +823,7 @@ class TestQuarantineViewSearchIntegration:
         view._create_entry_row.assert_any_call(entry2)
         view._create_entry_row.assert_any_call(entry3)
 
-    def test_update_storage_info_shows_filtered_count(
-        self, quarantine_view_class, mock_gi_modules
-    ):
+    def test_update_storage_info_shows_filtered_count(self, quarantine_view_class, mock_gi_modules):
         """Test that storage info shows filtered count when search is active."""
         with mock.patch.dict(
             sys.modules,
@@ -870,9 +864,7 @@ class TestQuarantineViewSearchIntegration:
             expected_size = format_file_size(total_size)
             view._storage_row.set_subtitle.assert_called_with(expected_size)
 
-    def test_update_storage_info_shows_normal_count_when_no_search(
-        self, quarantine_view_class
-    ):
+    def test_update_storage_info_shows_normal_count_when_no_search(self, quarantine_view_class):
         """Test that storage info shows normal count when search is inactive."""
         view = object.__new__(quarantine_view_class)
         view._manager = mock.MagicMock()
@@ -898,9 +890,7 @@ class TestQuarantineViewSearchIntegration:
         # Should show "2 items" format (normal)
         view._count_label.set_text.assert_called_with("2 items")
 
-    def test_update_storage_info_handles_singular_filtered_count(
-        self, quarantine_view_class
-    ):
+    def test_update_storage_info_handles_singular_filtered_count(self, quarantine_view_class):
         """Test that storage info handles singular item correctly when filtered."""
         view = object.__new__(quarantine_view_class)
         view._manager = mock.MagicMock()

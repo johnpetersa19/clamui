@@ -784,7 +784,7 @@ class TestGetCliCommandPath:
                         mock.MagicMock(returncode=0),  # python found
                     ]
 
-                    result = scheduler._get_cli_command_path()
+                    scheduler._get_cli_command_path()
 
                     # Should have called flatpak-spawn multiple times to check paths
                     assert mock_run.call_count >= 1

@@ -3,18 +3,13 @@
 
 import os
 import tempfile
-import threading
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
 # Import directly - quarantine modules use GLib only for async callbacks,
 # which are mocked in tests via GLib.idle_add patching
 from src.core.quarantine.database import QuarantineEntry
-from src.core.quarantine.file_handler import (
-    FileOperationStatus,
-)
 from src.core.quarantine.manager import (
     QuarantineManager,
     QuarantineResult,
@@ -523,4 +518,3 @@ class TestQuarantineManagerQueries:
         # Verify all entries are retrieved
         entries = manager.get_all_entries()
         assert len(entries) == 3
-

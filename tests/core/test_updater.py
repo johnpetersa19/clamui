@@ -224,9 +224,7 @@ class TestFreshclamUpdaterCheckAvailable:
     def test_returns_true_and_version_when_installed(self, updater_module):
         """Test returns (True, version) when freshclam is installed."""
         FreshclamUpdater = updater_module["FreshclamUpdater"]
-        with patch(
-            "src.core.updater.check_freshclam_installed", return_value=(True, "1.0.0")
-        ):
+        with patch("src.core.updater.check_freshclam_installed", return_value=(True, "1.0.0")):
             updater = FreshclamUpdater(log_manager=MagicMock())
             is_available, version = updater.check_available()
             assert is_available is True
@@ -433,7 +431,9 @@ class TestFreshclamUpdaterUpdateSync:
         FreshclamUpdater = updater_module["FreshclamUpdater"]
         UpdateStatus = updater_module["UpdateStatus"]
         mock_log_manager = MagicMock()
-        mock_stdout = "daily.cvd updated (version: 27150, sigs: 2050000, f-level: 90, builder: virusdb)"
+        mock_stdout = (
+            "daily.cvd updated (version: 27150, sigs: 2050000, f-level: 90, builder: virusdb)"
+        )
 
         with patch("src.core.updater.check_freshclam_installed", return_value=(True, "1.0.0")):
             with patch("src.core.updater.get_freshclam_path", return_value="freshclam"):
@@ -675,7 +675,10 @@ class TestFreshclamUpdaterUpdateAsync:
                         with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
                             with patch("subprocess.Popen") as mock_popen:
                                 mock_process = MagicMock()
-                                mock_process.communicate.return_value = ("database is up-to-date", "")
+                                mock_process.communicate.return_value = (
+                                    "database is up-to-date",
+                                    "",
+                                )
                                 mock_process.returncode = 0
                                 mock_process.kill = MagicMock()
                                 mock_process.wait = MagicMock()

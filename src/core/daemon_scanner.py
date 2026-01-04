@@ -16,7 +16,7 @@ from pathlib import Path
 from gi.repository import GLib
 
 from .log_manager import LogEntry, LogManager
-from .scanner import ScanResult, ScanStatus, ThreatDetail, glob_to_regex
+from .scanner import ScanResult, ScanStatus, ThreatDetail
 from .settings_manager import SettingsManager
 from .threat_classifier import (
     categorize_threat,

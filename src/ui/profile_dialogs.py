@@ -590,9 +590,7 @@ class PatternEntryDialog(Adw.Dialog):
         dialog.present(parent_window)
     """
 
-    __gsignals__ = {
-        "response": (GObject.SignalFlags.RUN_LAST, None, (str,))
-    }
+    __gsignals__ = {"response": (GObject.SignalFlags.RUN_LAST, None, (str,))}
 
     def __init__(self, **kwargs):
         """Initialize the pattern entry dialog."""

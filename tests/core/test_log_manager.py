@@ -1963,6 +1963,7 @@ class TestLogManagerIndexValidation:
         # Restore original method
         log_manager._validate_index = original_validate
 
+
 class TestLogManagerOptimizedGetLogs:
     """Tests for optimized get_logs() implementation using index."""
 

@@ -325,9 +325,7 @@ class TestStatisticsCalculatorBasicFunctionality:
 
     def test_get_scan_trend_data_returns_list(self, statistics_calculator):
         """Test that get_scan_trend_data returns a list of data points."""
-        trend_data = statistics_calculator.get_scan_trend_data(
-            timeframe="weekly", data_points=7
-        )
+        trend_data = statistics_calculator.get_scan_trend_data(timeframe="weekly", data_points=7)
         assert isinstance(trend_data, list)
 
 
@@ -380,9 +378,7 @@ class TestStatisticsCalculatorCacheHit:
         assert isinstance(stats, ScanStatistics)
 
         # Second call to get_scan_trend_data should use cached data (cache hit!)
-        trend_data = statistics_calculator.get_scan_trend_data(
-            timeframe="weekly", data_points=7
-        )
+        trend_data = statistics_calculator.get_scan_trend_data(timeframe="weekly", data_points=7)
         assert mock_log_manager.get_logs.call_count == 1  # Still 1 - cache hit!
         assert isinstance(trend_data, list)
 
@@ -399,9 +395,7 @@ class TestStatisticsCalculatorCacheHit:
         mock_log_manager.get_logs.reset_mock()
 
         # First call to get_scan_trend_data should fetch from log_manager
-        trend_data = statistics_calculator.get_scan_trend_data(
-            timeframe="weekly", data_points=7
-        )
+        trend_data = statistics_calculator.get_scan_trend_data(timeframe="weekly", data_points=7)
         assert mock_log_manager.get_logs.call_count == 1
         assert isinstance(trend_data, list)
 

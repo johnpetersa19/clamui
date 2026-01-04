@@ -463,9 +463,7 @@ class StatisticsCalculator:
         stats = self.get_statistics(timeframe)
         return stats.average_duration
 
-    def get_scan_trend_data(
-        self, timeframe: str = "weekly", data_points: int = 7
-    ) -> list[dict]:
+    def get_scan_trend_data(self, timeframe: str = "weekly", data_points: int = 7) -> list[dict]:
         """
         Get scan trend data for charting/graphing.
 
@@ -494,9 +492,9 @@ class StatisticsCalculator:
             if entry_time:
                 date_key = entry_time.strftime("%Y-%m-%d")
                 scans_by_date[date_key] = scans_by_date.get(date_key, 0) + 1
-                threats_by_date[date_key] = (
-                    threats_by_date.get(date_key, 0) + self._extract_threats_found(entry)
-                )
+                threats_by_date[date_key] = threats_by_date.get(
+                    date_key, 0
+                ) + self._extract_threats_found(entry)
 
         # Generate date range based on timeframe
         start_date, end_date = self._get_timeframe_range(timeframe)
@@ -542,11 +540,13 @@ class StatisticsCalculator:
                 interval_threats += threats_by_date.get(date_key, 0)
                 check_date += timedelta(days=1)
 
-            result.append({
-                "date": current_date.strftime("%Y-%m-%d"),
-                "scans": interval_scans,
-                "threats": interval_threats,
-            })
+            result.append(
+                {
+                    "date": current_date.strftime("%Y-%m-%d"),
+                    "scans": interval_scans,
+                    "threats": interval_threats,
+                }
+            )
 
             current_date = interval_end
 
@@ -606,11 +606,17 @@ class StatisticsCalculator:
             level = ProtectionLevel.AT_RISK
             message = "Last scan was over a week ago"
             is_protected = False
-        elif definition_age_hours is not None and definition_age_hours > self.DEFINITION_CRITICAL_THRESHOLD_HOURS:
+        elif (
+            definition_age_hours is not None
+            and definition_age_hours > self.DEFINITION_CRITICAL_THRESHOLD_HOURS
+        ):
             level = ProtectionLevel.AT_RISK
             message = "Virus definitions are over 7 days old"
             is_protected = False
-        elif definition_age_hours is not None and definition_age_hours > self.DEFINITION_WARNING_THRESHOLD_HOURS:
+        elif (
+            definition_age_hours is not None
+            and definition_age_hours > self.DEFINITION_WARNING_THRESHOLD_HOURS
+        ):
             level = ProtectionLevel.AT_RISK
             message = "Virus definitions are over 1 day old"
             is_protected = False
