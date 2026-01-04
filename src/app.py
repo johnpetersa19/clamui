@@ -257,6 +257,12 @@ class ClamUIApp(Adw.Application):
         self.add_action(show_statistics_action)
         self.set_accels_for_action("app.show-statistics", ["<Control>6"])
 
+        # Scan action - start scan with F5
+        start_scan_action = Gio.SimpleAction.new("start-scan", None)
+        start_scan_action.connect("activate", self._on_start_scan)
+        self.add_action(start_scan_action)
+        self.set_accels_for_action("app.start-scan", ["F5"])
+
     def _setup_tray_indicator(self):
         """Initialize the system tray indicator subprocess."""
         try:
@@ -401,6 +407,23 @@ class ClamUIApp(Adw.Application):
             win.set_content_view(self._statistics_view)
             win.set_active_view("statistics")
             self._current_view = "statistics"
+
+    def _on_start_scan(self, action, param):
+        """
+        Handle start-scan action - start scan with F5.
+
+        If not on scan view, switches to it first, then triggers the scan.
+        """
+        win = self.props.active_window
+        if win and self._scan_view:
+            # Switch to scan view if not already there
+            if self._current_view != "scan":
+                win.set_content_view(self._scan_view)
+                win.set_active_view("scan")
+                self._current_view = "scan"
+
+            # Trigger the scan
+            self._scan_view._start_scan()
 
     def _on_statistics_quick_scan(self):
         """
