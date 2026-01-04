@@ -526,6 +526,49 @@ class QuarantineView(Gtk.Box):
 
         return filtered
 
+    def _apply_search_filter(self):
+        """
+        Apply current search filter to the quarantine list.
+
+        Filters entries based on _search_query, clears the listbox,
+        resets pagination state, and displays filtered results.
+        This is the main entry point for triggering a filter update.
+        """
+        # Update filtered entries based on current search query
+        self._filtered_entries = self._filter_entries()
+
+        # Clear existing rows (compatible with all GTK4 versions)
+        while True:
+            child = self._listbox.get_first_child()
+            if child is None:
+                break
+            self._listbox.remove(child)
+
+        # Reset pagination state
+        self._displayed_count = 0
+        self._load_more_row = None
+
+        # Handle empty filtered results - placeholder will be shown automatically
+        if not self._filtered_entries:
+            return
+
+        # Temporarily use filtered entries for display
+        # (Will be refactored in phase 4 to use proper entry source detection)
+        original_entries = self._all_entries
+        self._all_entries = self._filtered_entries
+
+        try:
+            # Display initial batch with pagination
+            initial_limit = min(INITIAL_DISPLAY_LIMIT, len(self._filtered_entries))
+            self._display_entry_batch(0, initial_limit)
+
+            # Add "Load More" button if there are more entries
+            if len(self._filtered_entries) > INITIAL_DISPLAY_LIMIT:
+                self._add_load_more_button()
+        finally:
+            # Restore original entries
+            self._all_entries = original_entries
+
     def _on_cleanup_completed(self, removed_count: int) -> bool:
         """
         Handle completion of cleanup operation.
