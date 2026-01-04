@@ -80,3 +80,5 @@ repo/
 # Debian packaging
 *.deb
 build-deb-temp/
+
+.claude/

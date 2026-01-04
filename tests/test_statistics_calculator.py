@@ -968,15 +968,18 @@ class TestStatisticsCalculatorScanTrendData:
         return StatisticsCalculator(log_manager=log_manager)
 
     def test_get_scan_trend_data_empty(self, calculator):
-        """Test trend data with no scans returns empty list."""
+        """Test trend data with no scans returns full date range with zeros."""
         trend = calculator.get_scan_trend_data(timeframe="weekly", data_points=7)
-        assert len(trend) == 0
-        assert trend == []
+        assert len(trend) == 7
+        # All entries should have zero scans and threats
+        for point in trend:
+            assert point["scans"] == 0
+            assert point["threats"] == 0
 
     def test_get_scan_trend_data_returns_correct_points(self, calculator):
-        """Test trend data returns empty list when no data."""
+        """Test trend data returns requested number of data points."""
         trend = calculator.get_scan_trend_data(timeframe="weekly", data_points=5)
-        assert len(trend) == 0
+        assert len(trend) == 5
 
     def test_get_scan_trend_data_has_dates(self, calculator):
         """Test trend data includes ISO date strings."""

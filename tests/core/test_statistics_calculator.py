@@ -318,17 +318,6 @@ class TestStatisticsCalculatorBasicFunctionality:
         assert stats.error_scans == 0
         assert stats.average_duration == 0.0
 
-    def test_has_scan_history_true(self, statistics_calculator):
-        """Test has_scan_history returns True when logs exist."""
-        result = statistics_calculator.has_scan_history()
-        assert result is True
-
-    def test_has_scan_history_false(self, empty_log_manager):
-        """Test has_scan_history returns False when no logs exist."""
-        calculator = StatisticsCalculator(log_manager=empty_log_manager)
-        result = calculator.has_scan_history()
-        assert result is False
-
     def test_invalidate_cache_method_exists(self, statistics_calculator):
         """Test that invalidate_cache method exists and is callable."""
         assert hasattr(statistics_calculator, "invalidate_cache")

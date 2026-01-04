@@ -400,6 +400,95 @@ class StatisticsCalculator:
         stats = self.get_statistics(timeframe)
         return stats.average_duration
 
+    def get_scan_trend_data(
+        self, timeframe: str = "weekly", data_points: int = 7
+    ) -> list[dict]:
+        """
+        Get scan trend data for charting/graphing.
+
+        Returns a list of data points with date, scan count, and threat count
+        for the specified timeframe, suitable for trend visualization.
+        Generates the full date range for the timeframe with zeros for empty periods.
+
+        Args:
+            timeframe: One of 'daily', 'weekly', 'monthly', or 'all'
+            data_points: Number of data points to return
+
+        Returns:
+            List of dicts with 'date' (ISO format), 'scans' (count), and 'threats' (count) keys
+        """
+        # Get all scan logs using cache
+        all_entries = self._get_cached_logs(limit=10000, log_type="scan")
+
+        # Filter by timeframe
+        entries = self._filter_entries_by_timeframe(all_entries, timeframe)
+
+        # Group scans and threats by date
+        scans_by_date: dict[str, int] = {}
+        threats_by_date: dict[str, int] = {}
+        for entry in entries:
+            entry_time = self._parse_timestamp(entry.timestamp)
+            if entry_time:
+                date_key = entry_time.strftime("%Y-%m-%d")
+                scans_by_date[date_key] = scans_by_date.get(date_key, 0) + 1
+                threats_by_date[date_key] = (
+                    threats_by_date.get(date_key, 0) + self._extract_threats_found(entry)
+                )
+
+        # Generate date range based on timeframe
+        start_date, end_date = self._get_timeframe_range(timeframe)
+
+        # Calculate interval size based on data_points and timeframe
+        total_days = (end_date - start_date).days
+        if total_days <= 0:
+            total_days = 1
+
+        # For "all" timeframe, use actual data range if we have entries
+        if timeframe == Timeframe.ALL.value and entries:
+            oldest_entry = None
+            for entry in entries:
+                entry_time = self._parse_timestamp(entry.timestamp)
+                if entry_time and (oldest_entry is None or entry_time < oldest_entry):
+                    oldest_entry = entry_time
+            if oldest_entry:
+                start_date = oldest_entry
+                total_days = (end_date - start_date).days
+                if total_days <= 0:
+                    total_days = 1
+
+        # Calculate days per interval
+        days_per_interval = max(1, total_days // data_points)
+
+        # Generate data points at regular intervals
+        result = []
+        current_date = start_date
+        for _ in range(data_points):
+            if current_date > end_date:
+                break
+
+            # Calculate interval end
+            interval_end = current_date + timedelta(days=days_per_interval)
+
+            # Sum scans and threats in this interval
+            interval_scans = 0
+            interval_threats = 0
+            check_date = current_date
+            while check_date < interval_end and check_date <= end_date:
+                date_key = check_date.strftime("%Y-%m-%d")
+                interval_scans += scans_by_date.get(date_key, 0)
+                interval_threats += threats_by_date.get(date_key, 0)
+                check_date += timedelta(days=1)
+
+            result.append({
+                "date": current_date.strftime("%Y-%m-%d"),
+                "scans": interval_scans,
+                "threats": interval_threats,
+            })
+
+            current_date = interval_end
+
+        return result
+
     def get_protection_status(self, last_definition_update: str | None = None) -> ProtectionStatus:
         """
         Determine the current protection status of the system.
@@ -452,7 +541,7 @@ class StatisticsCalculator:
             is_protected = False
         elif last_scan_age_hours > self.SCAN_WARNING_THRESHOLD_HOURS:
             level = ProtectionLevel.AT_RISK
-            message = "Last scan was over 7 days ago"
+            message = "Last scan was over a week ago"
             is_protected = False
         elif definition_age_hours is not None and definition_age_hours > self.DEFINITION_CRITICAL_THRESHOLD_HOURS:
             level = ProtectionLevel.AT_RISK
