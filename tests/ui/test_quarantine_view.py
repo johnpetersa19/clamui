@@ -412,6 +412,192 @@ class TestQuarantineViewStorageInfo:
         view._count_label.set_text.assert_called_with("1 item")
 
 
+class TestQuarantineViewSearch:
+    """Tests for QuarantineView search filtering functionality."""
+
+    def test_filter_entries_empty_query_returns_all(self, quarantine_view_class):
+        """Test that empty search query returns all entries."""
+        view = object.__new__(quarantine_view_class)
+
+        # Create mock entries
+        entry1 = mock.MagicMock()
+        entry1.threat_name = "Eicar-Test-Signature"
+        entry1.original_path = "/home/user/file1.exe"
+
+        entry2 = mock.MagicMock()
+        entry2.threat_name = "Trojan.Generic"
+        entry2.original_path = "/home/user/file2.exe"
+
+        view._all_entries = [entry1, entry2]
+        view._search_query = ""
+
+        result = view._filter_entries()
+
+        assert len(result) == 2
+        assert result == [entry1, entry2]
+
+    def test_filter_entries_case_insensitive_matching(self, quarantine_view_class):
+        """Test that search matching is case-insensitive."""
+        view = object.__new__(quarantine_view_class)
+
+        # Create mock entries
+        entry1 = mock.MagicMock()
+        entry1.threat_name = "Eicar-Test-Signature"
+        entry1.original_path = "/home/user/file1.exe"
+
+        entry2 = mock.MagicMock()
+        entry2.threat_name = "Trojan.Generic"
+        entry2.original_path = "/home/user/file2.exe"
+
+        view._all_entries = [entry1, entry2]
+        view._search_query = "EICAR"
+
+        result = view._filter_entries()
+
+        assert len(result) == 1
+        assert result[0] == entry1
+
+    def test_filter_entries_matches_threat_name(self, quarantine_view_class):
+        """Test that search matches against threat_name field."""
+        view = object.__new__(quarantine_view_class)
+
+        # Create mock entries
+        entry1 = mock.MagicMock()
+        entry1.threat_name = "Eicar-Test-Signature"
+        entry1.original_path = "/home/user/file1.exe"
+
+        entry2 = mock.MagicMock()
+        entry2.threat_name = "Trojan.Generic"
+        entry2.original_path = "/home/user/file2.exe"
+
+        view._all_entries = [entry1, entry2]
+        view._search_query = "trojan"
+
+        result = view._filter_entries()
+
+        assert len(result) == 1
+        assert result[0] == entry2
+
+    def test_filter_entries_matches_original_path(self, quarantine_view_class):
+        """Test that search matches against original_path field."""
+        view = object.__new__(quarantine_view_class)
+
+        # Create mock entries
+        entry1 = mock.MagicMock()
+        entry1.threat_name = "Eicar-Test-Signature"
+        entry1.original_path = "/home/user/downloads/file1.exe"
+
+        entry2 = mock.MagicMock()
+        entry2.threat_name = "Trojan.Generic"
+        entry2.original_path = "/home/user/documents/file2.exe"
+
+        view._all_entries = [entry1, entry2]
+        view._search_query = "downloads"
+
+        result = view._filter_entries()
+
+        assert len(result) == 1
+        assert result[0] == entry1
+
+    def test_filter_entries_partial_match_works(self, quarantine_view_class):
+        """Test that partial substring matching works correctly."""
+        view = object.__new__(quarantine_view_class)
+
+        # Create mock entries
+        entry1 = mock.MagicMock()
+        entry1.threat_name = "Eicar-Test-Signature"
+        entry1.original_path = "/home/user/file1.exe"
+
+        entry2 = mock.MagicMock()
+        entry2.threat_name = "Trojan.Generic"
+        entry2.original_path = "/home/user/file2.exe"
+
+        entry3 = mock.MagicMock()
+        entry3.threat_name = "Trojan.Downloader"
+        entry3.original_path = "/home/user/file3.exe"
+
+        view._all_entries = [entry1, entry2, entry3]
+        view._search_query = "troj"
+
+        result = view._filter_entries()
+
+        assert len(result) == 2
+        assert entry2 in result
+        assert entry3 in result
+
+    def test_filter_entries_no_matches_returns_empty(self, quarantine_view_class):
+        """Test that no matches returns empty list."""
+        view = object.__new__(quarantine_view_class)
+
+        # Create mock entries
+        entry1 = mock.MagicMock()
+        entry1.threat_name = "Eicar-Test-Signature"
+        entry1.original_path = "/home/user/file1.exe"
+
+        entry2 = mock.MagicMock()
+        entry2.threat_name = "Trojan.Generic"
+        entry2.original_path = "/home/user/file2.exe"
+
+        view._all_entries = [entry1, entry2]
+        view._search_query = "nonexistent"
+
+        result = view._filter_entries()
+
+        assert len(result) == 0
+        assert result == []
+
+    def test_filter_entries_handles_none_values(self, quarantine_view_class):
+        """Test that None values in threat_name or original_path are handled gracefully."""
+        view = object.__new__(quarantine_view_class)
+
+        # Create mock entries with None values
+        entry1 = mock.MagicMock()
+        entry1.threat_name = None
+        entry1.original_path = "/home/user/file1.exe"
+
+        entry2 = mock.MagicMock()
+        entry2.threat_name = "Trojan.Generic"
+        entry2.original_path = None
+
+        entry3 = mock.MagicMock()
+        entry3.threat_name = "Eicar-Test-Signature"
+        entry3.original_path = "/home/user/file3.exe"
+
+        view._all_entries = [entry1, entry2, entry3]
+        view._search_query = "eicar"
+
+        result = view._filter_entries()
+
+        # Should only match entry3, None values should not cause errors
+        assert len(result) == 1
+        assert result[0] == entry3
+
+    def test_filter_entries_matches_either_field(self, quarantine_view_class):
+        """Test that search matches if query appears in either threat_name or original_path."""
+        view = object.__new__(quarantine_view_class)
+
+        # Create mock entries
+        entry1 = mock.MagicMock()
+        entry1.threat_name = "Eicar-Test-Signature"
+        entry1.original_path = "/home/user/file1.exe"
+
+        entry2 = mock.MagicMock()
+        entry2.threat_name = "Trojan.Generic"
+        entry2.original_path = "/home/user/test/file2.exe"
+
+        view._all_entries = [entry1, entry2]
+        view._search_query = "test"
+
+        result = view._filter_entries()
+
+        # Should match both: entry1 by threat_name ("Test"), entry2 by path ("/test/")
+        assert len(result) == 2
+        assert entry1 in result
+        assert entry2 in result
+
+
+class TestQuarantineViewStorageInfoExtended:
+    """Extended tests for storage info with additional edge cases."""
 
     def test_create_entry_row_truncates_long_path(
         self, quarantine_view_class, mock_quarantine_entry
