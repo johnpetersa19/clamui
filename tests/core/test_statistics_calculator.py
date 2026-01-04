@@ -528,3 +528,417 @@ class TestStatisticsCalculatorEdgeCases:
         stats2 = calculator.get_statistics(timeframe="all")
         assert log_manager.get_logs.call_count == 1
         assert stats1.total_scans == stats2.total_scans
+
+
+class TestExtractDirectoriesScanned:
+    """Tests for _extract_directories_scanned method."""
+
+    def test_extract_directories_scanned_pattern_1(self, statistics_calculator):
+        """Test extraction with '5 directories scanned' pattern."""
+        entry = LogEntry(
+            id="test-1",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Scan complete",
+            details="Scanned: 100 files, 5 directories",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 5
+
+    def test_extract_directories_scanned_pattern_2(self, statistics_calculator):
+        """Test extraction with 'scanned 3 directories' pattern."""
+        entry = LogEntry(
+            id="test-2",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Scanned 3 directories successfully",
+            details="Operation complete",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 3
+
+    def test_extract_directories_scanned_pattern_3(self, statistics_calculator):
+        """Test extraction with 'directories: 10' pattern."""
+        entry = LogEntry(
+            id="test-3",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Scan report",
+            details="Files: 200, Directories: 10",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 10
+
+    def test_extract_directories_scanned_pattern_4(self, statistics_calculator):
+        """Test extraction with '20 directories' pattern."""
+        entry = LogEntry(
+            id="test-4",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="20 directories processed",
+            details="Scan completed successfully",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 20
+
+    def test_extract_directories_scanned_case_insensitive(self, statistics_calculator):
+        """Test extraction is case insensitive."""
+        entry = LogEntry(
+            id="test-5",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="15 DIRECTORIES SCANNED",
+            details="Operation complete",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 15
+
+    def test_extract_directories_scanned_singular_form(self, statistics_calculator):
+        """Test extraction with singular 'directory'."""
+        entry = LogEntry(
+            id="test-6",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="1 directory scanned",
+            details="Operation complete",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 1
+
+    def test_extract_directories_scanned_not_found(self, statistics_calculator):
+        """Test extraction returns 0 when no directory count found."""
+        entry = LogEntry(
+            id="test-7",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Scan complete",
+            details="No directory information available",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 0
+
+    def test_extract_directories_scanned_empty_details(self, statistics_calculator):
+        """Test extraction with empty details."""
+        entry = LogEntry(
+            id="test-8",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="",
+            details="",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 0
+
+    def test_extract_directories_scanned_large_number(self, statistics_calculator):
+        """Test extraction with large directory count."""
+        entry = LogEntry(
+            id="test-9",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Scanned 9999 directories",
+            details="Large scan operation",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 9999
+
+    def test_extract_directories_scanned_zero_count(self, statistics_calculator):
+        """Test extraction with zero directories."""
+        entry = LogEntry(
+            id="test-10",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="0 directories scanned",
+            details="File-only scan",
+            path="/home/user/file.txt",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 0
+
+    def test_extract_directories_scanned_mixed_content(self, statistics_calculator):
+        """Test extraction from mixed content with files and directories."""
+        entry = LogEntry(
+            id="test-11",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Scan complete",
+            details="Scanned 250 files and 12 directories in /home/user",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 12
+
+    def test_extract_directories_scanned_from_summary_only(self, statistics_calculator):
+        """Test extraction when directory count is only in summary."""
+        entry = LogEntry(
+            id="test-12",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Processed 8 directories",
+            details="",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 8
+
+    def test_extract_directories_scanned_from_details_only(self, statistics_calculator):
+        """Test extraction when directory count is only in details."""
+        entry = LogEntry(
+            id="test-13",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="",
+            details="Total directories scanned: 25",
+            path="/home/user",
+            duration=30.0,
+            scheduled=False,
+        )
+        result = statistics_calculator._extract_directories_scanned(entry)
+        assert result == 25
+
+
+class TestExtractEntryStatistics:
+    """Tests for extract_entry_statistics method."""
+
+    def test_extract_entry_statistics_complete_data(self, statistics_calculator):
+        """Test extraction with complete statistics data."""
+        entry = LogEntry(
+            id="test-1",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Scan complete",
+            details="Scanned: 100 files, 5 directories",
+            path="/home/user",
+            duration=45.5,
+            scheduled=False,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert isinstance(result, dict)
+        assert "files_scanned" in result
+        assert "directories_scanned" in result
+        assert "duration" in result
+        assert result["files_scanned"] == 100
+        assert result["directories_scanned"] == 5
+        assert result["duration"] == 45.5
+
+    def test_extract_entry_statistics_partial_data(self, statistics_calculator):
+        """Test extraction when only some statistics are available."""
+        entry = LogEntry(
+            id="test-2",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="50 files scanned",
+            details="No directory information",
+            path="/home/user",
+            duration=20.0,
+            scheduled=False,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert result["files_scanned"] == 50
+        assert result["directories_scanned"] == 0
+        assert result["duration"] == 20.0
+
+    def test_extract_entry_statistics_no_scan_data(self, statistics_calculator):
+        """Test extraction when no scan statistics are found."""
+        entry = LogEntry(
+            id="test-3",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="error",
+            summary="Scan failed",
+            details="Permission denied",
+            path="/home/user",
+            duration=1.5,
+            scheduled=False,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert result["files_scanned"] == 0
+        assert result["directories_scanned"] == 0
+        assert result["duration"] == 1.5
+
+    def test_extract_entry_statistics_zero_duration(self, statistics_calculator):
+        """Test extraction with zero duration."""
+        entry = LogEntry(
+            id="test-4",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Quick scan: 10 files, 2 directories",
+            details="Instant scan completed",
+            path="/home/user/file.txt",
+            duration=0.0,
+            scheduled=False,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert result["files_scanned"] == 10
+        assert result["directories_scanned"] == 2
+        assert result["duration"] == 0.0
+
+    def test_extract_entry_statistics_large_numbers(self, statistics_calculator):
+        """Test extraction with large file and directory counts."""
+        entry = LogEntry(
+            id="test-5",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Large scan completed",
+            details="Scanned 50000 files in 999 directories",
+            path="/home",
+            duration=3600.5,
+            scheduled=True,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert result["files_scanned"] == 50000
+        assert result["directories_scanned"] == 999
+        assert result["duration"] == 3600.5
+
+    def test_extract_entry_statistics_infected_scan(self, statistics_calculator):
+        """Test extraction from infected scan log."""
+        entry = LogEntry(
+            id="test-6",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="infected",
+            summary="Found 3 threats",
+            details="Scanned: 75 files, 8 directories. Detected 3 infected files.",
+            path="/home/user/downloads",
+            duration=60.0,
+            scheduled=False,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert result["files_scanned"] == 75
+        assert result["directories_scanned"] == 8
+        assert result["duration"] == 60.0
+
+    def test_extract_entry_statistics_update_log(self, statistics_calculator):
+        """Test extraction from update log (should return zeros for scan stats)."""
+        entry = LogEntry(
+            id="test-7",
+            timestamp="2024-01-15T10:00:00",
+            type="update",
+            status="success",
+            summary="Database updated successfully",
+            details="Updated to version 12345",
+            path=None,
+            duration=120.0,
+            scheduled=True,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        # Update logs won't have file/directory scan information
+        assert result["files_scanned"] == 0
+        assert result["directories_scanned"] == 0
+        assert result["duration"] == 120.0
+
+    def test_extract_entry_statistics_empty_entry(self, statistics_calculator):
+        """Test extraction from entry with empty strings."""
+        entry = LogEntry(
+            id="test-8",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="",
+            details="",
+            path="",
+            duration=0.0,
+            scheduled=False,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert result["files_scanned"] == 0
+        assert result["directories_scanned"] == 0
+        assert result["duration"] == 0.0
+
+    def test_extract_entry_statistics_return_type(self, statistics_calculator):
+        """Test that return value is always a dictionary with expected keys."""
+        entry = LogEntry(
+            id="test-9",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Test scan",
+            details="Test details",
+            path="/test",
+            duration=10.0,
+            scheduled=False,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert isinstance(result, dict)
+        assert len(result) == 3
+        assert set(result.keys()) == {"files_scanned", "directories_scanned", "duration"}
+        assert isinstance(result["files_scanned"], int)
+        assert isinstance(result["directories_scanned"], int)
+        assert isinstance(result["duration"], float)
+
+    def test_extract_entry_statistics_scheduled_scan(self, statistics_calculator):
+        """Test extraction from scheduled scan."""
+        entry = LogEntry(
+            id="test-10",
+            timestamp="2024-01-15T10:00:00",
+            type="scan",
+            status="clean",
+            summary="Scheduled scan completed",
+            details="Scanned 300 files and 15 directories",
+            path="/home/user",
+            duration=90.25,
+            scheduled=True,
+        )
+        result = statistics_calculator.extract_entry_statistics(entry)
+
+        assert result["files_scanned"] == 300
+        assert result["directories_scanned"] == 15
+        assert result["duration"] == 90.25
