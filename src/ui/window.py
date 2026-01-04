@@ -315,7 +315,7 @@ class MainWindow(Adw.ApplicationWindow):
         """
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name("open-menu-symbolic")
-        menu_button.set_tooltip_text("Menu")
+        menu_button.set_tooltip_text("Menu (F10)")
 
         # Create menu model
         menu = Gio.Menu()
