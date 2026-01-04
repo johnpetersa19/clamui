@@ -533,3 +533,262 @@ class TestSchedulerCronIntegration:
         entry = scheduler._generate_crontab_entry(ScheduleFrequency.WEEKLY, "14:30", day_of_week=2)
         # Wednesday is 2 in our format, 3 in cron format
         assert entry == "30 14 * * 3"
+
+
+class TestGetVenvPaths:
+    """Tests for Scheduler._get_venv_paths()."""
+
+    @pytest.fixture
+    def scheduler(self):
+        """Create a Scheduler instance."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Scheduler(config_dir=Path(tmpdir))
+
+    def test_returns_list_of_paths(self, scheduler):
+        """Test _get_venv_paths returns a list of Path objects."""
+        paths = scheduler._get_venv_paths()
+        assert isinstance(paths, list)
+        assert len(paths) > 0
+        assert all(isinstance(p, Path) for p in paths)
+
+    def test_includes_user_venv_path(self, scheduler):
+        """Test _get_venv_paths includes user installation path."""
+        paths = scheduler._get_venv_paths()
+        path_strs = [str(p) for p in paths]
+
+        # Should include ~/.local/share/clamui/venv
+        assert any("clamui/venv" in p for p in path_strs)
+
+    def test_includes_system_venv_paths(self, scheduler):
+        """Test _get_venv_paths includes system installation paths."""
+        paths = scheduler._get_venv_paths()
+        path_strs = [str(p) for p in paths]
+
+        # Should include /usr/local/share/clamui/venv
+        assert any("/usr/local/share/clamui/venv" in p for p in path_strs)
+        # Should include /usr/share/clamui/venv
+        assert any("/usr/share/clamui/venv" in p for p in path_strs)
+
+    def test_respects_xdg_data_home(self, scheduler):
+        """Test _get_venv_paths respects XDG_DATA_HOME environment variable."""
+        import os
+
+        original_xdg = os.environ.get("XDG_DATA_HOME")
+        try:
+            os.environ["XDG_DATA_HOME"] = "/custom/data/home"
+            paths = scheduler._get_venv_paths()
+            path_strs = [str(p) for p in paths]
+
+            assert any("/custom/data/home/clamui/venv" in p for p in path_strs)
+        finally:
+            if original_xdg is not None:
+                os.environ["XDG_DATA_HOME"] = original_xdg
+            elif "XDG_DATA_HOME" in os.environ:
+                del os.environ["XDG_DATA_HOME"]
+
+
+class TestCheckPathExists:
+    """Tests for Scheduler._check_path_exists()."""
+
+    @pytest.fixture
+    def scheduler(self):
+        """Create a Scheduler instance."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Scheduler(config_dir=Path(tmpdir))
+
+    def test_returns_true_for_existing_path(self, scheduler):
+        """Test _check_path_exists returns True for existing files."""
+        with tempfile.NamedTemporaryFile() as tmp:
+            result = scheduler._check_path_exists(Path(tmp.name))
+            assert result is True
+
+    def test_returns_false_for_nonexistent_path(self, scheduler):
+        """Test _check_path_exists returns False for non-existent files."""
+        result = scheduler._check_path_exists(Path("/nonexistent/path/to/file"))
+        assert result is False
+
+    def test_flatpak_uses_flatpak_spawn(self, scheduler):
+        """Test _check_path_exists uses flatpak-spawn when in Flatpak mode."""
+        with mock.patch("src.core.scheduler.is_flatpak", return_value=True):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.return_value = mock.MagicMock(returncode=0)
+
+                scheduler._check_path_exists(Path("/some/path"))
+
+                # Verify flatpak-spawn was called
+                mock_run.assert_called_once()
+                call_args = mock_run.call_args[0][0]
+                assert call_args[0] == "flatpak-spawn"
+                assert "--host" in call_args
+                assert "test" in call_args
+                assert "-f" in call_args
+
+    def test_flatpak_returns_true_when_spawn_succeeds(self, scheduler):
+        """Test _check_path_exists returns True when flatpak-spawn returns 0."""
+        with mock.patch("src.core.scheduler.is_flatpak", return_value=True):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.return_value = mock.MagicMock(returncode=0)
+
+                result = scheduler._check_path_exists(Path("/some/path"))
+                assert result is True
+
+    def test_flatpak_returns_false_when_spawn_fails(self, scheduler):
+        """Test _check_path_exists returns False when flatpak-spawn returns non-zero."""
+        with mock.patch("src.core.scheduler.is_flatpak", return_value=True):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.return_value = mock.MagicMock(returncode=1)
+
+                result = scheduler._check_path_exists(Path("/some/path"))
+                assert result is False
+
+    def test_flatpak_returns_false_on_timeout(self, scheduler):
+        """Test _check_path_exists returns False when flatpak-spawn times out."""
+        import subprocess
+
+        with mock.patch("src.core.scheduler.is_flatpak", return_value=True):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.side_effect = subprocess.TimeoutExpired(cmd="test", timeout=5)
+
+                result = scheduler._check_path_exists(Path("/some/path"))
+                assert result is False
+
+    def test_flatpak_returns_false_on_file_not_found(self, scheduler):
+        """Test _check_path_exists returns False when flatpak-spawn not found."""
+        with mock.patch("src.core.scheduler.is_flatpak", return_value=True):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.side_effect = FileNotFoundError("flatpak-spawn not found")
+
+                result = scheduler._check_path_exists(Path("/some/path"))
+                assert result is False
+
+
+class TestGetCliCommandPath:
+    """Tests for Scheduler._get_cli_command_path()."""
+
+    @pytest.fixture
+    def scheduler(self):
+        """Create a Scheduler instance."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Scheduler(config_dir=Path(tmpdir))
+
+    def test_returns_path_from_which_when_in_path(self, scheduler):
+        """Test returns path when clamui-scheduled-scan is in PATH."""
+        with mock.patch("src.core.scheduler.which_host_command") as mock_which:
+            mock_which.return_value = "/usr/bin/clamui-scheduled-scan"
+
+            result = scheduler._get_cli_command_path()
+
+            assert result == "/usr/bin/clamui-scheduled-scan"
+            mock_which.assert_called_with("clamui-scheduled-scan")
+
+    def test_returns_venv_path_when_exists(self, scheduler):
+        """Test returns venv entry point when not in PATH but venv exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create mock venv structure
+            venv_bin = Path(tmpdir) / "clamui" / "venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            cli_script = venv_bin / "clamui-scheduled-scan"
+            cli_script.touch()
+            cli_script.chmod(0o755)
+
+            with mock.patch("src.core.scheduler.which_host_command", return_value=None):
+                with mock.patch.object(
+                    scheduler,
+                    "_get_venv_paths",
+                    return_value=[Path(tmpdir) / "clamui" / "venv"],
+                ):
+                    result = scheduler._get_cli_command_path()
+
+                    assert result == str(cli_script)
+
+    def test_returns_module_execution_with_venv_python(self, scheduler):
+        """Test falls back to module execution when only venv Python exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create mock venv with Python but no entry point script
+            venv_bin = Path(tmpdir) / "clamui" / "venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            python_bin = venv_bin / "python"
+            python_bin.touch()
+            python_bin.chmod(0o755)
+
+            with mock.patch("src.core.scheduler.which_host_command", return_value=None):
+                with mock.patch.object(
+                    scheduler,
+                    "_get_venv_paths",
+                    return_value=[Path(tmpdir) / "clamui" / "venv"],
+                ):
+                    result = scheduler._get_cli_command_path()
+
+                    assert str(python_bin) in result
+                    assert "-m src.cli.scheduled_scan" in result
+
+    def test_correct_module_path_in_fallback(self, scheduler):
+        """Test that fallback uses correct module path src.cli.scheduled_scan."""
+        with mock.patch("src.core.scheduler.which_host_command") as mock_which:
+            # Nothing in PATH
+            mock_which.side_effect = lambda x: "/usr/bin/python3" if x == "python3" else None
+
+            # No venvs exist
+            with mock.patch.object(scheduler, "_get_venv_paths", return_value=[]):
+                with mock.patch.object(scheduler, "_check_path_exists", return_value=False):
+                    result = scheduler._get_cli_command_path()
+
+                    # Should use correct module path
+                    assert "src.cli.scheduled_scan" in result
+                    # Should NOT use the old buggy path
+                    assert "src.scheduled_scan" not in result or "src.cli.scheduled_scan" in result
+
+    def test_prefers_entry_point_over_module(self, scheduler):
+        """Test that entry point script is preferred over module execution."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create both entry point and Python in venv
+            venv_bin = Path(tmpdir) / "clamui" / "venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            cli_script = venv_bin / "clamui-scheduled-scan"
+            cli_script.touch()
+            cli_script.chmod(0o755)
+            python_bin = venv_bin / "python"
+            python_bin.touch()
+            python_bin.chmod(0o755)
+
+            with mock.patch("src.core.scheduler.which_host_command", return_value=None):
+                with mock.patch.object(
+                    scheduler,
+                    "_get_venv_paths",
+                    return_value=[Path(tmpdir) / "clamui" / "venv"],
+                ):
+                    result = scheduler._get_cli_command_path()
+
+                    # Should return entry point, not module execution
+                    assert result == str(cli_script)
+                    assert "-m" not in result
+
+    def test_returns_none_when_nothing_found(self, scheduler):
+        """Test returns None when no CLI command can be found."""
+        with mock.patch("src.core.scheduler.which_host_command", return_value=None):
+            with mock.patch.object(scheduler, "_get_venv_paths", return_value=[]):
+                result = scheduler._get_cli_command_path()
+
+                assert result is None
+
+    def test_flatpak_checks_host_venv_paths(self, scheduler):
+        """Test that Flatpak mode checks venv paths on host via flatpak-spawn."""
+        with mock.patch("src.core.scheduler.is_flatpak", return_value=True):
+            with mock.patch("src.core.scheduler.which_host_command", return_value=None):
+                with mock.patch("subprocess.run") as mock_run:
+                    # First call (for cli script): not found, second call (for python): found
+                    mock_run.side_effect = [
+                        mock.MagicMock(returncode=1),  # cli script not found
+                        mock.MagicMock(returncode=1),  # cli script not found
+                        mock.MagicMock(returncode=1),  # cli script not found
+                        mock.MagicMock(returncode=0),  # python found
+                    ]
+
+                    result = scheduler._get_cli_command_path()
+
+                    # Should have called flatpak-spawn multiple times to check paths
+                    assert mock_run.call_count >= 1
+                    # Verify flatpak-spawn was used
+                    for call in mock_run.call_args_list:
+                        call_args = call[0][0]
+                        assert call_args[0] == "flatpak-spawn"

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from .utils import which_host_command, wrap_host_command
+from .utils import is_flatpak, which_host_command, wrap_host_command
 
 
 def _validate_target_paths(targets: list[str]) -> str | None:
@@ -441,22 +441,90 @@ class Scheduler:
         else:
             return f"{minute} {hour} * * *"
 
+    def _get_venv_paths(self) -> list[Path]:
+        """
+        Get list of well-known ClamUI venv installation paths.
+
+        These are the standard locations where install.sh installs ClamUI:
+        - User installation: ~/.local/share/clamui/venv
+        - System installation: /usr/local/share/clamui/venv or /usr/share/clamui/venv
+
+        Returns:
+            List of Path objects for potential venv locations
+        """
+        paths = []
+
+        # User installation location (respects XDG_DATA_HOME)
+        xdg_data_home = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+        user_venv = Path(xdg_data_home) / "clamui" / "venv"
+        paths.append(user_venv)
+
+        # System installation locations
+        paths.append(Path("/usr/local/share/clamui/venv"))
+        paths.append(Path("/usr/share/clamui/venv"))
+
+        return paths
+
+    def _check_path_exists(self, path: Path) -> bool:
+        """
+        Check if a path exists, accounting for Flatpak sandbox.
+
+        When running inside Flatpak, uses flatpak-spawn to check the host
+        filesystem since the venv is installed on the host, not in the sandbox.
+
+        Args:
+            path: Path to check for existence
+
+        Returns:
+            True if the path exists, False otherwise
+        """
+        if is_flatpak():
+            try:
+                result = subprocess.run(
+                    ["flatpak-spawn", "--host", "test", "-f", str(path)],
+                    capture_output=True,
+                    timeout=5,
+                )
+                return result.returncode == 0
+            except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+                return False
+        return path.exists()
+
     def _get_cli_command_path(self) -> str | None:
         """
         Get the path to the clamui-scheduled-scan CLI command.
 
+        Searches in order:
+        1. PATH (via which_host_command) - works when installed to /usr/bin etc.
+        2. Well-known venv locations - for install.sh installations
+        3. Fallback to module execution with venv's Python
+
         Returns:
             Path to the CLI command, or None if not found
         """
-        # First try to find it in PATH
+        # 1. First try to find it in PATH
         cli_path = which_host_command("clamui-scheduled-scan")
         if cli_path:
             return cli_path
 
-        # Fall back to python module execution
+        # 2. Check well-known venv installation locations for the entry point
+        for venv_path in self._get_venv_paths():
+            cli_bin = venv_path / "bin" / "clamui-scheduled-scan"
+            if self._check_path_exists(cli_bin):
+                return str(cli_bin)
+
+        # 3. Check well-known venv locations for Python to run the module
+        for venv_path in self._get_venv_paths():
+            python_bin = venv_path / "bin" / "python"
+            if self._check_path_exists(python_bin):
+                # Use the venv's Python with the correct module path
+                return f"{python_bin} -m src.cli.scheduled_scan"
+
+        # 4. Last resort: System Python with correct module path
+        # (This likely won't work unless installed system-wide via pip)
         python_path = which_host_command("python3") or which_host_command("python")
         if python_path:
-            return f"{python_path} -m src.scheduled_scan"
+            return f"{python_path} -m src.cli.scheduled_scan"
 
         return None
 
