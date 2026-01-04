@@ -607,6 +607,9 @@ class QuarantineView(Gtk.Box):
         # Update filtered entries based on current search query
         self._filtered_entries = self._filter_entries()
 
+        # Update storage info to reflect filtered count
+        self._update_storage_info(self._all_entries)
+
         # Clear existing rows (compatible with all GTK4 versions)
         while True:
             child = self._listbox.get_first_child()
@@ -690,17 +693,31 @@ class QuarantineView(Gtk.Box):
         """
         Update the storage info display with total size and item count.
 
+        When search is active, shows filtered count vs total count (e.g., '5 of 20 items').
+        Total size always reflects the full quarantine storage.
+
         Args:
             entries: List of quarantine entries to calculate size from
         """
         total_size = sum(entry.file_size for entry in entries if entry.file_size)
-        item_count = len(entries)
+        total_count = len(entries)
 
-        # Update count label
-        item_text = f"{item_count} item" if item_count == 1 else f"{item_count} items"
+        # Update count label - show filtered vs total when search is active
+        if self._search_query and self._filtered_entries is not None:
+            filtered_count = len(self._filtered_entries)
+            if filtered_count == 1 and total_count == 1:
+                item_text = "1 of 1 item"
+            elif filtered_count == 1:
+                item_text = f"1 of {total_count} items"
+            else:
+                item_text = f"{filtered_count} of {total_count} items"
+        else:
+            # No search active - show normal count
+            item_text = f"{total_count} item" if total_count == 1 else f"{total_count} items"
+
         self._count_label.set_text(item_text)
 
-        # Update size display
+        # Update size display - always shows total quarantine size
         size_str = format_file_size(total_size)
         self._storage_row.set_subtitle(size_str)
 
