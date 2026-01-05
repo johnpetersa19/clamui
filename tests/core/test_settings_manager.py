@@ -305,7 +305,7 @@ class TestSettingsManagerErrorHandling:
         """Test that save handles permission errors gracefully."""
         manager = SettingsManager(config_dir=temp_config_dir)
 
-        with mock.patch("builtins.open", side_effect=PermissionError):
+        with mock.patch("os.fdopen", side_effect=PermissionError):
             result = manager.save()
             assert result is False
 
@@ -313,7 +313,7 @@ class TestSettingsManagerErrorHandling:
         """Test that save handles OS errors gracefully."""
         manager = SettingsManager(config_dir=temp_config_dir)
 
-        with mock.patch("builtins.open", side_effect=OSError("Test error")):
+        with mock.patch("os.fdopen", side_effect=OSError("Test error")):
             result = manager.save()
             assert result is False
 
@@ -825,10 +825,10 @@ class TestSettingsManagerSaveEdgeCases:
             assert result is False
 
     def test_save_handles_json_serialization_error(self, temp_config_dir):
-        """Test that save raises TypeError for non-serializable values.
+        """Test that save handles non-serializable values gracefully.
 
-        Note: The current implementation doesn't catch TypeError from json.dump.
-        This test documents the current behavior.
+        The implementation catches all exceptions (including TypeError from
+        json.dump) and returns False rather than propagating the error.
         """
         manager = SettingsManager(config_dir=temp_config_dir)
 
@@ -836,9 +836,9 @@ class TestSettingsManagerSaveEdgeCases:
         with manager._lock:
             manager._settings["bad_value"] = object()
 
-        # Current implementation raises TypeError for non-serializable objects
-        with pytest.raises(TypeError):
-            manager.save()
+        # Implementation catches TypeError and returns False
+        result = manager.save()
+        assert result is False
 
     def test_save_handles_unicode_values(self, temp_config_dir):
         """Test that save correctly handles unicode values."""
