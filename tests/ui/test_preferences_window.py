@@ -69,10 +69,10 @@ def preferences_window_class(mock_gi_modules):
         },
     ):
         # Clear any cached import
-        if "src.ui.preferences_window" in sys.modules:
-            del sys.modules["src.ui.preferences_window"]
+        if "src.ui.preferences" in sys.modules:
+            del sys.modules["src.ui.preferences"]
 
-        from src.ui.preferences_window import PreferencesWindow
+        from src.ui.preferences import PreferencesWindow
 
         yield PreferencesWindow
 
@@ -127,7 +127,7 @@ class TestPreferencesWindowImport:
                 "src.core.scanner": mock.MagicMock(),
             },
         ):
-            from src.ui.preferences_window import PreferencesWindow
+            from src.ui.preferences import PreferencesWindow
 
             assert PreferencesWindow is not None
 
@@ -141,7 +141,7 @@ class TestPreferencesWindowImport:
                 "src.core.scanner": mock.MagicMock(),
             },
         ):
-            from src.ui.preferences_window import PRESET_EXCLUSIONS
+            from src.ui.preferences import PRESET_EXCLUSIONS
 
             assert PRESET_EXCLUSIONS is not None
             assert isinstance(PRESET_EXCLUSIONS, list)
@@ -157,7 +157,7 @@ class TestPreferencesWindowImport:
                 "src.core.scanner": mock.MagicMock(),
             },
         ):
-            from src.ui.preferences_window import PRESET_EXCLUSIONS
+            from src.ui.preferences import PRESET_EXCLUSIONS
 
             for exclusion in PRESET_EXCLUSIONS:
                 assert "pattern" in exclusion
@@ -175,7 +175,7 @@ class TestPreferencesWindowImport:
                 "src.core.scanner": mock.MagicMock(),
             },
         ):
-            from src.ui.preferences_window import PRESET_EXCLUSIONS
+            from src.ui.preferences import PRESET_EXCLUSIONS
 
             patterns = [e["pattern"] for e in PRESET_EXCLUSIONS]
             assert "node_modules" in patterns
