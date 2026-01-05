@@ -1,7 +1,7 @@
 # QA Fix Summary
 
 **Status**: ✅ COMPLETE
-**Fix Session**: 1
+**Fix Sessions**: 0, 1
 **Date**: 2026-01-05
 
 ## QA Feedback Received
@@ -91,3 +91,46 @@ The fix addresses the QA feedback by making it crystal clear to users:
 - WHY some settings need manual save (system config files, admin privileges)
 
 All visual and textual indicators are now in place to guide users through the save process.
+
+---
+
+# QA Fix Session 1
+
+**Date**: 2026-01-05
+**Status**: ✅ COMPLETE
+
+## QA Feedback Received (Session 1)
+
+> Move the "Auto Saved Settings" field to the Current Status field and fix the warnings:
+> - Gtk-WARNING: Failed to set text... Save & Apply... (ampersands need escaping)
+> - Multiple instances of unescaped '&' in markup
+
+## Issues Fixed
+
+### 1. Fix Gtk Markup Warnings - Unescaped Ampersands ✓
+
+**Problem**: Gtk-WARNING messages about unescaped '&' characters in markup text
+
+**Fix Applied**:
+- Line 1127: `'Save & Apply'` → `'Save &amp; Apply'` (in group description)
+- Line 1399: `'Save & Apply'` → `'Save &amp; Apply'` (in ActionRow title)
+- Line 1402: `'Save & Apply'` → `'Save &amp; Apply'` (in ActionRow subtitle)
+
+**Commit**: c1427b0
+
+### 2. Move Auto-Saved Settings Info to Current Status Field ✓
+
+**Fix Applied**:
+Updated status_row subtitle to include auto-saved settings information:
+```
+"✓ Auto-Saved Settings: Scan Backend and Exclusions save automatically when changed —
+Ready to apply ClamAV configuration changes"
+```
+
+**Commit**: c1427b0
+
+## All Session 1 Issues Addressed
+
+- ✅ Gtk warnings will no longer appear
+- ✅ Auto-saved settings info is now visible in Current Status
+- ✅ Ready for QA re-validation
