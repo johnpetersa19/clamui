@@ -696,12 +696,25 @@ class ScanView(Gtk.Box):
         self._selected_path = path
         formatted_path = format_scan_path(path)
         self._path_label.set_label(formatted_path)
-        self._path_label.set_tooltip_text(path)
-        # Update subtitle to show path type
-        if os.path.isdir(path):
-            self._path_row.set_subtitle("Folder selected")
+
+        # Check if this is a portal path that couldn't be fully resolved
+        if formatted_path.startswith("[Portal]"):
+            self._path_label.set_tooltip_text(
+                "The exact location cannot be displayed in Flatpak mode, "
+                "but scanning will work normally."
+            )
+            # Update subtitle to indicate portal access
+            if os.path.isdir(path):
+                self._path_row.set_subtitle("Folder selected (via Flatpak portal)")
+            else:
+                self._path_row.set_subtitle("File selected (via Flatpak portal)")
         else:
-            self._path_row.set_subtitle("File selected")
+            self._path_label.set_tooltip_text(path)
+            # Update subtitle to show path type
+            if os.path.isdir(path):
+                self._path_row.set_subtitle("Folder selected")
+            else:
+                self._path_row.set_subtitle("File selected")
 
     def _create_scan_section(self):
         """Create the scan control section."""
@@ -895,6 +908,9 @@ class ScanView(Gtk.Box):
         self._scan_button.set_sensitive(False)
         self._eicar_button.set_sensitive(False)
         self._path_row.set_sensitive(False)
+
+        # Dismiss any previous status banner
+        self._status_banner.set_revealed(False)
 
         # Hide previous results button
         self._hide_view_results()
