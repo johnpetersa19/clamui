@@ -173,9 +173,10 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
     def _create_database_page(self):
         """Create the Database Updates page for freshclam.conf settings."""
-        page = Adw.PreferencesPage()
-        page.set_title("Database Updates")
-        page.set_icon_name("software-update-available-symbolic")
+        page = Adw.PreferencesPage(
+            title="Database Updates",
+            icon_name="software-update-available-symbolic",
+        )
 
         # Create file location group
         self._create_file_location_group(
@@ -454,9 +455,10 @@ class PreferencesWindow(Adw.PreferencesWindow):
         """
         Create the Scanner Settings page for clamd.conf settings.
         """
-        page = Adw.PreferencesPage()
-        page.set_title("Scanner Settings")
-        page.set_icon_name("document-properties-symbolic")
+        page = Adw.PreferencesPage(
+            title="Scanner Settings",
+            icon_name="document-properties-symbolic",
+        )
 
         # Check if clamd.conf exists and create appropriate content
         try:
@@ -849,9 +851,10 @@ class PreferencesWindow(Adw.PreferencesWindow):
         - Performance settings (max threads, file size, timeouts)
         - Exclusions to prevent scan loops
         """
-        page = Adw.PreferencesPage()
-        page.set_title("On Access")
-        page.set_icon_name("security-high-symbolic")
+        page = Adw.PreferencesPage(
+            title="On Access",
+            icon_name="security-high-symbolic",
+        )
 
         if self._clamd_available:
             # Create On-Access paths group
@@ -1093,9 +1096,10 @@ class PreferencesWindow(Adw.PreferencesWindow):
         - Set scan frequency (hourly, daily, weekly, monthly)
         - Configure scan paths
         """
-        page = Adw.PreferencesPage()
-        page.set_title("Scheduled Scans")
-        page.set_icon_name("media-playback-start-symbolic")
+        page = Adw.PreferencesPage(
+            title="Scheduled Scans",
+            icon_name="alarm-symbolic",
+        )
 
         # Scheduled scans enabled group
         group = Adw.PreferencesGroup()
@@ -1188,9 +1192,10 @@ class PreferencesWindow(Adw.PreferencesWindow):
         - Enable/disable individual exclusions
         - Remove custom exclusions
         """
-        page = Adw.PreferencesPage()
-        page.set_title("Exclusions")
-        page.set_icon_name("emblem-photos-symbolic")
+        page = Adw.PreferencesPage(
+            title="Exclusions",
+            icon_name="action-unavailable-symbolic",
+        )
 
         # Preset exclusions group
         preset_group = Adw.PreferencesGroup()
@@ -1338,9 +1343,10 @@ class PreferencesWindow(Adw.PreferencesWindow):
         This page provides options to save configuration changes
         and view the current configuration status.
         """
-        page = Adw.PreferencesPage()
-        page.set_title("Save & Apply")
-        page.set_icon_name("document-save-symbolic")
+        page = Adw.PreferencesPage(
+            title="Save & Apply",
+            icon_name="document-save-symbolic",
+        )
 
         # Information banner explaining what needs to be saved
         info_group = Adw.PreferencesGroup()

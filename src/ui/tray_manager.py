@@ -423,6 +423,22 @@ class TrayManager:
             except Exception as e:
                 logger.error(f"Error stopping tray service: {e}")
             finally:
+                # Explicitly close pipes to prevent ResourceWarning
+                if self._process.stdin:
+                    try:
+                        self._process.stdin.close()
+                    except Exception:
+                        pass
+                if self._process.stdout:
+                    try:
+                        self._process.stdout.close()
+                    except Exception:
+                        pass
+                if self._process.stderr:
+                    try:
+                        self._process.stderr.close()
+                    except Exception:
+                        pass
                 self._process = None
 
         with self._state_lock:
