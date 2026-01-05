@@ -506,3 +506,175 @@ class TestTooltipFormatting:
             assert "+" in tooltip_format or tooltip_format.startswith(
                 "F"
             ), f"Invalid tooltip format: {tooltip_format}"
+
+
+class TestActionHandlers:
+    """Tests for start-scan and start-update action handlers."""
+
+    def test_start_scan_switches_view_and_starts_scan(self, mock_app, mock_gi_modules):
+        """Test that start-scan action switches to scan view and starts scan."""
+        # Setup
+        mock_window = mock.MagicMock()
+        mock_app.props.active_window = mock_window
+        mock_app._scan_view = mock.MagicMock()
+        mock_app._current_view = "update"  # Start on different view
+
+        # Execute
+        mock_app._on_start_scan(None, None)
+
+        # Verify view was switched
+        mock_window.set_content_view.assert_called_once_with(mock_app._scan_view)
+        mock_window.set_active_view.assert_called_once_with("scan")
+        assert mock_app._current_view == "scan"
+
+        # Verify scan was started
+        mock_app._scan_view._start_scan.assert_called_once()
+
+    def test_start_scan_when_already_on_scan_view(self, mock_app, mock_gi_modules):
+        """Test that start-scan action starts scan when already on scan view."""
+        # Setup
+        mock_window = mock.MagicMock()
+        mock_app.props.active_window = mock_window
+        mock_app._scan_view = mock.MagicMock()
+        mock_app._current_view = "scan"  # Already on scan view
+
+        # Execute
+        mock_app._on_start_scan(None, None)
+
+        # Verify view switch was not performed
+        mock_window.set_content_view.assert_not_called()
+        mock_window.set_active_view.assert_not_called()
+
+        # Verify scan was still started
+        mock_app._scan_view._start_scan.assert_called_once()
+
+    def test_start_scan_with_no_active_window(self, mock_app, mock_gi_modules):
+        """Test that start-scan action handles no active window gracefully."""
+        # Setup
+        mock_app.props.active_window = None
+        mock_app._scan_view = mock.MagicMock()
+
+        # Execute - should not raise exception
+        mock_app._on_start_scan(None, None)
+
+        # Verify scan was not started
+        mock_app._scan_view._start_scan.assert_not_called()
+
+    def test_start_scan_with_no_scan_view(self, mock_app, mock_gi_modules):
+        """Test that start-scan action handles missing scan view gracefully."""
+        # Setup
+        mock_window = mock.MagicMock()
+        mock_app.props.active_window = mock_window
+        mock_app._scan_view = None
+
+        # Execute - should not raise exception
+        mock_app._on_start_scan(None, None)
+
+        # Verify no errors occurred (no calls to non-existent scan view)
+        mock_window.set_content_view.assert_not_called()
+
+    def test_start_update_switches_view_and_starts_update(self, mock_app, mock_gi_modules):
+        """Test that start-update action switches to update view and starts update."""
+        # Setup
+        mock_window = mock.MagicMock()
+        mock_app.props.active_window = mock_window
+        mock_app._update_view = mock.MagicMock()
+        mock_app._update_view._freshclam_available = True
+        mock_app._update_view._is_updating = False
+        mock_app._current_view = "scan"  # Start on different view
+
+        # Execute
+        mock_app._on_start_update(None, None)
+
+        # Verify view was switched
+        mock_window.set_content_view.assert_called_once_with(mock_app._update_view)
+        mock_window.set_active_view.assert_called_once_with("update")
+        assert mock_app._current_view == "update"
+
+        # Verify update was started
+        mock_app._update_view._start_update.assert_called_once()
+
+    def test_start_update_when_already_on_update_view(self, mock_app, mock_gi_modules):
+        """Test that start-update action starts update when already on update view."""
+        # Setup
+        mock_window = mock.MagicMock()
+        mock_app.props.active_window = mock_window
+        mock_app._update_view = mock.MagicMock()
+        mock_app._update_view._freshclam_available = True
+        mock_app._update_view._is_updating = False
+        mock_app._current_view = "update"  # Already on update view
+
+        # Execute
+        mock_app._on_start_update(None, None)
+
+        # Verify view switch was not performed
+        mock_window.set_content_view.assert_not_called()
+        mock_window.set_active_view.assert_not_called()
+
+        # Verify update was still started
+        mock_app._update_view._start_update.assert_called_once()
+
+    def test_start_update_with_freshclam_unavailable(self, mock_app, mock_gi_modules):
+        """Test that start-update action doesn't start when freshclam is unavailable."""
+        # Setup
+        mock_window = mock.MagicMock()
+        mock_app.props.active_window = mock_window
+        mock_app._update_view = mock.MagicMock()
+        mock_app._update_view._freshclam_available = False
+        mock_app._update_view._is_updating = False
+        mock_app._current_view = "scan"
+
+        # Execute
+        mock_app._on_start_update(None, None)
+
+        # Verify view was switched
+        mock_window.set_content_view.assert_called_once_with(mock_app._update_view)
+
+        # Verify update was NOT started (freshclam unavailable)
+        mock_app._update_view._start_update.assert_not_called()
+
+    def test_start_update_when_already_updating(self, mock_app, mock_gi_modules):
+        """Test that start-update action doesn't start when already updating."""
+        # Setup
+        mock_window = mock.MagicMock()
+        mock_app.props.active_window = mock_window
+        mock_app._update_view = mock.MagicMock()
+        mock_app._update_view._freshclam_available = True
+        mock_app._update_view._is_updating = True  # Already updating
+        mock_app._current_view = "scan"
+
+        # Execute
+        mock_app._on_start_update(None, None)
+
+        # Verify view was switched
+        mock_window.set_content_view.assert_called_once_with(mock_app._update_view)
+
+        # Verify update was NOT started (already updating)
+        mock_app._update_view._start_update.assert_not_called()
+
+    def test_start_update_with_no_active_window(self, mock_app, mock_gi_modules):
+        """Test that start-update action handles no active window gracefully."""
+        # Setup
+        mock_app.props.active_window = None
+        mock_app._update_view = mock.MagicMock()
+        mock_app._update_view._freshclam_available = True
+        mock_app._update_view._is_updating = False
+
+        # Execute - should not raise exception
+        mock_app._on_start_update(None, None)
+
+        # Verify update was not started
+        mock_app._update_view._start_update.assert_not_called()
+
+    def test_start_update_with_no_update_view(self, mock_app, mock_gi_modules):
+        """Test that start-update action handles missing update view gracefully."""
+        # Setup
+        mock_window = mock.MagicMock()
+        mock_app.props.active_window = mock_window
+        mock_app._update_view = None
+
+        # Execute - should not raise exception
+        mock_app._on_start_update(None, None)
+
+        # Verify no errors occurred (no calls to non-existent update view)
+        mock_window.set_content_view.assert_not_called()
