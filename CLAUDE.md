@@ -133,15 +133,17 @@ pytest --ignore=tests/e2e
 ### Linting
 ```bash
 # Check code style
-ruff check src/ tests/
+uv run ruff check src/ tests/
 
 # Check formatting
-ruff format --check src/ tests/
+uv run ruff format --check src/ tests/
 
 # Auto-fix issues
-ruff check src/ tests/ --fix
-ruff format src/ tests/
+uv run ruff check src/ tests/ --fix
+uv run ruff format src/ tests/
 ```
+
+Important: Always run `uv run ruff format src/ tests/` and `uv run ruff check --fix` before committing to ensure code consistency.
 
 ## Code Patterns & Conventions
 
