@@ -100,15 +100,28 @@ class LogEntry:
 
     @classmethod
     def from_dict(cls, data: dict) -> "LogEntry":
-        """Create LogEntry from dictionary."""
+        """
+        Create LogEntry from dictionary.
+
+        Sanitizes fields when deserializing from JSON to protect against
+        tampering with stored log files or reading maliciously crafted log entries.
+        """
+        # Extract and sanitize fields
+        # IDs and timestamps are system-controlled, don't need sanitization
+        # Type and status should be controlled enums but sanitize for defense in depth
+        raw_summary = data.get("summary", "")
+        raw_details = data.get("details", "")
+        raw_status = data.get("status", "unknown")
+        raw_path = data.get("path")
+
         return cls(
             id=data.get("id", str(uuid.uuid4())),
             timestamp=data.get("timestamp", datetime.now().isoformat()),
             type=data.get("type", "unknown"),
-            status=data.get("status", "unknown"),
-            summary=data.get("summary", ""),
-            details=data.get("details", ""),
-            path=data.get("path"),
+            status=sanitize_log_line(raw_status),
+            summary=sanitize_log_line(raw_summary),
+            details=sanitize_log_text(raw_details),
+            path=sanitize_log_line(raw_path) if raw_path else None,
             duration=data.get("duration", 0.0),
             scheduled=data.get("scheduled", False),
         )
