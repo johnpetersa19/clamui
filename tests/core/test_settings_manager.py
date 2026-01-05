@@ -707,10 +707,10 @@ class TestSettingsManagerLoadEdgeCases:
             yield tmpdir
 
     def test_load_handles_non_dict_json(self, temp_config_dir):
-        """Test that load raises TypeError for JSON file containing non-dict data.
+        """Test that load handles JSON file containing non-dict data gracefully.
 
-        Note: The current implementation doesn't gracefully handle non-dict JSON.
-        This test documents the current behavior where a TypeError is raised.
+        Non-dict JSON (arrays, primitives) is treated as corrupted and backed up,
+        with defaults returned instead of raising TypeError.
         """
         config_dir = Path(temp_config_dir)
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -718,24 +718,34 @@ class TestSettingsManagerLoadEdgeCases:
         # Write a JSON array instead of dict
         settings_file.write_text('["item1", "item2"]')
 
-        # Current implementation raises TypeError when trying to merge non-dict
-        with pytest.raises(TypeError):
-            SettingsManager(config_dir=config_dir)
+        # Should handle gracefully by backing up and returning defaults
+        manager = SettingsManager(config_dir=config_dir)
+        assert manager.get("notifications_enabled") is True
+
+        # Verify backup was created
+        backup_path = config_dir / "settings.json.corrupted"
+        assert backup_path.exists()
+        assert backup_path.read_text() == '["item1", "item2"]'
 
     def test_load_handles_null_json(self, temp_config_dir):
-        """Test that load raises TypeError for JSON file containing null.
+        """Test that load handles JSON file containing null gracefully.
 
-        Note: The current implementation doesn't gracefully handle null JSON.
-        This test documents the current behavior where a TypeError is raised.
+        Null JSON is treated as corrupted and backed up, with defaults returned
+        instead of raising TypeError.
         """
         config_dir = Path(temp_config_dir)
         config_dir.mkdir(parents=True, exist_ok=True)
         settings_file = config_dir / "settings.json"
         settings_file.write_text("null")
 
-        # Current implementation raises TypeError when trying to merge None
-        with pytest.raises(TypeError):
-            SettingsManager(config_dir=config_dir)
+        # Should handle gracefully by backing up and returning defaults
+        manager = SettingsManager(config_dir=config_dir)
+        assert manager.get("notifications_enabled") is True
+
+        # Verify backup was created
+        backup_path = config_dir / "settings.json.corrupted"
+        assert backup_path.exists()
+        assert backup_path.read_text() == "null"
 
     def test_load_handles_json_with_unicode(self, temp_config_dir):
         """Test that load handles JSON with unicode characters."""
