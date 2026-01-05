@@ -152,19 +152,25 @@ class LogEntry:
         """
         threat_details = threat_details or []
 
+        # Sanitize input fields before building summary and details
+        sanitized_path = sanitize_log_line(path)
+        sanitized_suffix = sanitize_log_line(suffix)
+        sanitized_error_message = sanitize_log_line(error_message) if error_message else None
+        sanitized_stdout = sanitize_log_text(stdout)
+
         # Build summary based on status
-        suffix_str = f" {suffix}" if suffix else ""
+        suffix_str = f" {sanitized_suffix}" if sanitized_suffix else ""
         if scan_status == "clean":
-            summary = f"Clean scan of {path}{suffix_str}"
+            summary = f"Clean scan of {sanitized_path}{suffix_str}"
             status = "clean"
         elif scan_status == "infected":
-            summary = f"Found {infected_count} threat(s) in {path}{suffix_str}"
+            summary = f"Found {infected_count} threat(s) in {sanitized_path}{suffix_str}"
             status = "infected"
         elif scan_status == "cancelled":
-            summary = f"Scan cancelled: {path}"
+            summary = f"Scan cancelled: {sanitized_path}"
             status = "cancelled"
         else:
-            summary = f"Scan error: {path}"
+            summary = f"Scan error: {sanitized_path}"
             status = "error"
 
         # Build details string
@@ -174,19 +180,22 @@ class LogEntry:
         if infected_count > 0:
             details_parts.append(f"Threats found: {infected_count}")
             for threat in threat_details:
-                file_path = threat.get("file_path", threat.get("path", "unknown"))
-                threat_name = threat.get("threat_name", threat.get("name", "unknown"))
-                details_parts.append(f"  - {file_path}: {threat_name}")
-        if error_message:
-            details_parts.append(f"Error: {error_message}")
-        details = "\n".join(details_parts) if details_parts else stdout or ""
+                # Sanitize threat details before adding to log
+                raw_file_path = threat.get("file_path", threat.get("path", "unknown"))
+                raw_threat_name = threat.get("threat_name", threat.get("name", "unknown"))
+                sanitized_file_path = sanitize_log_line(raw_file_path)
+                sanitized_threat_name = sanitize_log_line(raw_threat_name)
+                details_parts.append(f"  - {sanitized_file_path}: {sanitized_threat_name}")
+        if sanitized_error_message:
+            details_parts.append(f"Error: {sanitized_error_message}")
+        details = "\n".join(details_parts) if details_parts else sanitized_stdout or ""
 
         return cls.create(
             log_type="scan",
             status=status,
             summary=summary,
             details=details,
-            path=path,
+            path=sanitized_path,
             duration=duration,
             scheduled=scheduled,
         )
