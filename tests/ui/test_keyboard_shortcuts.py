@@ -14,8 +14,6 @@ and implemented in src/app.py, src/ui/window.py, and src/ui/scan_view.py.
 import sys
 from unittest import mock
 
-import pytest
-
 
 def _clear_src_modules():
     """Clear all cached src.* modules to prevent test pollution."""
@@ -59,9 +57,7 @@ class TestTooltipFormatting:
         window._logs_button.set_tooltip_text.assert_any_call("View Logs (Ctrl+3)")
         window._components_button.set_tooltip_text.assert_any_call("ClamAV Components (Ctrl+4)")
         window._quarantine_button.set_tooltip_text.assert_any_call("Quarantine (Ctrl+5)")
-        window._statistics_button.set_tooltip_text.assert_any_call(
-            "Statistics Dashboard (Ctrl+6)"
-        )
+        window._statistics_button.set_tooltip_text.assert_any_call("Statistics Dashboard (Ctrl+6)")
 
     def test_menu_button_tooltip(self, mock_gi_modules):
         """Test that menu button has tooltip with F10 keyboard shortcut."""
@@ -210,8 +206,8 @@ class TestTooltipFormatting:
         assert len(tooltip_to_accelerator) == 8  # 6 navigation + F5 + F10
 
         # Verify all tooltip formats can be mapped to accelerators
-        for tooltip_format, gtk_format in tooltip_to_accelerator.items():
+        for tooltip_format, _gtk_format in tooltip_to_accelerator.items():
             # Tooltip format should be human-readable (e.g., "Ctrl+1")
-            assert "+" in tooltip_format or tooltip_format.startswith(
-                "F"
-            ), f"Invalid tooltip format: {tooltip_format}"
+            assert "+" in tooltip_format or tooltip_format.startswith("F"), (
+                f"Invalid tooltip format: {tooltip_format}"
+            )
