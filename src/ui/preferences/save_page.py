@@ -121,8 +121,8 @@ class SavePage(PreferencesPageMixin):
 
         # Auto-save settings info row
         auto_save_row = Adw.ActionRow()
-        auto_save_row.set_title("✓ Auto-Saved")
-        auto_save_row.set_subtitle("Scan Backend, Exclusions — Saved automatically")
+        auto_save_row.set_title("Auto-Saved")
+        auto_save_row.set_subtitle("Scan Backend, Exclusions")
         auto_save_icon = Gtk.Image.new_from_icon_name("emblem-default-symbolic")
         auto_save_icon.add_css_class("success")
         auto_save_row.add_prefix(auto_save_icon)
@@ -130,8 +130,10 @@ class SavePage(PreferencesPageMixin):
 
         # Manual save settings info row
         manual_save_row = Adw.ActionRow()
-        manual_save_row.set_title("🔒 Requires Save & Apply")
+        manual_save_row.set_title("Manual Save Required")
+        manual_save_row.set_title_lines(1)
         manual_save_row.set_subtitle("Database Updates, Scanner, On-Access, Scheduled Scans")
+        manual_save_row.set_subtitle_lines(1)
         lock_icon = Gtk.Image.new_from_icon_name("system-lock-screen-symbolic")
         lock_icon.add_css_class("warning")
         manual_save_row.add_prefix(lock_icon)
@@ -182,9 +184,7 @@ class SavePage(PreferencesPageMixin):
         # Collect form data from all pages
         freshclam_updates = DatabasePage.collect_data(self._freshclam_widgets)
         clamd_updates = ScannerPage.collect_data(self._clamd_widgets, self._clamd_available)
-        onaccess_updates = OnAccessPage.collect_data(
-            self._onaccess_widgets, self._clamd_available
-        )
+        onaccess_updates = OnAccessPage.collect_data(self._onaccess_widgets, self._clamd_available)
         scheduled_updates = ScheduledPage.collect_data(self._scheduled_widgets)
 
         # Validate configurations
