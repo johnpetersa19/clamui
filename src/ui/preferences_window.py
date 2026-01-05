@@ -674,11 +674,12 @@ class PreferencesWindow(Adw.PreferencesWindow):
         from src.core.utils import check_clamd_connection
 
         group = Adw.PreferencesGroup()
-        group.set_title("Scan Backend")
+        group.set_title("Scan Backend (Auto-Saved)")
         group.set_description(
             "Choose how ClamUI communicates with ClamAV to perform virus scans. "
             "The backend affects scan speed, memory usage, and setup requirements. "
-            "Auto mode (recommended) intelligently selects the best available backend."
+            "Auto mode (recommended) intelligently selects the best available backend. "
+            "Changes are saved automatically when you select a different option."
         )
 
         # Scan backend dropdown
@@ -1121,7 +1122,11 @@ class PreferencesWindow(Adw.PreferencesWindow):
         # Scheduled scans enabled group
         group = Adw.PreferencesGroup()
         group.set_title("Scheduled Scans Configuration")
-        group.set_description("Configure automatic virus scanning")
+        group.set_description(
+            "Configure automatic virus scanning. "
+            "These settings are saved when you click 'Save & Apply' on the last page. "
+            "Note: These are ClamUI settings, not ClamAV system configuration."
+        )
 
         # Enable scheduled scans switch
         enable_scheduled_row = Adw.SwitchRow()
@@ -1215,8 +1220,11 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Preset exclusions group
         preset_group = Adw.PreferencesGroup()
-        preset_group.set_title("Preset Exclusions")
-        preset_group.set_description("Common directories and patterns to exclude from scanning")
+        preset_group.set_title("Preset Exclusions (Auto-Saved)")
+        preset_group.set_description(
+            "Common directories and patterns to exclude from scanning. "
+            "Changes are saved automatically when you toggle or modify exclusions."
+        )
 
         for preset in PRESET_EXCLUSIONS:
             # Create a row for each preset
@@ -1230,8 +1238,11 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Custom exclusions group
         self._custom_exclusions_group = Adw.PreferencesGroup()
-        self._custom_exclusions_group.set_title("Custom Exclusions")
-        self._custom_exclusions_group.set_description("Add your own exclusion patterns")
+        self._custom_exclusions_group.set_title("Custom Exclusions (Auto-Saved)")
+        self._custom_exclusions_group.set_description(
+            "Add your own exclusion patterns. "
+            "Changes are saved automatically when you add, remove, or toggle exclusions."
+        )
 
         # Custom exclusion entry row
         self._custom_entry_row = Adw.EntryRow()
@@ -1363,6 +1374,41 @@ class PreferencesWindow(Adw.PreferencesWindow):
         page.set_title("Save & Apply")
         page.set_icon_name("document-save-symbolic")
 
+        # Information banner explaining what needs to be saved
+        info_group = Adw.PreferencesGroup()
+        info_group.set_title("About Saving Settings")
+        info_group.set_description(
+            "ClamUI has two types of settings with different save behaviors"
+        )
+
+        # Auto-save settings info row
+        auto_save_row = Adw.ActionRow()
+        auto_save_row.set_title("✓ Auto-Saved Settings")
+        auto_save_row.set_subtitle(
+            "Scan Backend and Exclusions pages — "
+            "These save automatically to settings.json when you change them"
+        )
+        auto_save_icon = Gtk.Image.new_from_icon_name("emblem-default-symbolic")
+        auto_save_icon.add_css_class("success")
+        auto_save_icon.set_margin_start(6)
+        auto_save_row.add_prefix(auto_save_icon)
+        info_group.add(auto_save_row)
+
+        # Manual save settings info row
+        manual_save_row = Adw.ActionRow()
+        manual_save_row.set_title("🔒 Requires 'Save & Apply' Button")
+        manual_save_row.set_subtitle(
+            "Database Updates, Scanner Settings, On-Access, and Scheduled Scans — "
+            "Settings with lock icons modify system files and require clicking 'Save & Apply' below"
+        )
+        lock_icon = Gtk.Image.new_from_icon_name("system-lock-screen-symbolic")
+        lock_icon.add_css_class("warning")
+        lock_icon.set_margin_start(6)
+        manual_save_row.add_prefix(lock_icon)
+        info_group.add(manual_save_row)
+
+        page.add(info_group)
+
         # Configuration status group
         status_group = Adw.PreferencesGroup()
         status_group.set_title("Configuration Status")
@@ -1382,8 +1428,11 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
         # Save & apply button group
         button_group = Adw.PreferencesGroup()
-        button_group.set_title("Apply Changes")
-        button_group.set_description("Save configuration changes to ClamAV")
+        button_group.set_title("Apply ClamAV System Configuration Changes")
+        button_group.set_description(
+            "Click below to save changes made to Database Updates, Scanner Settings, "
+            "and On-Access pages (settings marked with lock icons)"
+        )
 
         # Save button
         save_button_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
