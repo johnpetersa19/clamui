@@ -153,6 +153,393 @@ class TestLogEntry:
         assert restored.path == original.path
         assert restored.duration == original.duration
 
+    # Sanitization Tests
+
+    def test_create_sanitizes_summary_newlines(self):
+        """Test LogEntry.create sanitizes newlines in summary field."""
+        # Summary is a single-line field - newlines should become spaces
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Line 1\nLine 2\nLine 3",
+            details="Details",
+        )
+        assert "\n" not in entry.summary
+        assert entry.summary == "Line 1 Line 2 Line 3"
+
+    def test_create_sanitizes_summary_ansi_escapes(self):
+        """Test LogEntry.create sanitizes ANSI escape sequences in summary."""
+        # ANSI codes should be removed from summary
+        entry = LogEntry.create(
+            log_type="scan",
+            status="infected",
+            summary="Found \x1b[31mmalware\x1b[0m in file",
+            details="Details",
+        )
+        assert "\x1b" not in entry.summary
+        assert entry.summary == "Found malware in file"
+
+    def test_create_sanitizes_summary_control_characters(self):
+        """Test LogEntry.create sanitizes control characters in summary."""
+        # Control characters (bell, null, etc.) should be removed
+        entry = LogEntry.create(
+            log_type="scan",
+            status="error",
+            summary="Error\x00\x07\x08message",
+            details="Details",
+        )
+        assert "\x00" not in entry.summary
+        assert "\x07" not in entry.summary
+        assert "\x08" not in entry.summary
+        assert entry.summary == "Errormessage"
+
+    def test_create_sanitizes_summary_unicode_bidi(self):
+        """Test LogEntry.create sanitizes Unicode bidirectional overrides in summary."""
+        # Unicode bidi override characters should be removed
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="File\u202etxt.evil sanitized",
+            details="Details",
+        )
+        assert "\u202e" not in entry.summary
+        assert entry.summary == "Filetxt.evil sanitized"
+
+    def test_create_sanitizes_path_newlines(self):
+        """Test LogEntry.create sanitizes newlines in path field."""
+        # Path is single-line - newlines should become spaces
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Summary",
+            details="Details",
+            path="/home/user\nfake/path",
+        )
+        assert "\n" not in entry.path
+        assert entry.path == "/home/user fake/path"
+
+    def test_create_sanitizes_path_ansi_escapes(self):
+        """Test LogEntry.create sanitizes ANSI escape sequences in path."""
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Summary",
+            details="Details",
+            path="/path/\x1b[32mwith\x1b[0m/color",
+        )
+        assert "\x1b" not in entry.path
+        assert entry.path == "/path/with/color"
+
+    def test_create_sanitizes_details_preserves_newlines(self):
+        """Test LogEntry.create preserves legitimate newlines in details field."""
+        # Details is multi-line - newlines should be preserved
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Summary",
+            details="Line 1\nLine 2\nLine 3",
+        )
+        assert entry.details == "Line 1\nLine 2\nLine 3"
+
+    def test_create_sanitizes_details_ansi_escapes(self):
+        """Test LogEntry.create sanitizes ANSI escape sequences in details."""
+        entry = LogEntry.create(
+            log_type="scan",
+            status="infected",
+            summary="Summary",
+            details="Found \x1b[31mthreat\x1b[0m\nIn file.txt",
+        )
+        assert "\x1b" not in entry.details
+        assert entry.details == "Found threat\nIn file.txt"
+
+    def test_create_sanitizes_details_control_characters(self):
+        """Test LogEntry.create sanitizes control characters in details."""
+        # Non-whitespace control characters should be removed
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Summary",
+            details="Output\x00\x07\x08\nNext line",
+        )
+        assert "\x00" not in entry.details
+        assert "\x07" not in entry.details
+        assert entry.details == "Output\nNext line"
+
+    def test_create_handles_none_path(self):
+        """Test LogEntry.create handles None path gracefully."""
+        entry = LogEntry.create(
+            log_type="update",
+            status="success",
+            summary="Database updated",
+            details="Details",
+            path=None,
+        )
+        assert entry.path is None
+
+    def test_create_combined_malicious_input(self):
+        """Test LogEntry.create with combined malicious characters."""
+        # Test with multiple attack vectors combined
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Clean\x00\nscan\x1b[31m\u202afile\u202c",
+            details="Output\x00\nLine 2\x1b[32mgreen",
+            path="/path\ninjection\x1b[0m",
+        )
+        # Summary: newlines become spaces, control chars removed
+        assert entry.summary == "Clean scanfile"
+        # Details: newlines preserved, control chars removed
+        assert entry.details == "Output\nLine 2green"
+        # Path: newlines become spaces, control chars removed
+        assert entry.path == "/path injection"
+
+    def test_from_scan_result_data_sanitizes_path(self):
+        """Test from_scan_result_data sanitizes path field."""
+        entry = LogEntry.from_scan_result_data(
+            scan_status="clean",
+            path="/home/user\x1b[31m\nmalicious",
+            duration=10.0,
+            scanned_files=5,
+        )
+        # Path should be sanitized (newlines become spaces, ANSI removed)
+        assert "\n" not in entry.path
+        assert "\x1b" not in entry.path
+        assert entry.path == "/home/user malicious"
+        # Summary should also contain the sanitized path
+        assert "Clean scan of /home/user malicious" in entry.summary
+
+    def test_from_scan_result_data_sanitizes_threat_details(self):
+        """Test from_scan_result_data sanitizes threat details."""
+        threat_details = [
+            {
+                "file_path": "/tmp/virus\x1b[31m.exe\x00",
+                "threat_name": "Trojan\nFakeLog.Gen",
+            },
+            {
+                "file_path": "/tmp/\u202eevil.txt",
+                "threat_name": "Malware\x07.Test",
+            },
+        ]
+        entry = LogEntry.from_scan_result_data(
+            scan_status="infected",
+            path="/tmp",
+            duration=15.0,
+            infected_count=2,
+            threat_details=threat_details,
+        )
+        # Details should contain sanitized threat information
+        details_lines = entry.details.split("\n")
+        # Check that malicious characters are removed from file paths
+        assert any("/tmp/virus.exe" in line for line in details_lines)
+        assert any("/tmp/evil.txt" in line for line in details_lines)
+        # Check that malicious characters are removed from threat names
+        assert any("Trojan FakeLog.Gen" in line for line in details_lines)
+        assert any("Malware.Test" in line for line in details_lines)
+        # Ensure no ANSI, null bytes, bidi, or control chars in details
+        assert "\x1b" not in entry.details
+        assert "\x00" not in entry.details
+        assert "\u202e" not in entry.details
+        assert "\x07" not in entry.details
+
+    def test_from_scan_result_data_sanitizes_error_message(self):
+        """Test from_scan_result_data sanitizes error message."""
+        entry = LogEntry.from_scan_result_data(
+            scan_status="error",
+            path="/test",
+            duration=1.0,
+            error_message="Permission\x00 denied\n[FAKE] Success",
+        )
+        # Error message should be sanitized in details
+        assert "\x00" not in entry.details
+        # Newlines in error message should become spaces (single-line field)
+        assert "Permission denied [FAKE] Success" in entry.details
+
+    def test_from_scan_result_data_sanitizes_suffix(self):
+        """Test from_scan_result_data sanitizes suffix field."""
+        entry = LogEntry.from_scan_result_data(
+            scan_status="clean",
+            path="/test",
+            duration=5.0,
+            suffix="(daemon\x1b[31m)\ninjection",
+        )
+        # Suffix should be sanitized in summary
+        assert "\x1b" not in entry.summary
+        assert "\n" not in entry.summary
+        assert "(daemon) injection" in entry.summary
+
+    def test_from_scan_result_data_sanitizes_stdout(self):
+        """Test from_scan_result_data sanitizes stdout field."""
+        stdout_with_ansi = """
+----------- SCAN SUMMARY -----------
+\x1b[32mKnown viruses: 12345\x1b[0m
+Engine version: 1.0.0
+\x00Null bytes here
+Scanned directories: 10
+\x1b[31mInfected files: 0\x1b[0m
+"""
+        entry = LogEntry.from_scan_result_data(
+            scan_status="clean",
+            path="/test",
+            duration=10.0,
+            stdout=stdout_with_ansi,
+        )
+        # ANSI codes and null bytes should be removed from details
+        assert "\x1b" not in entry.details
+        assert "\x00" not in entry.details
+        # Newlines should be preserved (multi-line field)
+        assert "Known viruses: 12345" in entry.details
+        assert "Infected files: 0" in entry.details
+
+    def test_from_scan_result_data_log_injection_attempt(self):
+        """Test from_scan_result_data prevents log injection via crafted filenames."""
+        # Attacker tries to inject a fake clean scan result
+        threat_details = [
+            {
+                "file_path": "malware.exe\n[CLEAN] Fake scan of /important/system",
+                "threat_name": "Virus.Win32.Test",
+            }
+        ]
+        entry = LogEntry.from_scan_result_data(
+            scan_status="infected",
+            path="/downloads",
+            duration=5.0,
+            infected_count=1,
+            threat_details=threat_details,
+        )
+        # Newlines should be removed from file_path (single-line field)
+        assert "\n" not in entry.details or entry.details.count("\n") == entry.details.count(
+            "Threats found"
+        )
+        # The injected content should appear on the same line
+        assert "malware.exe [CLEAN]" in entry.details
+
+    def test_from_scan_result_data_ansi_obfuscation_attempt(self):
+        """Test from_scan_result_data prevents ANSI-based obfuscation."""
+        # Attacker tries to hide malicious file with ANSI "hidden" code
+        threat_details = [
+            {
+                "file_path": "safe.txt\x1b[8mactually_malware.exe\x1b[0m",
+                "threat_name": "Trojan.Generic",
+            }
+        ]
+        entry = LogEntry.from_scan_result_data(
+            scan_status="infected",
+            path="/downloads",
+            duration=5.0,
+            infected_count=1,
+            threat_details=threat_details,
+        )
+        # ANSI codes should be removed, revealing the full filename
+        assert "safe.txtactually_malware.exe" in entry.details
+        assert "\x1b" not in entry.details
+
+    def test_from_dict_sanitizes_summary(self):
+        """Test from_dict sanitizes summary field from deserialized data."""
+        data = {
+            "id": "test-id",
+            "timestamp": "2024-01-01T00:00:00",
+            "type": "scan",
+            "status": "clean",
+            "summary": "Clean\x00 scan\nwith\x1b[31m issues",
+            "details": "Details",
+        }
+        entry = LogEntry.from_dict(data)
+        # Summary should be sanitized (single-line)
+        assert "\x00" not in entry.summary
+        assert "\n" not in entry.summary
+        assert "\x1b" not in entry.summary
+        assert entry.summary == "Clean scan with issues"
+
+    def test_from_dict_sanitizes_details(self):
+        """Test from_dict sanitizes details field from deserialized data."""
+        data = {
+            "id": "test-id",
+            "timestamp": "2024-01-01T00:00:00",
+            "type": "scan",
+            "status": "infected",
+            "summary": "Summary",
+            "details": "Line 1\x00\nLine 2\x1b[32m\nLine 3",
+        }
+        entry = LogEntry.from_dict(data)
+        # Details should be sanitized (multi-line - preserves newlines)
+        assert "\x00" not in entry.details
+        assert "\x1b" not in entry.details
+        assert entry.details == "Line 1\nLine 2\nLine 3"
+
+    def test_from_dict_sanitizes_path(self):
+        """Test from_dict sanitizes path field from deserialized data."""
+        data = {
+            "id": "test-id",
+            "timestamp": "2024-01-01T00:00:00",
+            "type": "scan",
+            "status": "clean",
+            "summary": "Summary",
+            "details": "Details",
+            "path": "/home/user\n\x1b[31m/malicious\u202e",
+        }
+        entry = LogEntry.from_dict(data)
+        # Path should be sanitized (single-line)
+        assert "\n" not in entry.path
+        assert "\x1b" not in entry.path
+        assert "\u202e" not in entry.path
+        assert entry.path == "/home/user /malicious"
+
+    def test_from_dict_sanitizes_status(self):
+        """Test from_dict sanitizes status field from deserialized data."""
+        data = {
+            "id": "test-id",
+            "timestamp": "2024-01-01T00:00:00",
+            "type": "scan",
+            "status": "clean\n\x1b[31minfected",
+            "summary": "Summary",
+            "details": "Details",
+        }
+        entry = LogEntry.from_dict(data)
+        # Status should be sanitized
+        assert "\n" not in entry.status
+        assert "\x1b" not in entry.status
+        assert entry.status == "clean infected"
+
+    def test_from_dict_handles_none_path(self):
+        """Test from_dict handles None path gracefully."""
+        data = {
+            "id": "test-id",
+            "timestamp": "2024-01-01T00:00:00",
+            "type": "update",
+            "status": "success",
+            "summary": "Summary",
+            "details": "Details",
+            "path": None,
+        }
+        entry = LogEntry.from_dict(data)
+        assert entry.path is None
+
+    def test_from_dict_protects_against_tampering(self):
+        """Test from_dict protects against maliciously crafted stored logs."""
+        # Simulate an attacker tampering with stored log JSON
+        malicious_data = {
+            "id": "attacker-id",
+            "timestamp": "2024-01-01T00:00:00",
+            "type": "scan\x00",
+            "status": "clean\ninfected",  # Try to inject contradictory status
+            "summary": "Clean scan\n[ERROR] System compromised",  # Log injection
+            "details": "\x1b[8mHidden malware: /tmp/evil.exe\x1b[0m\nNormal output",
+            "path": "/safe/path\n/tmp/\u202eevil",
+        }
+        entry = LogEntry.from_dict(malicious_data)
+
+        # All malicious content should be sanitized
+        assert "\x00" not in entry.type
+        assert "\n" not in entry.status
+        assert "\n" not in entry.summary  # Log injection prevented
+        assert "\x1b" not in entry.details  # ANSI obfuscation removed
+        assert "\u202e" not in entry.path  # Unicode spoofing removed
+
+        # Verify sanitized values
+        assert entry.status == "clean infected"
+        assert entry.summary == "Clean scan [ERROR] System compromised"
+        assert entry.path == "/safe/path /tmp/evil"
+
 
 class TestLogManager:
     """Tests for the LogManager class."""

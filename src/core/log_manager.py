@@ -2,6 +2,133 @@
 """
 Log manager module for ClamUI providing log persistence and retrieval.
 Stores scan/update operation logs and provides daemon log access.
+
+Security: Input Sanitization for Log Injection Prevention
+==========================================================
+
+This module implements comprehensive input sanitization to prevent log injection
+attacks and log obfuscation when storing file paths, threat names, and ClamAV
+output in log entries.
+
+Attack Vectors Mitigated
+------------------------
+
+1. **Control Characters**
+   Threat: Malicious filenames containing control characters (e.g., \\x07 bell,
+   \\x08 backspace, \\x0C form feed) could manipulate terminal output or confuse
+   log viewing tools.
+   Mitigation: All control characters except safe whitespace (space, tab) are
+   removed from single-line fields. Multi-line fields preserve newlines/tabs but
+   remove other control characters.
+
+2. **ANSI Escape Sequences**
+   Threat: ANSI escape codes (e.g., \\x1b[31m for red text, \\x1b[2J to clear
+   screen) embedded in filenames could hide malicious content, modify displayed
+   text, or obscure log entries when viewed in terminals.
+   Mitigation: All ANSI escape sequences are detected and removed using a
+   comprehensive regex pattern that matches CSI sequences (\\x1b[...m) and other
+   escape codes.
+
+3. **Unicode Bidirectional Overrides**
+   Threat: Unicode bidirectional control characters (U+202A-U+202E, U+2066-U+2069)
+   can reverse or modify the displayed order of text, allowing attackers to craft
+   filenames that appear benign but actually reference malicious files. Example:
+   "file\\u202Etxt.exe" displays as "fileexe.txt" but is actually an executable.
+   Mitigation: All Unicode bidirectional override characters are removed from all
+   log fields.
+
+4. **Log Injection via Newlines**
+   Threat: Crafted filenames containing newline characters (\\n or \\r) could
+   inject fake log entries or split a single log entry across multiple lines,
+   potentially forging scan results or hiding malicious activity. Example:
+   "clean.txt\\nINFECTED: virus.exe\\nClean scan" could appear as three separate
+   log lines.
+   Mitigation: Newlines are converted to spaces in single-line fields (summary,
+   path, threat names) to prevent entry injection. Multi-line fields (details,
+   stdout) preserve legitimate newlines from ClamAV output.
+
+5. **Null Byte Injection**
+   Threat: Null bytes (\\x00) can truncate strings in some contexts or confuse
+   parsers, potentially hiding parts of filenames or log content.
+   Mitigation: All null bytes are removed from all fields before storage.
+
+Sanitization Implementation
+---------------------------
+
+The module uses two sanitization functions from src/core/sanitize.py:
+
+- **sanitize_log_line()**: For single-line fields (summary, path, threat names)
+  Removes: control chars, ANSI escapes, Unicode bidi, null bytes, newlines
+  Preserves: printable text, spaces, tabs
+
+- **sanitize_log_text()**: For multi-line fields (details, stdout)
+  Removes: control chars (except newlines/tabs), ANSI escapes, Unicode bidi, null bytes
+  Preserves: printable text, spaces, tabs, newlines, carriage returns
+
+Entry Points Sanitized
+-----------------------
+
+All LogEntry creation methods apply sanitization:
+
+1. **LogEntry.create()** - Direct entry creation
+   - Sanitizes: summary (line), details (text), path (line)
+
+2. **LogEntry.from_scan_result_data()** - Scanner integration
+   - Sanitizes: path, threat_details (file_path, threat_name), error_message,
+     stdout, suffix
+   - Used by: Scanner, DaemonScanner
+
+3. **LogEntry.from_dict()** - JSON deserialization
+   - Sanitizes: type, status, summary, details, path
+   - Protection: Defense against tampering with stored log files
+
+Defense in Depth
+----------------
+
+Sanitization is applied at multiple layers:
+
+1. **Input Layer**: All user-controlled input from scan results is sanitized
+   before building log entry fields (from_scan_result_data).
+
+2. **Creation Layer**: All fields are sanitized again when creating LogEntry
+   instances (create method).
+
+3. **Deserialization Layer**: Fields are sanitized when reading from disk to
+   protect against maliciously crafted or tampered log files (from_dict).
+
+This multi-layer approach ensures that even if log files are manually edited or
+replaced by an attacker, the malicious content cannot affect log viewers or
+exploit downstream systems.
+
+Example Attack Scenarios Prevented
+-----------------------------------
+
+1. **ANSI Obfuscation**:
+   Malicious file: "/tmp/\\x1b[2Kharmless.txt\\x1b[31m[INFECTED]\\x1b[0m"
+   Without sanitization: Clears line and shows fake infection marker in red
+   With sanitization: "/tmp/harmless.txt[INFECTED]" (escape codes removed)
+
+2. **Log Injection**:
+   Malicious file: "safe.txt\\n[2024-01-15] INFECTED: virus.exe\\nClean scan"
+   Without sanitization: Appears as three log entries, forging an infection
+   With sanitization: "safe.txt [2024-01-15] INFECTED: virus.exe Clean scan"
+
+3. **Unicode Direction Spoofing**:
+   Malicious file: "document\\u202Efdp.exe" (displays as "documentexe.pdf")
+   Without sanitization: Appears to be a PDF but is actually an executable
+   With sanitization: "documentfdp.exe" (true extension visible)
+
+Security Testing
+----------------
+
+The sanitization implementation has comprehensive test coverage:
+
+- tests/core/test_sanitize.py: 80+ unit tests for sanitization functions
+- tests/core/test_log_manager.py: Integration tests for LogEntry sanitization
+- Coverage includes: control chars, ANSI escapes, Unicode bidi, null bytes,
+  newlines, edge cases, real-world attack scenarios, ClamAV output formats
+
+For implementation details, see: src/core/sanitize.py
 """
 
 import contextlib
@@ -22,6 +149,7 @@ from pathlib import Path
 
 from gi.repository import GLib
 
+from .sanitize import sanitize_log_line, sanitize_log_text
 from .utils import is_flatpak, which_host_command, wrap_host_command
 
 
@@ -86,9 +214,9 @@ class LogEntry:
             timestamp=datetime.now().isoformat(),
             type=log_type,
             status=status,
-            summary=summary,
-            details=details,
-            path=path,
+            summary=sanitize_log_line(summary),
+            details=sanitize_log_text(details),
+            path=sanitize_log_line(path) if path else None,
             duration=duration,
             scheduled=scheduled,
         )
@@ -99,15 +227,29 @@ class LogEntry:
 
     @classmethod
     def from_dict(cls, data: dict) -> "LogEntry":
-        """Create LogEntry from dictionary."""
+        """
+        Create LogEntry from dictionary.
+
+        Sanitizes fields when deserializing from JSON to protect against
+        tampering with stored log files or reading maliciously crafted log entries.
+        """
+        # Extract and sanitize fields
+        # IDs and timestamps are system-controlled, don't need sanitization
+        # Type and status should be controlled enums but sanitize for defense in depth
+        raw_summary = data.get("summary", "")
+        raw_details = data.get("details", "")
+        raw_status = data.get("status", "unknown")
+        raw_type = data.get("type", "unknown")
+        raw_path = data.get("path")
+
         return cls(
             id=data.get("id", str(uuid.uuid4())),
             timestamp=data.get("timestamp", datetime.now().isoformat()),
-            type=data.get("type", "unknown"),
-            status=data.get("status", "unknown"),
-            summary=data.get("summary", ""),
-            details=data.get("details", ""),
-            path=data.get("path"),
+            type=sanitize_log_line(raw_type),
+            status=sanitize_log_line(raw_status),
+            summary=sanitize_log_line(raw_summary),
+            details=sanitize_log_text(raw_details),
+            path=sanitize_log_line(raw_path) if raw_path else None,
             duration=data.get("duration", 0.0),
             scheduled=data.get("scheduled", False),
         )
@@ -151,19 +293,25 @@ class LogEntry:
         """
         threat_details = threat_details or []
 
+        # Sanitize input fields before building summary and details
+        sanitized_path = sanitize_log_line(path)
+        sanitized_suffix = sanitize_log_line(suffix)
+        sanitized_error_message = sanitize_log_line(error_message) if error_message else None
+        sanitized_stdout = sanitize_log_text(stdout)
+
         # Build summary based on status
-        suffix_str = f" {suffix}" if suffix else ""
+        suffix_str = f" {sanitized_suffix}" if sanitized_suffix else ""
         if scan_status == "clean":
-            summary = f"Clean scan of {path}{suffix_str}"
+            summary = f"Clean scan of {sanitized_path}{suffix_str}"
             status = "clean"
         elif scan_status == "infected":
-            summary = f"Found {infected_count} threat(s) in {path}{suffix_str}"
+            summary = f"Found {infected_count} threat(s) in {sanitized_path}{suffix_str}"
             status = "infected"
         elif scan_status == "cancelled":
-            summary = f"Scan cancelled: {path}"
+            summary = f"Scan cancelled: {sanitized_path}"
             status = "cancelled"
         else:
-            summary = f"Scan error: {path}"
+            summary = f"Scan error: {sanitized_path}"
             status = "error"
 
         # Build details string
@@ -173,19 +321,22 @@ class LogEntry:
         if infected_count > 0:
             details_parts.append(f"Threats found: {infected_count}")
             for threat in threat_details:
-                file_path = threat.get("file_path", threat.get("path", "unknown"))
-                threat_name = threat.get("threat_name", threat.get("name", "unknown"))
-                details_parts.append(f"  - {file_path}: {threat_name}")
-        if error_message:
-            details_parts.append(f"Error: {error_message}")
-        details = "\n".join(details_parts) if details_parts else stdout or ""
+                # Sanitize threat details before adding to log
+                raw_file_path = threat.get("file_path", threat.get("path", "unknown"))
+                raw_threat_name = threat.get("threat_name", threat.get("name", "unknown"))
+                sanitized_file_path = sanitize_log_line(raw_file_path)
+                sanitized_threat_name = sanitize_log_line(raw_threat_name)
+                details_parts.append(f"  - {sanitized_file_path}: {sanitized_threat_name}")
+        if sanitized_error_message:
+            details_parts.append(f"Error: {sanitized_error_message}")
+        details = "\n".join(details_parts) if details_parts else sanitized_stdout or ""
 
         return cls.create(
             log_type="scan",
             status=status,
             summary=summary,
             details=details,
-            path=path,
+            path=sanitized_path,
             duration=duration,
             scheduled=scheduled,
         )
