@@ -156,6 +156,8 @@ def mock_gi_modules():
     # Build gi module structure
     mock_gi_module = MagicMock()
     mock_gi_module.require_version = MagicMock()
+    # Set version_info to a real tuple to support matplotlib version checks
+    mock_gi_module.version_info = (3, 48, 0)
 
     mock_repository = MagicMock()
     mock_repository.Gtk = mock_gtk

@@ -230,26 +230,44 @@ class ClamUIApp(Adw.Application):
         show_scan_action = Gio.SimpleAction.new("show-scan", None)
         show_scan_action.connect("activate", self._on_show_scan)
         self.add_action(show_scan_action)
+        self.set_accels_for_action("app.show-scan", ["<Control>1"])
 
         show_update_action = Gio.SimpleAction.new("show-update", None)
         show_update_action.connect("activate", self._on_show_update)
         self.add_action(show_update_action)
+        self.set_accels_for_action("app.show-update", ["<Control>2"])
 
         show_logs_action = Gio.SimpleAction.new("show-logs", None)
         show_logs_action.connect("activate", self._on_show_logs)
         self.add_action(show_logs_action)
+        self.set_accels_for_action("app.show-logs", ["<Control>3"])
 
         show_components_action = Gio.SimpleAction.new("show-components", None)
         show_components_action.connect("activate", self._on_show_components)
         self.add_action(show_components_action)
-
-        show_statistics_action = Gio.SimpleAction.new("show-statistics", None)
-        show_statistics_action.connect("activate", self._on_show_statistics)
-        self.add_action(show_statistics_action)
+        self.set_accels_for_action("app.show-components", ["<Control>4"])
 
         show_quarantine_action = Gio.SimpleAction.new("show-quarantine", None)
         show_quarantine_action.connect("activate", self._on_show_quarantine)
         self.add_action(show_quarantine_action)
+        self.set_accels_for_action("app.show-quarantine", ["<Control>5"])
+
+        show_statistics_action = Gio.SimpleAction.new("show-statistics", None)
+        show_statistics_action.connect("activate", self._on_show_statistics)
+        self.add_action(show_statistics_action)
+        self.set_accels_for_action("app.show-statistics", ["<Control>6"])
+
+        # Scan action - start scan with F5
+        start_scan_action = Gio.SimpleAction.new("start-scan", None)
+        start_scan_action.connect("activate", self._on_start_scan)
+        self.add_action(start_scan_action)
+        self.set_accels_for_action("app.start-scan", ["F5"])
+
+        # Update action - start database update with F6
+        start_update_action = Gio.SimpleAction.new("start-update", None)
+        start_update_action.connect("activate", self._on_start_update)
+        self.add_action(start_update_action)
+        self.set_accels_for_action("app.start-update", ["F6"])
 
     def _setup_tray_indicator(self):
         """Initialize the system tray indicator subprocess."""
@@ -395,6 +413,42 @@ class ClamUIApp(Adw.Application):
             win.set_content_view(self._statistics_view)
             win.set_active_view("statistics")
             self._current_view = "statistics"
+
+    def _on_start_scan(self, action, param):
+        """
+        Handle start-scan action - start scan with F5.
+
+        If not on scan view, switches to it first, then triggers the scan.
+        """
+        win = self.props.active_window
+        if win and self._scan_view:
+            # Switch to scan view if not already there
+            if self._current_view != "scan":
+                win.set_content_view(self._scan_view)
+                win.set_active_view("scan")
+                self._current_view = "scan"
+
+            # Trigger the scan
+            self._scan_view._start_scan()
+
+    def _on_start_update(self, action, param):
+        """
+        Handle start-update action - start database update with F6.
+
+        If not on update view, switches to it first, then triggers the update
+        if freshclam is available and not already updating.
+        """
+        win = self.props.active_window
+        if win and self._update_view:
+            # Switch to update view if not already there
+            if self._current_view != "update":
+                win.set_content_view(self._update_view)
+                win.set_active_view("update")
+                self._current_view = "update"
+
+            # Trigger the update if freshclam is available and not already updating
+            if self._update_view._freshclam_available and not self._update_view._is_updating:
+                self._update_view._start_update()
 
     def _on_statistics_quick_scan(self):
         """

@@ -214,7 +214,7 @@ class MainWindow(Adw.ApplicationWindow):
         # Scan button (default active)
         self._scan_button = Gtk.ToggleButton()
         self._scan_button.set_icon_name("folder-symbolic")
-        self._scan_button.set_tooltip_text("Scan Files")
+        self._scan_button.set_tooltip_text("Scan Files (Ctrl+1)")
         self._scan_button.set_active(True)
         self._scan_button.set_action_name("app.show-scan")
         nav_box.append(self._scan_button)
@@ -222,35 +222,35 @@ class MainWindow(Adw.ApplicationWindow):
         # Database update button
         self._database_button = Gtk.ToggleButton()
         self._database_button.set_icon_name("software-update-available-symbolic")
-        self._database_button.set_tooltip_text("Update Database")
+        self._database_button.set_tooltip_text("Update Database (Ctrl+2)")
         self._database_button.set_action_name("app.show-update")
         nav_box.append(self._database_button)
 
         # Logs button
         self._logs_button = Gtk.ToggleButton()
         self._logs_button.set_icon_name("document-open-recent-symbolic")
-        self._logs_button.set_tooltip_text("View Logs")
+        self._logs_button.set_tooltip_text("View Logs (Ctrl+3)")
         self._logs_button.set_action_name("app.show-logs")
         nav_box.append(self._logs_button)
 
         # Components button
         self._components_button = Gtk.ToggleButton()
         self._components_button.set_icon_name("applications-system-symbolic")
-        self._components_button.set_tooltip_text("ClamAV Components")
+        self._components_button.set_tooltip_text("ClamAV Components (Ctrl+4)")
         self._components_button.set_action_name("app.show-components")
         nav_box.append(self._components_button)
 
         # Quarantine button
         self._quarantine_button = Gtk.ToggleButton()
         self._quarantine_button.set_icon_name("security-medium-symbolic")
-        self._quarantine_button.set_tooltip_text("Quarantine")
+        self._quarantine_button.set_tooltip_text("Quarantine (Ctrl+5)")
         self._quarantine_button.set_action_name("app.show-quarantine")
         nav_box.append(self._quarantine_button)
 
         # Statistics button
         self._statistics_button = Gtk.ToggleButton()
         self._statistics_button.set_icon_name("chart-line-symbolic")
-        self._statistics_button.set_tooltip_text("Statistics Dashboard")
+        self._statistics_button.set_tooltip_text("Statistics Dashboard (Ctrl+6)")
         self._statistics_button.set_action_name("app.show-statistics")
         nav_box.append(self._statistics_button)
 
@@ -315,7 +315,7 @@ class MainWindow(Adw.ApplicationWindow):
         """
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name("open-menu-symbolic")
-        menu_button.set_tooltip_text("Menu")
+        menu_button.set_tooltip_text("Menu (F10)")
 
         # Create menu model
         menu = Gio.Menu()

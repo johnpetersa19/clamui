@@ -246,10 +246,19 @@ ClamUI supports keyboard shortcuts for faster navigation:
 
 | Shortcut | Action |
 |----------|--------|
+| `Ctrl+1` | Switch to Scan View |
+| `Ctrl+2` | Switch to Update View |
+| `Ctrl+3` | Switch to Logs View |
+| `Ctrl+4` | Switch to Components View |
+| `Ctrl+5` | Switch to Quarantine View |
+| `Ctrl+6` | Switch to Statistics View |
+| `F5` | Start Scan (switches to scan view if needed) |
+| `F6` | Start Database Update (switches to update view if needed) |
 | `Ctrl+Q` | Quit ClamUI |
 | `Ctrl+,` | Open Preferences |
+| `F10` | Open Menu |
 
-💡 **Tip**: More keyboard shortcuts for specific actions are available in each view.
+💡 **Tip**: Keyboard shortcuts work from any view and will automatically switch to the relevant view if needed.
 
 **View-Specific Navigation**
 

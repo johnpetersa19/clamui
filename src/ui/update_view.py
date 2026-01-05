@@ -94,6 +94,7 @@ class UpdateView(Gtk.Box):
         # Update button
         self._update_button = Gtk.Button()
         self._update_button.set_label("Update Database")
+        self._update_button.set_tooltip_text("Update Database (F6)")
         self._update_button.add_css_class("suggested-action")
         self._update_button.add_css_class("pill")
         self._update_button.set_sensitive(False)  # Disabled until freshclam is verified
