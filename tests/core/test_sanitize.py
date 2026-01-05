@@ -365,7 +365,7 @@ Time: 5.234 sec"""
         result = sanitize_log_text(scan_output)
         assert result == scan_output
         assert "Win.Trojan.Agent FOUND" in result
-        assert result.count("\n") == 5
+        assert result.count("\n") == 6
 
 
 class TestSanitizationEdgeCases:

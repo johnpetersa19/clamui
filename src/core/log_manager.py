@@ -112,12 +112,13 @@ class LogEntry:
         raw_summary = data.get("summary", "")
         raw_details = data.get("details", "")
         raw_status = data.get("status", "unknown")
+        raw_type = data.get("type", "unknown")
         raw_path = data.get("path")
 
         return cls(
             id=data.get("id", str(uuid.uuid4())),
             timestamp=data.get("timestamp", datetime.now().isoformat()),
-            type=data.get("type", "unknown"),
+            type=sanitize_log_line(raw_type),
             status=sanitize_log_line(raw_status),
             summary=sanitize_log_line(raw_summary),
             details=sanitize_log_text(raw_details),

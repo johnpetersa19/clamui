@@ -22,6 +22,7 @@ ANSI_ESCAPE_PATTERN = re.compile(
     \x1b     # ESC character
     (?:      # Non-capturing group for alternatives
         \[   # CSI sequence: ESC [
+        [?]? # Optional ? prefix for private sequences
         [0-9;]*  # Optional numeric parameters separated by semicolons
         [a-zA-Z] # Final character (command)
     |
