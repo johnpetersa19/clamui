@@ -443,7 +443,7 @@ class TestPreferencesWindowPageComposition:
         window = PreferencesWindow(settings_manager=mock_settings_manager)
 
         mock_page_modules["scheduled"].create_page.assert_called_once_with(
-            window._scheduled_widgets, mock_settings_manager
+            window._scheduled_widgets
         )
 
     def test_window_creates_exclusions_page(

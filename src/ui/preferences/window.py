@@ -126,9 +126,7 @@ class PreferencesWindow(Adw.PreferencesWindow, PreferencesPageMixin):
         self.add(onaccess_page)
 
         # Create Scheduled Scans page
-        scheduled_page = ScheduledPage.create_page(
-            self._scheduled_widgets, self._settings_manager
-        )
+        scheduled_page = ScheduledPage.create_page(self._scheduled_widgets)
         self.add(scheduled_page)
 
         # Create Exclusions page (scan exclusion patterns) - instance-based
