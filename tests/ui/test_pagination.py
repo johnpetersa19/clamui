@@ -40,7 +40,11 @@ def pagination_controller_class(mock_gi_modules):
 @pytest.fixture
 def mock_listbox(mock_gi_modules):
     """Create a mock GTK ListBox."""
-    return mock.MagicMock()
+    listbox = mock.MagicMock()
+    # Default to empty listbox - get_first_child returns None
+    # Tests that need children should set side_effect explicitly
+    listbox.get_first_child.return_value = None
+    return listbox
 
 
 @pytest.fixture
@@ -530,10 +534,11 @@ class TestPaginationControllerSetEntries:
 
     def test_set_entries_with_empty_list(self, pagination_controller, mock_listbox):
         """Test that set_entries handles empty list correctly."""
+        # mock_listbox fixture defaults to empty (get_first_child returns None)
         pagination_controller.set_entries([])
 
-        # Should clear the listbox
-        assert mock_listbox.remove.called or mock_listbox.get_first_child.called
+        # Should have checked the listbox
+        assert mock_listbox.get_first_child.called
 
         # State should be reset
         assert pagination_controller._all_entries == []

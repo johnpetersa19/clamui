@@ -95,6 +95,11 @@ class QuarantineManager:
         """Get the quarantine directory path."""
         return self._file_handler.quarantine_directory
 
+    def close(self) -> None:
+        """Close database connections and cleanup resources."""
+        if self._database is not None:
+            self._database.close()
+
     def quarantine_file(
         self,
         file_path: str,

@@ -781,6 +781,32 @@ class ClamUIApp(Adw.Application):
             except Exception as e:
                 logger.warning(f"Error cleaning up tray indicator: {e}")
 
+        # Close VirusTotal client session
+        if self._vt_client is not None:
+            try:
+                self._vt_client.close()
+                self._vt_client = None
+                logger.debug("VirusTotal client closed during shutdown")
+            except Exception as e:
+                logger.warning(f"Error closing VirusTotal client: {e}")
+
+        # Close quarantine database connections
+        if self._scan_view is not None:
+            try:
+                if hasattr(self._scan_view, "_quarantine_manager"):
+                    self._scan_view._quarantine_manager.close()
+                    logger.debug("Scan view quarantine manager closed")
+            except Exception as e:
+                logger.warning(f"Error closing scan view quarantine manager: {e}")
+
+        if self._quarantine_view is not None:
+            try:
+                if hasattr(self._quarantine_view, "_manager"):
+                    self._quarantine_view._manager.close()
+                    logger.debug("Quarantine view manager closed")
+            except Exception as e:
+                logger.warning(f"Error closing quarantine view manager: {e}")
+
         # Clear view references to allow garbage collection
         self._scan_view = None
         self._update_view = None
