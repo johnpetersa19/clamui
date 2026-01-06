@@ -2,7 +2,6 @@
 """Unit tests for the keyring_manager module."""
 
 import tempfile
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -199,7 +198,9 @@ class TestKeyringManager:
         mock_keyring.delete_password.assert_called_once_with(SERVICE_NAME, VT_API_KEY_NAME)
         assert settings_manager.get("virustotal_api_key") is None
 
-    def test_delete_api_key_keyring_error_still_clears_settings(self, settings_manager, mock_keyring):
+    def test_delete_api_key_keyring_error_still_clears_settings(
+        self, settings_manager, mock_keyring
+    ):
         """Test that settings are cleared even if keyring deletion fails."""
         settings_manager.set("virustotal_api_key", "f" * 64)
         mock_keyring.delete_password.side_effect = Exception("Keyring error")
@@ -252,7 +253,9 @@ class TestKeyringManagerNoSettingsManager:
 
         assert result == test_key
 
-    def test_get_api_key_no_keyring_uses_new_settings_manager(self, mock_keyring, tmp_path, monkeypatch):
+    def test_get_api_key_no_keyring_uses_new_settings_manager(
+        self, mock_keyring, tmp_path, monkeypatch
+    ):
         """Test that a new settings manager is created when None is provided."""
         mock_keyring.get_password.return_value = None
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))

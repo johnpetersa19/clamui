@@ -1,11 +1,8 @@
 # ClamUI ClamAV Detection Tests
 """Unit tests for the clamav_detection module functions."""
 
-import os
 import subprocess
 from unittest import mock
-
-import pytest
 
 from src.core import clamav_detection
 
@@ -421,7 +418,9 @@ class TestCheckClamdConnection:
         ):
             with mock.patch.object(clamav_detection, "is_flatpak", return_value=False):
                 with mock.patch.object(
-                    clamav_detection, "get_clamd_socket_path", return_value="/var/run/clamav/clamd.ctl"
+                    clamav_detection,
+                    "get_clamd_socket_path",
+                    return_value="/var/run/clamav/clamd.ctl",
                 ):
                     with mock.patch.object(
                         clamav_detection,
@@ -445,7 +444,9 @@ class TestCheckClamdConnection:
         ):
             with mock.patch.object(clamav_detection, "is_flatpak", return_value=False):
                 with mock.patch.object(
-                    clamav_detection, "get_clamd_socket_path", return_value="/var/run/clamav/clamd.ctl"
+                    clamav_detection,
+                    "get_clamd_socket_path",
+                    return_value="/var/run/clamav/clamd.ctl",
                 ):
                     with mock.patch.object(
                         clamav_detection,
@@ -469,7 +470,9 @@ class TestCheckClamdConnection:
         ):
             with mock.patch.object(clamav_detection, "is_flatpak", return_value=False):
                 with mock.patch.object(
-                    clamav_detection, "get_clamd_socket_path", return_value="/var/run/clamav/clamd.ctl"
+                    clamav_detection,
+                    "get_clamd_socket_path",
+                    return_value="/var/run/clamav/clamd.ctl",
                 ):
                     with mock.patch.object(
                         clamav_detection,
@@ -491,7 +494,9 @@ class TestCheckClamdConnection:
         ):
             with mock.patch.object(clamav_detection, "is_flatpak", return_value=False):
                 with mock.patch.object(
-                    clamav_detection, "get_clamd_socket_path", return_value="/var/run/clamav/clamd.ctl"
+                    clamav_detection,
+                    "get_clamd_socket_path",
+                    return_value="/var/run/clamav/clamd.ctl",
                 ):
                     with mock.patch.object(
                         clamav_detection,
@@ -511,7 +516,9 @@ class TestCheckClamdConnection:
         ):
             with mock.patch.object(clamav_detection, "is_flatpak", return_value=False):
                 with mock.patch.object(
-                    clamav_detection, "get_clamd_socket_path", return_value="/var/run/clamav/clamd.ctl"
+                    clamav_detection,
+                    "get_clamd_socket_path",
+                    return_value="/var/run/clamav/clamd.ctl",
                 ):
                     with mock.patch.object(
                         clamav_detection,

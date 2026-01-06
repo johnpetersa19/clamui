@@ -873,7 +873,9 @@ class TestLogManagerDaemonLogs:
 
         try:
             with mock.patch.object(log_manager, "get_daemon_log_path", return_value=temp_log_path):
-                with mock.patch("src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd):
+                with mock.patch(
+                    "src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd
+                ):
                     success, content = log_manager.read_daemon_logs(num_lines=10)
                     assert success is True
                     assert "Line 1" in content
@@ -891,7 +893,9 @@ class TestLogManagerDaemonLogs:
 
         try:
             with mock.patch.object(log_manager, "get_daemon_log_path", return_value=temp_log_path):
-                with mock.patch("src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd):
+                with mock.patch(
+                    "src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd
+                ):
                     success, content = log_manager.read_daemon_logs(num_lines=10)
                     assert success is True
                     # Should only have last 10 lines
@@ -907,7 +911,9 @@ class TestLogManagerDaemonLogs:
 
         try:
             with mock.patch.object(log_manager, "get_daemon_log_path", return_value=temp_log_path):
-                with mock.patch("src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd):
+                with mock.patch(
+                    "src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd
+                ):
                     success, content = log_manager.read_daemon_logs()
                     assert success is True
                     assert "empty" in content.lower()

@@ -359,7 +359,7 @@ class StatisticsView(Gtk.Box):
         """
         return create_empty_state(
             EmptyStateConfig(
-                icon_name="chart-line-symbolic",
+                icon_name="applications-science-symbolic",
                 title="No scan data available",
                 subtitle="Run some scans to see activity trends here",
                 center_horizontally=True,

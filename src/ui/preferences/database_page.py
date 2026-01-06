@@ -275,9 +275,7 @@ class DatabasePage(PreferencesPageMixin):
 
         # Populate LogVerbose
         if config.has_key("LogVerbose"):
-            widgets_dict["LogVerbose"].set_active(
-                config.get_value("LogVerbose").lower() == "yes"
-            )
+            widgets_dict["LogVerbose"].set_active(config.get_value("LogVerbose").lower() == "yes")
 
         # Populate LogSyslog
         if config.has_key("LogSyslog"):

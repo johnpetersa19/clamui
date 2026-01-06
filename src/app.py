@@ -368,7 +368,9 @@ class ClamUIApp(Adw.Application):
         win = self.props.active_window
         if win:
             preferences = PreferencesWindow(
-                transient_for=win, settings_manager=self._settings_manager
+                transient_for=win,
+                settings_manager=self._settings_manager,
+                tray_available=self._tray_indicator is not None,
             )
             preferences.present()
 
@@ -779,6 +781,32 @@ class ClamUIApp(Adw.Application):
             except Exception as e:
                 logger.warning(f"Error cleaning up tray indicator: {e}")
 
+        # Close VirusTotal client session
+        if self._vt_client is not None:
+            try:
+                self._vt_client.close()
+                self._vt_client = None
+                logger.debug("VirusTotal client closed during shutdown")
+            except Exception as e:
+                logger.warning(f"Error closing VirusTotal client: {e}")
+
+        # Close quarantine database connections
+        if self._scan_view is not None:
+            try:
+                if hasattr(self._scan_view, "_quarantine_manager"):
+                    self._scan_view._quarantine_manager.close()
+                    logger.debug("Scan view quarantine manager closed")
+            except Exception as e:
+                logger.warning(f"Error closing scan view quarantine manager: {e}")
+
+        if self._quarantine_view is not None:
+            try:
+                if hasattr(self._quarantine_view, "_manager"):
+                    self._quarantine_view._manager.close()
+                    logger.debug("Quarantine view manager closed")
+            except Exception as e:
+                logger.warning(f"Error closing quarantine view manager: {e}")
+
         # Clear view references to allow garbage collection
         self._scan_view = None
         self._update_view = None
@@ -795,9 +823,7 @@ class ClamUIApp(Adw.Application):
 
     # Initial scan path handling (from CLI / context menu)
 
-    def set_initial_scan_paths(
-        self, file_paths: list[str], use_virustotal: bool = False
-    ) -> None:
+    def set_initial_scan_paths(self, file_paths: list[str], use_virustotal: bool = False) -> None:
         """
         Set initial file paths to scan on activation.
 
@@ -810,10 +836,7 @@ class ClamUIApp(Adw.Application):
         """
         self._initial_scan_paths = file_paths
         self._initial_use_virustotal = use_virustotal
-        logger.info(
-            f"Set {len(file_paths)} initial scan path(s) "
-            f"(virustotal={use_virustotal})"
-        )
+        logger.info(f"Set {len(file_paths)} initial scan path(s) (virustotal={use_virustotal})")
 
     def _process_initial_scan_paths(self) -> None:
         """
@@ -865,9 +888,7 @@ class ClamUIApp(Adw.Application):
             self._trigger_virustotal_scan(file_path, api_key)
         else:
             # No API key - check remembered action
-            action = self._settings_manager.get(
-                "virustotal_remember_no_key_action", "none"
-            )
+            action = self._settings_manager.get("virustotal_remember_no_key_action", "none")
 
             if action == "open_website":
                 # Open VirusTotal website directly

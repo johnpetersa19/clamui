@@ -82,11 +82,16 @@ def mock_quarantine_view(quarantine_view_class, mock_quarantine_manager):
     # Set up required attributes
     view._manager = mock_quarantine_manager
     view._is_loading = False
-    view._displayed_count = 0
     view._all_entries = []
-    view._load_more_row = None
     view._on_quarantine_changed = None
     view._last_refresh_time = 0.0
+
+    # Mock pagination controller (required for _displayed_count and _load_more_row properties)
+    view._pagination = mock.MagicMock()
+    view._pagination.displayed_count = 0
+    view._pagination.load_more_row = None
+    view._pagination._displayed_count = 0
+    view._pagination._load_more_row = None
 
     # Mock UI elements
     view._status_banner = mock.MagicMock()
@@ -333,20 +338,24 @@ class TestQuarantineViewPagination:
     def test_display_entry_batch_increments_count(
         self, quarantine_view_class, mock_quarantine_entry
     ):
-        """Test that displaying entries increments the displayed count."""
+        """Test that displaying entries delegates to pagination controller."""
         view = object.__new__(quarantine_view_class)
         view._all_entries = [mock_quarantine_entry, mock_quarantine_entry]
-        view._displayed_count = 0
-        view._load_more_row = None
         view._listbox = mock.MagicMock()
+        view._listbox.get_first_child.return_value = None
         view._create_entry_row = mock.MagicMock(return_value=mock.MagicMock())
         # Initialize search state
         view._search_query = ""
         view._filtered_entries = []
+        # Mock pagination controller
+        view._pagination = mock.MagicMock()
+        view._pagination.displayed_count = 0
+        view._pagination.load_more_row = None
 
         view._display_entry_batch(0, 2)
 
-        assert view._displayed_count == 2
+        # Verify delegation to pagination controller
+        view._pagination.display_batch.assert_called_once_with(0, 2)
 
     def test_on_load_more_clicked_removes_load_more_row(
         self, quarantine_view_class, mock_quarantine_entry
@@ -354,16 +363,23 @@ class TestQuarantineViewPagination:
         """Test that clicking load more removes the load more row."""
         view = object.__new__(quarantine_view_class)
         view._all_entries = [mock_quarantine_entry] * 30
-        view._displayed_count = 25
-        load_more_row = mock.MagicMock()
-        view._load_more_row = load_more_row
         view._listbox = mock.MagicMock()
-        view._display_entry_batch = mock.MagicMock()
-        view._add_load_more_button = mock.MagicMock()
+        view._listbox.get_first_child.return_value = None
+        # Mock pagination controller
+        load_more_row = mock.MagicMock()
+        view._pagination = mock.MagicMock()
+        view._pagination.displayed_count = 25
+        view._pagination.load_more_row = load_more_row
+        view._pagination._displayed_count = 25
+        view._pagination._load_more_row = load_more_row
+        # Initialize search state
+        view._search_query = ""
+        view._filtered_entries = []
 
         view._on_load_more_clicked(mock.MagicMock())
 
-        view._listbox.remove.assert_called_with(load_more_row)
+        # The pagination controller's load_more method is called
+        view._pagination.load_more.assert_called()
 
     def test_on_show_all_clicked_displays_remaining(
         self, quarantine_view_class, mock_quarantine_entry
@@ -371,18 +387,21 @@ class TestQuarantineViewPagination:
         """Test that clicking show all displays remaining entries."""
         view = object.__new__(quarantine_view_class)
         view._all_entries = [mock_quarantine_entry] * 50
-        view._displayed_count = 25
-        view._load_more_row = mock.MagicMock()
         view._listbox = mock.MagicMock()
-        view._display_entry_batch = mock.MagicMock()
+        view._listbox.get_first_child.return_value = None
+        # Mock pagination controller
+        view._pagination = mock.MagicMock()
+        view._pagination.displayed_count = 25
+        view._pagination.load_more_row = mock.MagicMock()
+        view._pagination._displayed_count = 25
         # Initialize search state
         view._search_query = ""
         view._filtered_entries = []
 
         view._on_show_all_clicked(mock.MagicMock())
 
-        # Should display remaining 25 entries
-        view._display_entry_batch.assert_called_once_with(25, 25)
+        # The pagination controller's show_all method is called
+        view._pagination.show_all.assert_called_once()
 
 
 class TestQuarantineViewStorageInfo:
@@ -641,8 +660,12 @@ class TestQuarantineViewSearchIntegration:
         view._all_entries = [entry1]
         view._search_query = "eicar"
         view._filtered_entries = []
-        view._displayed_count = 5  # Previous state
-        view._load_more_row = mock.MagicMock()
+
+        # Mock pagination controller
+        view._pagination = mock.MagicMock()
+        view._pagination.displayed_count = 5
+        view._pagination.load_more_row = mock.MagicMock()
+        view._pagination._displayed_count = 5
 
         # Mock UI elements
         view._listbox = mock.MagicMock()
@@ -653,15 +676,11 @@ class TestQuarantineViewSearchIntegration:
         # Mock methods
         view._filter_entries = mock.MagicMock(return_value=[entry1])
         view._update_storage_info = mock.MagicMock()
-        view._display_entry_batch = mock.MagicMock()
 
         view._apply_search_filter()
 
-        # Verify listbox was cleared
-        assert view._listbox.remove.called or view._listbox.get_first_child.called
-        # Verify pagination state was reset
-        assert view._displayed_count == 0
-        assert view._load_more_row is None
+        # Verify pagination's set_entries was called (which clears and repopulates)
+        view._pagination.set_entries.assert_called()
 
     def test_apply_search_filter_updates_display(self, quarantine_view_class):
         """Test that _apply_search_filter updates the display with filtered entries."""
@@ -681,8 +700,12 @@ class TestQuarantineViewSearchIntegration:
         view._all_entries = [entry1, entry2]
         view._search_query = "eicar"
         view._filtered_entries = []
-        view._displayed_count = 0
-        view._load_more_row = None
+
+        # Mock pagination controller
+        view._pagination = mock.MagicMock()
+        view._pagination.displayed_count = 0
+        view._pagination.load_more_row = None
+        view._pagination._displayed_count = 0
 
         # Mock UI elements
         view._listbox = mock.MagicMock()
@@ -693,7 +716,6 @@ class TestQuarantineViewSearchIntegration:
         # Mock methods
         view._filter_entries = mock.MagicMock(return_value=[entry1])
         view._update_storage_info = mock.MagicMock()
-        view._display_entry_batch = mock.MagicMock()
         view._create_no_results_state = mock.MagicMock()
         view._create_empty_state = mock.MagicMock()
 
@@ -703,8 +725,8 @@ class TestQuarantineViewSearchIntegration:
         view._filter_entries.assert_called_once()
         # Verify storage info was updated with all entries (not filtered)
         view._update_storage_info.assert_called_once_with(view._all_entries)
-        # Verify display was updated with filtered results
-        view._display_entry_batch.assert_called()
+        # Verify pagination was updated with filtered results
+        view._pagination.set_entries.assert_called()
 
     def test_apply_search_filter_shows_no_results_placeholder(self, quarantine_view_class):
         """Test that _apply_search_filter shows no-results placeholder when filter returns empty."""
@@ -787,7 +809,7 @@ class TestQuarantineViewSearchIntegration:
         assert len(result) == 2
 
     def test_display_entry_batch_uses_filtered_entries(self, quarantine_view_class):
-        """Test that pagination works correctly with filtered entries."""
+        """Test that pagination delegates correctly with filtered entries."""
         view = object.__new__(quarantine_view_class)
 
         # Set up mock entries
@@ -806,22 +828,22 @@ class TestQuarantineViewSearchIntegration:
         view._all_entries = [entry1, entry2, entry3]
         view._filtered_entries = [entry2, entry3]
         view._search_query = "trojan"
-        view._displayed_count = 0
-        view._load_more_row = None
+
+        # Mock pagination controller
+        view._pagination = mock.MagicMock()
+        view._pagination.displayed_count = 0
+        view._pagination.load_more_row = None
 
         # Mock UI elements
         view._listbox = mock.MagicMock()
+        view._listbox.get_first_child.return_value = None
         view._create_entry_row = mock.MagicMock(return_value=mock.MagicMock())
 
-        # Display first batch - should use filtered entries
+        # Display first batch - should delegate to pagination controller
         view._display_entry_batch(0, 2)
 
-        # Should have displayed 2 entries from filtered list
-        assert view._displayed_count == 2
-        # create_entry_row should be called with filtered entries
-        assert view._create_entry_row.call_count == 2
-        view._create_entry_row.assert_any_call(entry2)
-        view._create_entry_row.assert_any_call(entry3)
+        # Verify delegation to pagination controller with correct arguments
+        view._pagination.display_batch.assert_called_once_with(0, 2)
 
     def test_update_storage_info_shows_filtered_count(self, quarantine_view_class, mock_gi_modules):
         """Test that storage info shows filtered count when search is active."""

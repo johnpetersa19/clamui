@@ -497,13 +497,13 @@ class TestPreferencesWindowPageComposition:
         mock_scheduler,
         mock_page_modules,
     ):
-        """Test that window adds all 6 pages."""
+        """Test that window adds all 8 pages."""
         from src.ui.preferences.window import PreferencesWindow
 
         window = PreferencesWindow(settings_manager=mock_settings_manager)
 
-        # Should call add() 6 times (one for each page)
-        assert window.add.call_count == 6
+        # Should call add() 8 times (one for each page)
+        assert window.add.call_count == 8
 
 
 class TestPreferencesWindowConfigLoading:

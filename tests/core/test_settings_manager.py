@@ -462,6 +462,11 @@ class TestSettingsManagerDefaults:
         assert "notifications_enabled" in SettingsManager.DEFAULT_SETTINGS
         assert SettingsManager.DEFAULT_SETTINGS["notifications_enabled"] is True
 
+    def test_default_settings_has_close_behavior(self):
+        """Test that DEFAULT_SETTINGS contains close_behavior."""
+        assert "close_behavior" in SettingsManager.DEFAULT_SETTINGS
+        assert SettingsManager.DEFAULT_SETTINGS["close_behavior"] is None
+
     def test_default_settings_is_not_modified(self):
         """Test that DEFAULT_SETTINGS is not modified by operations."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -472,6 +477,61 @@ class TestSettingsManagerDefaults:
 
             # DEFAULT_SETTINGS should be unchanged
             assert original_defaults == SettingsManager.DEFAULT_SETTINGS
+
+
+class TestSettingsCloseBehavior:
+    """Tests for close_behavior settings."""
+
+    @pytest.fixture
+    def temp_config_dir(self):
+        """Create a temporary directory for settings storage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def settings_manager(self, temp_config_dir):
+        """Create a SettingsManager with a temporary directory."""
+        return SettingsManager(config_dir=temp_config_dir)
+
+    def test_close_behavior_default_is_none(self, settings_manager):
+        """Test that close_behavior defaults to None (first-run state)."""
+        assert settings_manager.get("close_behavior") is None
+
+    def test_close_behavior_set_minimize(self, settings_manager):
+        """Test setting close_behavior to 'minimize'."""
+        settings_manager.set("close_behavior", "minimize")
+        assert settings_manager.get("close_behavior") == "minimize"
+
+    def test_close_behavior_set_quit(self, settings_manager):
+        """Test setting close_behavior to 'quit'."""
+        settings_manager.set("close_behavior", "quit")
+        assert settings_manager.get("close_behavior") == "quit"
+
+    def test_close_behavior_set_ask(self, settings_manager):
+        """Test setting close_behavior to 'ask'."""
+        settings_manager.set("close_behavior", "ask")
+        assert settings_manager.get("close_behavior") == "ask"
+
+    def test_close_behavior_persists_across_instances(self, temp_config_dir):
+        """Test that close_behavior persists across manager instances."""
+        manager1 = SettingsManager(config_dir=temp_config_dir)
+        manager1.set("close_behavior", "minimize")
+
+        manager2 = SettingsManager(config_dir=temp_config_dir)
+        assert manager2.get("close_behavior") == "minimize"
+
+    def test_close_behavior_reset_to_defaults(self, settings_manager):
+        """Test that reset_to_defaults resets close_behavior to None."""
+        settings_manager.set("close_behavior", "quit")
+        settings_manager.reset_to_defaults()
+        assert settings_manager.get("close_behavior") is None
+
+    def test_close_behavior_in_get_all(self, settings_manager):
+        """Test that close_behavior appears in get_all output."""
+        settings_manager.set("close_behavior", "ask")
+        all_settings = settings_manager.get_all()
+        assert "close_behavior" in all_settings
+        assert all_settings["close_behavior"] == "ask"
 
 
 class TestSettingsExclusions:

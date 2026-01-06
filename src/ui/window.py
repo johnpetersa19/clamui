@@ -12,6 +12,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
+from .close_behavior_dialog import CloseBehaviorDialog
+
 if TYPE_CHECKING:
     pass
 
@@ -54,18 +56,26 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _setup_minimize_to_tray(self) -> None:
         """
-        Set up minimize-to-tray functionality.
+        Set up minimize-to-tray and close-to-tray functionality.
 
         Connects to window state changes to detect minimize events.
         When minimize_to_tray setting is enabled and tray is available,
         the window will hide to tray instead of minimizing to taskbar.
+
+        Also connects to close-request to handle close-to-tray behavior.
         """
         # Track if we're handling minimize-to-tray to prevent recursion
         self._handling_minimize = False
 
+        # Track if a close behavior dialog is currently shown
+        self._close_dialog_pending = False
+
         # Connect to the window's surface to detect state changes
         # We need to do this after the window is realized
         self.connect("realize", self._on_window_realized)
+
+        # Connect to close-request to handle close-to-tray behavior
+        self.connect("close-request", self._on_close_request)
 
     def _on_window_realized(self, window) -> None:
         """
@@ -154,6 +164,133 @@ class MainWindow(Adw.ApplicationWindow):
                 tray.update_window_menu_label()
 
         return False  # Remove from idle queue
+
+    def _on_close_request(self, window) -> bool:
+        """
+        Handle window close request.
+
+        Depending on the close_behavior setting:
+        - None (unset): Show dialog to ask user
+        - "ask": Show dialog every time
+        - "minimize": Hide to tray
+        - "quit": Allow normal close
+
+        Args:
+            window: The window requesting close
+
+        Returns:
+            True to prevent close, False to allow close
+        """
+        # If tray is not available, always allow normal close
+        if not self._is_tray_available():
+            logger.debug("Tray not available, allowing normal close")
+            return False
+
+        # If a dialog is already pending, prevent additional close requests
+        if self._close_dialog_pending:
+            return True
+
+        # Get the close behavior setting
+        close_behavior = self._get_close_behavior()
+
+        if close_behavior == "minimize":
+            # Hide to tray
+            self._do_close_to_tray()
+            return True  # Prevent close
+
+        if close_behavior == "quit":
+            # Allow normal close
+            return False
+
+        # close_behavior is None (first run) or "ask" - show dialog
+        self._show_close_behavior_dialog()
+        return True  # Prevent close while dialog is shown
+
+    def _is_tray_available(self) -> bool:
+        """
+        Check if system tray is available.
+
+        Returns:
+            True if tray indicator is available and active
+        """
+        if not hasattr(self._application, "tray_indicator"):
+            return False
+
+        tray = self._application.tray_indicator
+        return tray is not None
+
+    def _get_close_behavior(self) -> str | None:
+        """
+        Get the current close behavior setting.
+
+        Returns:
+            "minimize", "quit", "ask", or None if not set
+        """
+        if not hasattr(self._application, "settings_manager"):
+            return None
+
+        settings = self._application.settings_manager
+        if settings is None:
+            return None
+
+        return settings.get("close_behavior", None)
+
+    def _do_close_to_tray(self) -> None:
+        """
+        Hide the window to the system tray.
+
+        Similar to minimize-to-tray but triggered by close action.
+        """
+        self.hide_window()
+
+        logger.debug("Window closed to tray")
+
+        # Update tray menu label
+        if hasattr(self._application, "tray_indicator"):
+            tray = self._application.tray_indicator
+            if tray is not None and hasattr(tray, "update_window_menu_label"):
+                tray.update_window_menu_label(visible=False)
+
+    def _show_close_behavior_dialog(self) -> None:
+        """
+        Show the close behavior dialog.
+
+        Presents a dialog asking the user whether to minimize to tray
+        or quit completely, with an option to remember the choice.
+        """
+        self._close_dialog_pending = True
+
+        dialog = CloseBehaviorDialog(callback=self._on_close_behavior_dialog_response)
+        dialog.present(self)
+
+    def _on_close_behavior_dialog_response(self, choice: str | None, remember: bool) -> None:
+        """
+        Handle the close behavior dialog response.
+
+        Args:
+            choice: "minimize", "quit", or None if dismissed
+            remember: True if user wants to save their choice
+        """
+        self._close_dialog_pending = False
+
+        if choice is None:
+            # User dismissed dialog without choosing - do nothing
+            logger.debug("Close dialog dismissed without choice")
+            return
+
+        # Save preference if "Remember my choice" was checked
+        if remember and hasattr(self._application, "settings_manager"):
+            settings = self._application.settings_manager
+            if settings is not None:
+                settings.set("close_behavior", choice)
+                logger.info(f"Saved close behavior preference: {choice}")
+
+        # Execute the chosen action
+        if choice == "minimize":
+            self._do_close_to_tray()
+        elif choice == "quit":
+            # Actually quit the application
+            self._application.quit()
 
     def _setup_ui(self):
         """Set up the window UI layout."""
@@ -249,7 +386,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Statistics button
         self._statistics_button = Gtk.ToggleButton()
-        self._statistics_button.set_icon_name("chart-line-symbolic")
+        self._statistics_button.set_icon_name("applications-science-symbolic")
         self._statistics_button.set_tooltip_text("Statistics Dashboard (Ctrl+6)")
         self._statistics_button.set_action_name("app.show-statistics")
         nav_box.append(self._statistics_button)

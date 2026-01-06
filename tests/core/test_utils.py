@@ -111,17 +111,17 @@ class TestBackwardsCompatibilityImports:
         # This is the most common backwards compatibility import pattern
         from src.core.utils import (
             check_clamav_installed,
-            check_freshclam_installed,
             check_clamdscan_installed,
-            format_results_as_text,
+            check_freshclam_installed,
+            copy_to_clipboard,
             format_results_as_csv,
-            validate_path,
-            validate_dropped_files,
+            format_results_as_text,
             format_scan_path,
             get_path_info,
             is_flatpak,
+            validate_dropped_files,
+            validate_path,
             wrap_host_command,
-            copy_to_clipboard,
         )
 
         # Verify all imports are callable
@@ -263,9 +263,7 @@ class TestUtilsModuleAPI:
 
         # All public functions should be in __all__
         for function_name in public_functions:
-            assert (
-                function_name in utils.__all__
-            ), f"{function_name} is public but not in __all__"
+            assert function_name in utils.__all__, f"{function_name} is public but not in __all__"
 
 
 class TestReExportFunctionality:
@@ -322,7 +320,9 @@ class TestReExportFunctionality:
         from src.core.utils import get_clamav_path
 
         # Mock which_host_command to return a path
-        with mock.patch("src.core.clamav_detection.which_host_command", return_value="/usr/bin/clamscan"):
+        with mock.patch(
+            "src.core.clamav_detection.which_host_command", return_value="/usr/bin/clamscan"
+        ):
             path = get_clamav_path()
             assert path == "/usr/bin/clamscan"
 

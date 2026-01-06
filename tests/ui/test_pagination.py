@@ -40,7 +40,11 @@ def pagination_controller_class(mock_gi_modules):
 @pytest.fixture
 def mock_listbox(mock_gi_modules):
     """Create a mock GTK ListBox."""
-    return mock.MagicMock()
+    listbox = mock.MagicMock()
+    # Default to empty listbox - get_first_child returns None
+    # Tests that need children should set side_effect explicitly
+    listbox.get_first_child.return_value = None
+    return listbox
 
 
 @pytest.fixture
@@ -173,9 +177,7 @@ class TestPaginationControllerStateManagement:
         assert pagination_controller._all_entries == []
         assert pagination_controller._load_more_row is None
 
-    def test_reset_state_does_not_modify_listbox(
-        self, pagination_controller, mock_listbox
-    ):
+    def test_reset_state_does_not_modify_listbox(self, pagination_controller, mock_listbox):
         """Test that reset_state does not modify the listbox."""
         pagination_controller._displayed_count = 10
         pagination_controller._all_entries = ["entry1"]
@@ -425,9 +427,7 @@ class TestPaginationControllerDisplayBatch:
 
         assert pagination_controller._displayed_count == 3
 
-    def test_display_batch_handles_row_factory_exception(
-        self, pagination_controller, mock_listbox
-    ):
+    def test_display_batch_handles_row_factory_exception(self, pagination_controller, mock_listbox):
         """Test that display_batch handles row_factory exceptions gracefully."""
         entries = ["entry1", "entry2", "entry3"]
         pagination_controller._all_entries = entries
@@ -448,9 +448,7 @@ class TestPaginationControllerDisplayBatch:
         # displayed_count should only count successful rows
         assert pagination_controller._displayed_count == 2
 
-    def test_display_batch_respects_batch_size_limit(
-        self, pagination_controller, mock_row_factory
-    ):
+    def test_display_batch_respects_batch_size_limit(self, pagination_controller, mock_row_factory):
         """Test that display_batch only displays the requested count."""
         entries = ["entry1", "entry2", "entry3", "entry4", "entry5"]
         pagination_controller._all_entries = entries
@@ -461,9 +459,7 @@ class TestPaginationControllerDisplayBatch:
         assert mock_row_factory.call_count == 2
         assert pagination_controller._displayed_count == 2
 
-    def test_display_batch_handles_end_of_list(
-        self, pagination_controller, mock_row_factory
-    ):
+    def test_display_batch_handles_end_of_list(self, pagination_controller, mock_row_factory):
         """Test that display_batch handles batch size exceeding available entries."""
         entries = ["entry1", "entry2"]
         pagination_controller._all_entries = entries
@@ -475,9 +471,7 @@ class TestPaginationControllerDisplayBatch:
         assert mock_row_factory.call_count == 2
         assert pagination_controller._displayed_count == 2
 
-    def test_display_batch_with_start_offset(
-        self, pagination_controller, mock_row_factory
-    ):
+    def test_display_batch_with_start_offset(self, pagination_controller, mock_row_factory):
         """Test that display_batch correctly starts from a given index."""
         entries = ["entry1", "entry2", "entry3", "entry4", "entry5"]
         pagination_controller._all_entries = entries
@@ -507,6 +501,7 @@ class TestPaginationControllerDisplayBatch:
         self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
     ):
         """Test that display_batch uses entries_to_display property (for filtering)."""
+
         # Create a controller subclass with custom entries_to_display
         class FilteredController(pagination_controller_class):
             def __init__(self, *args, **kwargs):
@@ -539,10 +534,11 @@ class TestPaginationControllerSetEntries:
 
     def test_set_entries_with_empty_list(self, pagination_controller, mock_listbox):
         """Test that set_entries handles empty list correctly."""
+        # mock_listbox fixture defaults to empty (get_first_child returns None)
         pagination_controller.set_entries([])
 
-        # Should clear the listbox
-        assert mock_listbox.remove.called or mock_listbox.get_first_child.called
+        # Should have checked the listbox
+        assert mock_listbox.get_first_child.called
 
         # State should be reset
         assert pagination_controller._all_entries == []
@@ -642,9 +638,7 @@ class TestPaginationControllerSetEntries:
         # Should add load_more_button since there are more entries
         controller.add_load_more_button.assert_called_once_with("entries")
 
-    def test_set_entries_displays_initial_batch(
-        self, pagination_controller, mock_row_factory
-    ):
+    def test_set_entries_displays_initial_batch(self, pagination_controller, mock_row_factory):
         """Test that set_entries displays the initial batch correctly."""
         # Create 30 entries, initial_limit is 25
         entries = [f"entry{i}" for i in range(30)]
@@ -686,9 +680,7 @@ class TestPaginationControllerSetEntries:
         assert pagination_controller._all_entries == entries
         assert len(pagination_controller._all_entries) == 30
 
-    def test_set_entries_can_be_called_multiple_times(
-        self, pagination_controller, mock_listbox
-    ):
+    def test_set_entries_can_be_called_multiple_times(self, pagination_controller, mock_listbox):
         """Test that set_entries can be called multiple times to reload data."""
         # First load
         first_entries = ["entry1", "entry2"]
@@ -866,9 +858,7 @@ class TestPaginationControllerLoadMore:
         # load_more_row should be cleared
         assert pagination_controller._load_more_row is None
 
-    def test_load_more_preserves_scroll_position(
-        self, pagination_controller, mock_scrolled_window
-    ):
+    def test_load_more_preserves_scroll_position(self, pagination_controller, mock_scrolled_window):
         """Test that load_more() preserves scroll position using GLib.idle_add."""
         entries = [f"entry{i}" for i in range(50)]
         pagination_controller._all_entries = entries
@@ -915,9 +905,7 @@ class TestPaginationControllerLoadMore:
         # Should pass custom label
         controller.add_load_more_button.assert_called_once_with("logs")
 
-    def test_load_more_respects_remaining_entries(
-        self, pagination_controller, mock_row_factory
-    ):
+    def test_load_more_respects_remaining_entries(self, pagination_controller, mock_row_factory):
         """Test that load_more() only displays remaining entries when less than batch_size."""
         # Create 35 entries (25 displayed, 10 remaining - less than batch_size of 25)
         entries = [f"entry{i}" for i in range(35)]
@@ -992,9 +980,7 @@ class TestPaginationControllerLoadMore:
 class TestPaginationControllerShowAll:
     """Tests for show_all() functionality."""
 
-    def test_show_all_displays_all_remaining_entries(
-        self, pagination_controller, mock_row_factory
-    ):
+    def test_show_all_displays_all_remaining_entries(self, pagination_controller, mock_row_factory):
         """Test that show_all() displays all remaining entries."""
         # Create 60 entries (25 displayed, 35 remaining)
         entries = [f"entry{i}" for i in range(60)]
@@ -1052,9 +1038,7 @@ class TestPaginationControllerShowAll:
         # load_more_row should be cleared
         assert pagination_controller._load_more_row is None
 
-    def test_show_all_preserves_scroll_position(
-        self, pagination_controller, mock_scrolled_window
-    ):
+    def test_show_all_preserves_scroll_position(self, pagination_controller, mock_scrolled_window):
         """Test that show_all() preserves scroll position using GLib.idle_add."""
         entries = [f"entry{i}" for i in range(50)]
         pagination_controller._all_entries = entries
@@ -1096,9 +1080,7 @@ class TestPaginationControllerShowAll:
         # Should still display all entries
         assert controller._displayed_count == 50
 
-    def test_show_all_displays_correct_entries(
-        self, pagination_controller, mock_row_factory
-    ):
+    def test_show_all_displays_correct_entries(self, pagination_controller, mock_row_factory):
         """Test that show_all() displays the correct remaining entries."""
         entries = [f"entry{i}" for i in range(40)]
         pagination_controller._all_entries = entries

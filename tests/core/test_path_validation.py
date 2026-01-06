@@ -5,8 +5,6 @@ import stat
 from pathlib import Path
 from unittest import mock
 
-import pytest
-
 from src.core.path_validation import (
     check_symlink_safety,
     format_scan_path,
@@ -72,7 +70,9 @@ class TestCheckSymlinkSafety:
             with mock.patch.object(Path, "resolve", return_value=Path("/etc/passwd")):
                 with mock.patch.object(Path, "exists", return_value=True):
                     # Mock parent.resolve() to return /home/user
-                    with mock.patch.object(Path, "parent", new_callable=mock.PropertyMock) as mock_parent:
+                    with mock.patch.object(
+                        Path, "parent", new_callable=mock.PropertyMock
+                    ) as mock_parent:
                         mock_parent_obj = mock.MagicMock()
                         mock_parent_obj.resolve.return_value = Path("/home/user")
                         mock_parent.return_value = mock_parent_obj
@@ -89,7 +89,9 @@ class TestCheckSymlinkSafety:
         with mock.patch.object(Path, "is_symlink", return_value=True):
             with mock.patch.object(Path, "resolve", return_value=Path("/var/log/sensitive.log")):
                 with mock.patch.object(Path, "exists", return_value=True):
-                    with mock.patch.object(Path, "parent", new_callable=mock.PropertyMock) as mock_parent:
+                    with mock.patch.object(
+                        Path, "parent", new_callable=mock.PropertyMock
+                    ) as mock_parent:
                         mock_parent_obj = mock.MagicMock()
                         mock_parent_obj.resolve.return_value = Path("/home/user")
                         mock_parent.return_value = mock_parent_obj
@@ -106,7 +108,9 @@ class TestCheckSymlinkSafety:
         with mock.patch.object(Path, "is_symlink", return_value=True):
             with mock.patch.object(Path, "resolve", return_value=Path("/usr/bin/bash")):
                 with mock.patch.object(Path, "exists", return_value=True):
-                    with mock.patch.object(Path, "parent", new_callable=mock.PropertyMock) as mock_parent:
+                    with mock.patch.object(
+                        Path, "parent", new_callable=mock.PropertyMock
+                    ) as mock_parent:
                         mock_parent_obj = mock.MagicMock()
                         mock_parent_obj.resolve.return_value = Path("/tmp")
                         mock_parent.return_value = mock_parent_obj
@@ -124,7 +128,9 @@ class TestCheckSymlinkSafety:
         with mock.patch.object(Path, "is_symlink", return_value=True):
             with mock.patch.object(Path, "resolve", return_value=Path("/srv/data/file.txt")):
                 with mock.patch.object(Path, "exists", return_value=True):
-                    with mock.patch.object(Path, "parent", new_callable=mock.PropertyMock) as mock_parent:
+                    with mock.patch.object(
+                        Path, "parent", new_callable=mock.PropertyMock
+                    ) as mock_parent:
                         mock_parent_obj = mock.MagicMock()
                         mock_parent_obj.resolve.return_value = Path("/opt/app")
                         mock_parent.return_value = mock_parent_obj
@@ -439,7 +445,9 @@ class TestFormatScanPath:
         portal_path = "/run/user/1000/doc/abc123/test.txt"
 
         # Mock format_flatpak_portal_path to simulate portal path formatting
-        with mock.patch("src.core.path_validation.format_flatpak_portal_path", return_value="[Portal] test.txt"):
+        with mock.patch(
+            "src.core.path_validation.format_flatpak_portal_path", return_value="[Portal] test.txt"
+        ):
             result = format_scan_path(portal_path)
             assert result == "[Portal] test.txt"
 
@@ -454,7 +462,9 @@ class TestFormatScanPath:
         """Test format_scan_path returns already formatted portal paths as-is."""
         portal_formatted = "[Portal] test.txt"
 
-        with mock.patch("src.core.path_validation.format_flatpak_portal_path", return_value=portal_formatted):
+        with mock.patch(
+            "src.core.path_validation.format_flatpak_portal_path", return_value=portal_formatted
+        ):
             result = format_scan_path("/some/path")
             assert result == portal_formatted
 

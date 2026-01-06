@@ -1,7 +1,6 @@
 # ClamUI Exclusions Page Tests
 """Unit tests for the ExclusionsPage class."""
 
-import sys
 from unittest import mock
 
 import pytest
@@ -227,7 +226,9 @@ class TestExclusionsPageLoadCustomExclusions:
 
         mock_settings_manager.get.assert_called_with("exclusion_patterns", [])
 
-    def test_load_custom_exclusions_with_valid_patterns(self, mock_gi_modules, mock_settings_manager):
+    def test_load_custom_exclusions_with_valid_patterns(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _load_custom_exclusions loads valid patterns."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -246,7 +247,9 @@ class TestExclusionsPageLoadCustomExclusions:
             mock_add.assert_any_call("/custom/path", True)
             mock_add.assert_any_call("*.tmp", False)
 
-    def test_load_custom_exclusions_skips_empty_patterns(self, mock_gi_modules, mock_settings_manager):
+    def test_load_custom_exclusions_skips_empty_patterns(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _load_custom_exclusions skips empty patterns."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -264,7 +267,9 @@ class TestExclusionsPageLoadCustomExclusions:
             # Should only add valid patterns
             assert mock_add.call_count == 2
 
-    def test_load_custom_exclusions_handles_missing_pattern_key(self, mock_gi_modules, mock_settings_manager):
+    def test_load_custom_exclusions_handles_missing_pattern_key(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _load_custom_exclusions handles missing pattern key."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -304,7 +309,9 @@ class TestExclusionsPageAddCustomExclusionRow:
         manager.get.return_value = []
         return manager
 
-    def test_add_custom_exclusion_row_creates_switch_row(self, mock_gi_modules, mock_settings_manager):
+    def test_add_custom_exclusion_row_creates_switch_row(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _add_custom_exclusion_row creates a SwitchRow."""
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.exclusions_page import ExclusionsPage
@@ -332,7 +339,9 @@ class TestExclusionsPageAddCustomExclusionRow:
 
         mock_row.set_title.assert_called_with("/test/path")
 
-    def test_add_custom_exclusion_row_sets_active_state(self, mock_gi_modules, mock_settings_manager):
+    def test_add_custom_exclusion_row_sets_active_state(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _add_custom_exclusion_row sets enabled state."""
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.exclusions_page import ExclusionsPage
@@ -352,7 +361,9 @@ class TestExclusionsPageAddCustomExclusionRow:
         page._add_custom_exclusion_row("/another/path", False)
         mock_row.set_active.assert_called_with(False)
 
-    def test_add_custom_exclusion_row_creates_remove_button(self, mock_gi_modules, mock_settings_manager):
+    def test_add_custom_exclusion_row_creates_remove_button(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _add_custom_exclusion_row creates remove button."""
         gtk = mock_gi_modules["gtk"]
         from src.ui.preferences.exclusions_page import ExclusionsPage
@@ -388,7 +399,9 @@ class TestExclusionsPageAddCustomExclusion:
         manager.get.return_value = []
         return manager
 
-    def test_on_add_custom_exclusion_ignores_empty_pattern(self, mock_gi_modules, mock_settings_manager):
+    def test_on_add_custom_exclusion_ignores_empty_pattern(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_add_custom_exclusion ignores empty pattern."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -412,7 +425,9 @@ class TestExclusionsPageAddCustomExclusion:
         # Should not raise exception
         page._on_add_custom_exclusion(None)
 
-    def test_on_add_custom_exclusion_adds_file_pattern(self, mock_gi_modules, mock_settings_manager):
+    def test_on_add_custom_exclusion_adds_file_pattern(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_add_custom_exclusion adds file pattern (path starting with /)."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -432,7 +447,9 @@ class TestExclusionsPageAddCustomExclusion:
         assert call_args[1][0]["type"] == "file"
         assert call_args[1][0]["enabled"] is True
 
-    def test_on_add_custom_exclusion_adds_generic_pattern(self, mock_gi_modules, mock_settings_manager):
+    def test_on_add_custom_exclusion_adds_generic_pattern(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_add_custom_exclusion adds generic pattern (not starting with /)."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -448,7 +465,9 @@ class TestExclusionsPageAddCustomExclusion:
         call_args = mock_settings_manager.set.call_args[0]
         assert call_args[1][0]["type"] == "pattern"
 
-    def test_on_add_custom_exclusion_strips_whitespace(self, mock_gi_modules, mock_settings_manager):
+    def test_on_add_custom_exclusion_strips_whitespace(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_add_custom_exclusion strips whitespace from pattern."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -464,7 +483,9 @@ class TestExclusionsPageAddCustomExclusion:
         call_args = mock_settings_manager.set.call_args[0]
         assert call_args[1][0]["pattern"] == "*.tmp"
 
-    def test_on_add_custom_exclusion_avoids_duplicates(self, mock_gi_modules, mock_settings_manager):
+    def test_on_add_custom_exclusion_avoids_duplicates(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_add_custom_exclusion avoids duplicate patterns."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -512,7 +533,9 @@ class TestExclusionsPageAddCustomExclusion:
         # Should clear the entry
         page._custom_entry_row.set_text.assert_called_with("")
 
-    def test_on_add_custom_exclusion_handles_non_list_settings(self, mock_gi_modules, mock_settings_manager):
+    def test_on_add_custom_exclusion_handles_non_list_settings(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_add_custom_exclusion handles non-list settings gracefully."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -551,7 +574,9 @@ class TestExclusionsPageRemoveCustomExclusion:
         # Should not raise exception
         page._on_remove_custom_exclusion(None, mock_row, "/test/path")
 
-    def test_on_remove_custom_exclusion_removes_from_settings(self, mock_gi_modules, mock_settings_manager):
+    def test_on_remove_custom_exclusion_removes_from_settings(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_remove_custom_exclusion removes pattern from settings."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -572,7 +597,9 @@ class TestExclusionsPageRemoveCustomExclusion:
         assert len(call_args[1]) == 1
         assert call_args[1][0]["pattern"] == "*.tmp"
 
-    def test_on_remove_custom_exclusion_removes_from_ui(self, mock_gi_modules, mock_settings_manager):
+    def test_on_remove_custom_exclusion_removes_from_ui(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_remove_custom_exclusion removes row from UI."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -589,7 +616,9 @@ class TestExclusionsPageRemoveCustomExclusion:
         # Should remove row from group
         page._custom_exclusions_group.remove.assert_called_with(mock_row)
 
-    def test_on_remove_custom_exclusion_handles_non_list_settings(self, mock_gi_modules, mock_settings_manager):
+    def test_on_remove_custom_exclusion_handles_non_list_settings(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_remove_custom_exclusion handles non-list settings."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -624,7 +653,9 @@ class TestExclusionsPageToggleExclusion:
         # Should not raise exception
         page._on_exclusion_toggled(mock_row, None, "/test/path")
 
-    def test_on_exclusion_toggled_updates_enabled_state(self, mock_gi_modules, mock_settings_manager):
+    def test_on_exclusion_toggled_updates_enabled_state(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_exclusion_toggled updates enabled state in settings."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -647,7 +678,9 @@ class TestExclusionsPageToggleExclusion:
             if excl["pattern"] == "/test/path":
                 assert excl["enabled"] is False
 
-    def test_on_exclusion_toggled_preserves_other_patterns(self, mock_gi_modules, mock_settings_manager):
+    def test_on_exclusion_toggled_preserves_other_patterns(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_exclusion_toggled preserves other patterns."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -666,7 +699,9 @@ class TestExclusionsPageToggleExclusion:
         call_args = mock_settings_manager.set.call_args[0]
         assert len(call_args[1]) == 2
 
-    def test_on_exclusion_toggled_handles_non_list_settings(self, mock_gi_modules, mock_settings_manager):
+    def test_on_exclusion_toggled_handles_non_list_settings(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_exclusion_toggled handles non-list settings."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
@@ -679,7 +714,9 @@ class TestExclusionsPageToggleExclusion:
         # Should not raise exception (but won't update since not a list)
         page._on_exclusion_toggled(mock_row, None, "/test/path")
 
-    def test_on_exclusion_toggled_handles_pattern_not_found(self, mock_gi_modules, mock_settings_manager):
+    def test_on_exclusion_toggled_handles_pattern_not_found(
+        self, mock_gi_modules, mock_settings_manager
+    ):
         """Test _on_exclusion_toggled handles pattern not in settings."""
         from src.ui.preferences.exclusions_page import ExclusionsPage
 

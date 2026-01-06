@@ -7,7 +7,7 @@ management, and 'Show More'/'Show All' button controls. Used to paginate large
 lists of entries in logs_view.py and quarantine_view.py.
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 import gi
 

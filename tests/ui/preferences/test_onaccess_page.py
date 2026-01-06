@@ -1,7 +1,6 @@
 # ClamUI On-Access Page Tests
 """Unit tests for the OnAccessPage class."""
 
-import sys
 from unittest import mock
 
 import pytest
@@ -55,9 +54,7 @@ class TestOnAccessPageCreation:
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        result = OnAccessPage.create_page(
-            mock_config_path, widgets_dict, True, mock_parent_window
-        )
+        result = OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
 
         # Should create a PreferencesPage
         adw.PreferencesPage.assert_called()
@@ -70,9 +67,7 @@ class TestOnAccessPageCreation:
 
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        result = OnAccessPage.create_page(
-            mock_config_path, widgets_dict, True, mock_parent_window
-        )
+        result = OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
 
         # Should set title and icon_name
         adw.PreferencesPage.assert_called_with(
@@ -297,9 +292,7 @@ class TestOnAccessPagePopulateFields:
 
         mock_widgets["OnAccessPrevention"].set_active.assert_called_with(False)
 
-    def test_populate_fields_sets_numeric_values(
-        self, mock_gi_modules, mock_config, mock_widgets
-    ):
+    def test_populate_fields_sets_numeric_values(self, mock_gi_modules, mock_config, mock_widgets):
         """Test populate_fields sets numeric spin row values."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -328,9 +321,7 @@ class TestOnAccessPagePopulateFields:
         # Should not call set_value when value is invalid
         # (mocks will still record calls, but real code would skip)
 
-    def test_populate_fields_sets_username_entry(
-        self, mock_gi_modules, mock_config, mock_widgets
-    ):
+    def test_populate_fields_sets_username_entry(self, mock_gi_modules, mock_config, mock_widgets):
         """Test populate_fields sets username entry."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -341,9 +332,7 @@ class TestOnAccessPagePopulateFields:
         # Should call set_text on username entry
         mock_widgets["OnAccessExcludeUname"].set_text.assert_called_with("clamav")
 
-    def test_populate_fields_handles_missing_keys(
-        self, mock_gi_modules, mock_config, mock_widgets
-    ):
+    def test_populate_fields_handles_missing_keys(self, mock_gi_modules, mock_config, mock_widgets):
         """Test populate_fields handles missing config keys."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -434,9 +423,7 @@ class TestOnAccessPageCollectData:
         assert "OnAccessIncludePath" not in result
         assert "OnAccessExcludePath" not in result
 
-    def test_collect_data_handles_paths_with_extra_whitespace(
-        self, mock_gi_modules, mock_widgets
-    ):
+    def test_collect_data_handles_paths_with_extra_whitespace(self, mock_gi_modules, mock_widgets):
         """Test collect_data strips whitespace from paths."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -475,9 +462,7 @@ class TestOnAccessPageCollectData:
         assert result["OnAccessRetryAttempts"] == "3"
         assert result["OnAccessExcludeUID"] == "1000"
 
-    def test_collect_data_includes_username_when_not_empty(
-        self, mock_gi_modules, mock_widgets
-    ):
+    def test_collect_data_includes_username_when_not_empty(self, mock_gi_modules, mock_widgets):
         """Test collect_data includes username when provided."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -487,9 +472,7 @@ class TestOnAccessPageCollectData:
 
         assert result["OnAccessExcludeUname"] == "clamav"
 
-    def test_collect_data_excludes_username_when_empty(
-        self, mock_gi_modules, mock_widgets
-    ):
+    def test_collect_data_excludes_username_when_empty(self, mock_gi_modules, mock_widgets):
         """Test collect_data excludes username when empty."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -513,9 +496,7 @@ class TestOnAccessPageCollectData:
         assert "OnAccessDisableDDD" in result
         assert "OnAccessExcludeRootUID" in result
 
-    def test_collect_data_includes_all_performance_settings(
-        self, mock_gi_modules, mock_widgets
-    ):
+    def test_collect_data_includes_all_performance_settings(self, mock_gi_modules, mock_widgets):
         """Test collect_data includes all performance settings."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 

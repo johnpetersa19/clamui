@@ -21,8 +21,6 @@ Total: 361+ comprehensive tests covering all preference functionality.
 import sys
 from unittest import mock
 
-import pytest
-
 
 def _clear_src_modules():
     """Clear all cached src.* modules to prevent test pollution."""

@@ -18,6 +18,7 @@ from src.core.clamav_config import parse_config
 from src.core.scheduler import Scheduler
 
 from .base import PreferencesPageMixin
+from .behavior_page import BehaviorPage
 from .database_page import DatabasePage
 from .exclusions_page import ExclusionsPage
 from .onaccess_page import OnAccessPage
@@ -42,12 +43,13 @@ class PreferencesWindow(Adw.PreferencesWindow, PreferencesPageMixin):
     The window is displayed as a modal dialog transient to the main window.
     """
 
-    def __init__(self, settings_manager=None, **kwargs):
+    def __init__(self, settings_manager=None, tray_available: bool = False, **kwargs):
         """
         Initialize the preferences window.
 
         Args:
             settings_manager: Optional SettingsManager instance for application settings
+            tray_available: Whether the system tray is available
             **kwargs: Additional arguments passed to parent, including:
                 - transient_for: Parent window to be modal to
                 - application: The parent application instance
@@ -56,6 +58,9 @@ class PreferencesWindow(Adw.PreferencesWindow, PreferencesPageMixin):
 
         # Store settings manager reference
         self._settings_manager = settings_manager
+
+        # Store tray availability for behavior page
+        self._tray_available = tray_available
 
         # Set window properties
         self.set_title("Preferences")
@@ -105,9 +110,7 @@ class PreferencesWindow(Adw.PreferencesWindow, PreferencesPageMixin):
     def _setup_ui(self):
         """Set up the preferences window UI layout."""
         # Create Database Updates page (freshclam.conf)
-        database_page = DatabasePage.create_page(
-            self._freshclam_conf_path, self._freshclam_widgets
-        )
+        database_page = DatabasePage.create_page(self._freshclam_conf_path, self._freshclam_widgets)
         self.add(database_page)
 
         # Create Scanner Settings page (clamd.conf)
@@ -138,6 +141,11 @@ class PreferencesWindow(Adw.PreferencesWindow, PreferencesPageMixin):
         # Create VirusTotal page (API key and settings)
         virustotal_page = VirusTotalPage.create_page(self._settings_manager, self)
         self.add(virustotal_page)
+
+        # Create Behavior page (window behavior settings) - instance-based
+        behavior_page_instance = BehaviorPage(self._settings_manager, self._tray_available)
+        behavior_page = behavior_page_instance.create_page()
+        self.add(behavior_page)
 
         # Create Save & Apply page - instance-based
         save_page_instance = SavePage(

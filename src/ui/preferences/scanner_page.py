@@ -515,9 +515,7 @@ class ScannerPage(PreferencesPageMixin):
             widgets_dict["ScanHTML"].set_active(config.get_value("ScanHTML").lower() == "yes")
 
         if config.has_key("ScanArchive"):
-            widgets_dict["ScanArchive"].set_active(
-                config.get_value("ScanArchive").lower() == "yes"
-            )
+            widgets_dict["ScanArchive"].set_active(config.get_value("ScanArchive").lower() == "yes")
 
         # Populate performance settings
         if config.has_key("MaxFileSize"):

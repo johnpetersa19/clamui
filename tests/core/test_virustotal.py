@@ -3,7 +3,6 @@
 
 import hashlib
 import tempfile
-import time
 from pathlib import Path
 from unittest import mock
 
@@ -12,10 +11,10 @@ import pytest
 from src.core.virustotal import (
     VT_MAX_FILE_SIZE,
     VT_RATE_LIMIT_REQUESTS,
+    VirusTotalClient,
     VTDetection,
     VTScanResult,
     VTScanStatus,
-    VirusTotalClient,
 )
 
 

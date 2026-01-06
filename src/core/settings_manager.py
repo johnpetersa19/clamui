@@ -25,6 +25,8 @@ class SettingsManager:
         "notifications_enabled": True,
         "minimize_to_tray": False,
         "start_minimized": False,
+        # Close behavior: None = first-run/unset, "minimize", "quit", "ask"
+        "close_behavior": None,
         # Quarantine settings
         "quarantine_directory": "",  # Empty string means use default (~/.local/share/clamui/quarantine)
         # Scheduled scan settings

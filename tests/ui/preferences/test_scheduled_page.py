@@ -1,7 +1,6 @@
 # ClamUI Scheduled Page Tests
 """Unit tests for the ScheduledPage class."""
 
-import sys
 from pathlib import Path
 from unittest import mock
 

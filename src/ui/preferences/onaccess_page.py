@@ -183,9 +183,7 @@ class OnAccessPage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
-    def _create_onaccess_performance_group(
-        page: Adw.PreferencesPage, widgets_dict: dict, helper
-    ):
+    def _create_onaccess_performance_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
         """
         Create the On-Access Performance preferences group.
 
@@ -393,9 +391,7 @@ class OnAccessPage(PreferencesPageMixin):
 
         # Populate OnAccessExcludeUname (entry)
         if config.has_key("OnAccessExcludeUname"):
-            widgets_dict["OnAccessExcludeUname"].set_text(
-                config.get_value("OnAccessExcludeUname")
-            )
+            widgets_dict["OnAccessExcludeUname"].set_text(config.get_value("OnAccessExcludeUname"))
 
         # Populate OnAccessExcludeUID (spin)
         if config.has_key("OnAccessExcludeUID"):
@@ -457,15 +453,9 @@ class OnAccessPage(PreferencesPageMixin):
         )
 
         # Collect performance settings (spin rows)
-        updates["OnAccessMaxThreads"] = str(
-            int(widgets_dict["OnAccessMaxThreads"].get_value())
-        )
-        updates["OnAccessMaxFileSize"] = str(
-            int(widgets_dict["OnAccessMaxFileSize"].get_value())
-        )
-        updates["OnAccessCurlTimeout"] = str(
-            int(widgets_dict["OnAccessCurlTimeout"].get_value())
-        )
+        updates["OnAccessMaxThreads"] = str(int(widgets_dict["OnAccessMaxThreads"].get_value()))
+        updates["OnAccessMaxFileSize"] = str(int(widgets_dict["OnAccessMaxFileSize"].get_value()))
+        updates["OnAccessCurlTimeout"] = str(int(widgets_dict["OnAccessCurlTimeout"].get_value()))
         updates["OnAccessRetryAttempts"] = str(
             int(widgets_dict["OnAccessRetryAttempts"].get_value())
         )
