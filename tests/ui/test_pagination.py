@@ -772,3 +772,452 @@ def test_pagination_display_batch_basic(mock_gi_modules):
     controller.add_load_more_button.assert_called_once()
 
     # All tests passed
+
+
+class TestPaginationControllerLoadMore:
+    """Tests for load_more() functionality."""
+
+    def test_load_more_displays_batch_size_more_entries(
+        self, pagination_controller, mock_row_factory, mock_listbox
+    ):
+        """Test that load_more() displays batch_size more entries."""
+        # Create 60 entries, initial_limit is 25, batch_size is 25
+        entries = [f"entry{i}" for i in range(60)]
+        pagination_controller._all_entries = entries
+        pagination_controller._displayed_count = 25
+        pagination_controller._load_more_row = mock.MagicMock()
+
+        # Mock add_load_more_button to track calls
+        pagination_controller.add_load_more_button = mock.MagicMock()
+
+        mock_row_factory.reset_mock()
+        pagination_controller.load_more()
+
+        # Should display next 25 entries (batch_size)
+        assert mock_row_factory.call_count == 25
+        assert pagination_controller._displayed_count == 50
+
+    def test_load_more_readds_button_when_more_entries_remain(
+        self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
+    ):
+        """Test that load_more() re-adds button when more entries remain."""
+        controller = pagination_controller_class(
+            listbox=mock_listbox,
+            scrolled_window=mock_scrolled_window,
+            row_factory=mock_row_factory,
+            initial_limit=25,
+            batch_size=25,
+        )
+
+        # Create 60 entries (25 displayed, 25 after load_more, 10 remaining)
+        entries = [f"entry{i}" for i in range(60)]
+        controller._all_entries = entries
+        controller._displayed_count = 25
+        controller._load_more_row = mock.MagicMock()
+
+        # Mock add_load_more_button to track calls
+        controller.add_load_more_button = mock.MagicMock()
+
+        controller.load_more()
+
+        # Should re-add load_more_button since 10 entries remain
+        controller.add_load_more_button.assert_called_once_with("entries")
+
+    def test_load_more_does_not_readd_button_when_all_displayed(
+        self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
+    ):
+        """Test that load_more() does not re-add button when all entries displayed."""
+        controller = pagination_controller_class(
+            listbox=mock_listbox,
+            scrolled_window=mock_scrolled_window,
+            row_factory=mock_row_factory,
+            initial_limit=25,
+            batch_size=25,
+        )
+
+        # Create 40 entries (25 displayed, 15 remaining - will all be shown)
+        entries = [f"entry{i}" for i in range(40)]
+        controller._all_entries = entries
+        controller._displayed_count = 25
+        controller._load_more_row = mock.MagicMock()
+
+        # Mock add_load_more_button to track calls
+        controller.add_load_more_button = mock.MagicMock()
+
+        controller.load_more()
+
+        # Should NOT re-add load_more_button since all entries are now displayed
+        controller.add_load_more_button.assert_not_called()
+
+    def test_load_more_removes_load_more_row_before_displaying(
+        self, pagination_controller, mock_listbox
+    ):
+        """Test that load_more() removes load_more_row before displaying new entries."""
+        entries = [f"entry{i}" for i in range(50)]
+        pagination_controller._all_entries = entries
+        pagination_controller._displayed_count = 25
+        mock_load_more_row = mock.MagicMock()
+        pagination_controller._load_more_row = mock_load_more_row
+
+        pagination_controller.load_more()
+
+        # Should have removed the load_more_row
+        mock_listbox.remove.assert_called_once_with(mock_load_more_row)
+        # load_more_row should be cleared
+        assert pagination_controller._load_more_row is None
+
+    def test_load_more_preserves_scroll_position(
+        self, pagination_controller, mock_scrolled_window
+    ):
+        """Test that load_more() preserves scroll position using GLib.idle_add."""
+        entries = [f"entry{i}" for i in range(50)]
+        pagination_controller._all_entries = entries
+        pagination_controller._displayed_count = 25
+        pagination_controller._load_more_row = mock.MagicMock()
+
+        # Mock the vertical adjustment
+        mock_vadj = mock.MagicMock()
+        mock_vadj.get_value.return_value = 250.5
+        mock_scrolled_window.get_vadjustment.return_value = mock_vadj
+
+        pagination_controller.load_more()
+
+        # Should have captured scroll position
+        mock_vadj.get_value.assert_called()
+
+        # GLib.idle_add would be called to restore scroll position
+        # We can't directly test GLib.idle_add since it's mocked, but we
+        # verify the scroll position was captured for restoration
+
+    def test_load_more_with_custom_entries_label(
+        self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
+    ):
+        """Test that load_more() passes custom entries_label to add_load_more_button."""
+        controller = pagination_controller_class(
+            listbox=mock_listbox,
+            scrolled_window=mock_scrolled_window,
+            row_factory=mock_row_factory,
+            initial_limit=25,
+            batch_size=25,
+        )
+
+        # Create 60 entries
+        entries = [f"entry{i}" for i in range(60)]
+        controller._all_entries = entries
+        controller._displayed_count = 25
+        controller._load_more_row = mock.MagicMock()
+
+        # Mock add_load_more_button to track calls
+        controller.add_load_more_button = mock.MagicMock()
+
+        controller.load_more(entries_label="logs")
+
+        # Should pass custom label
+        controller.add_load_more_button.assert_called_once_with("logs")
+
+    def test_load_more_respects_remaining_entries(
+        self, pagination_controller, mock_row_factory
+    ):
+        """Test that load_more() only displays remaining entries when less than batch_size."""
+        # Create 35 entries (25 displayed, 10 remaining - less than batch_size of 25)
+        entries = [f"entry{i}" for i in range(35)]
+        pagination_controller._all_entries = entries
+        pagination_controller._displayed_count = 25
+        pagination_controller._load_more_row = mock.MagicMock()
+
+        mock_row_factory.reset_mock()
+        pagination_controller.load_more()
+
+        # Should only display 10 remaining entries
+        assert mock_row_factory.call_count == 10
+        assert pagination_controller._displayed_count == 35
+
+    def test_load_more_uses_entries_to_display_property(
+        self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
+    ):
+        """Test that load_more() uses entries_to_display property (for filtering)."""
+
+        # Create a controller subclass with custom entries_to_display
+        class FilteredController(pagination_controller_class):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._filtered_entries = []
+
+            @property
+            def entries_to_display(self):
+                return self._filtered_entries
+
+        controller = FilteredController(
+            listbox=mock_listbox,
+            scrolled_window=mock_scrolled_window,
+            row_factory=mock_row_factory,
+            batch_size=10,
+        )
+
+        # Set filtered entries
+        controller._all_entries = [f"entry{i}" for i in range(50)]
+        controller._filtered_entries = [f"filtered{i}" for i in range(30)]
+        controller._displayed_count = 10
+        controller._load_more_row = mock.MagicMock()
+
+        mock_row_factory.reset_mock()
+        controller.load_more()
+
+        # Should display next 10 from filtered entries
+        assert mock_row_factory.call_count == 10
+        for i in range(10, 20):
+            mock_row_factory.assert_any_call(f"filtered{i}")
+
+    def test_load_more_button_click_handler(
+        self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
+    ):
+        """Test that _on_load_more_clicked calls load_more() method."""
+        controller = pagination_controller_class(
+            listbox=mock_listbox,
+            scrolled_window=mock_scrolled_window,
+            row_factory=mock_row_factory,
+        )
+
+        # Mock load_more method
+        controller.load_more = mock.MagicMock()
+
+        # Simulate button click
+        mock_button = mock.MagicMock()
+        controller._on_load_more_clicked(mock_button)
+
+        # Should have called load_more
+        controller.load_more.assert_called_once()
+
+
+class TestPaginationControllerShowAll:
+    """Tests for show_all() functionality."""
+
+    def test_show_all_displays_all_remaining_entries(
+        self, pagination_controller, mock_row_factory
+    ):
+        """Test that show_all() displays all remaining entries."""
+        # Create 60 entries (25 displayed, 35 remaining)
+        entries = [f"entry{i}" for i in range(60)]
+        pagination_controller._all_entries = entries
+        pagination_controller._displayed_count = 25
+        pagination_controller._load_more_row = mock.MagicMock()
+
+        mock_row_factory.reset_mock()
+        pagination_controller.show_all()
+
+        # Should display all 35 remaining entries
+        assert mock_row_factory.call_count == 35
+        assert pagination_controller._displayed_count == 60
+
+    def test_show_all_does_not_readd_button(
+        self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
+    ):
+        """Test that show_all() does not re-add load_more_button."""
+        controller = pagination_controller_class(
+            listbox=mock_listbox,
+            scrolled_window=mock_scrolled_window,
+            row_factory=mock_row_factory,
+            initial_limit=25,
+            batch_size=25,
+        )
+
+        # Create 60 entries
+        entries = [f"entry{i}" for i in range(60)]
+        controller._all_entries = entries
+        controller._displayed_count = 25
+        controller._load_more_row = mock.MagicMock()
+
+        # Mock add_load_more_button to ensure it's not called
+        controller.add_load_more_button = mock.MagicMock()
+
+        controller.show_all()
+
+        # Should NOT call add_load_more_button
+        controller.add_load_more_button.assert_not_called()
+
+    def test_show_all_removes_load_more_row_before_displaying(
+        self, pagination_controller, mock_listbox
+    ):
+        """Test that show_all() removes load_more_row before displaying new entries."""
+        entries = [f"entry{i}" for i in range(50)]
+        pagination_controller._all_entries = entries
+        pagination_controller._displayed_count = 25
+        mock_load_more_row = mock.MagicMock()
+        pagination_controller._load_more_row = mock_load_more_row
+
+        pagination_controller.show_all()
+
+        # Should have removed the load_more_row
+        mock_listbox.remove.assert_called_once_with(mock_load_more_row)
+        # load_more_row should be cleared
+        assert pagination_controller._load_more_row is None
+
+    def test_show_all_preserves_scroll_position(
+        self, pagination_controller, mock_scrolled_window
+    ):
+        """Test that show_all() preserves scroll position using GLib.idle_add."""
+        entries = [f"entry{i}" for i in range(50)]
+        pagination_controller._all_entries = entries
+        pagination_controller._displayed_count = 25
+        pagination_controller._load_more_row = mock.MagicMock()
+
+        # Mock the vertical adjustment
+        mock_vadj = mock.MagicMock()
+        mock_vadj.get_value.return_value = 180.75
+        mock_scrolled_window.get_vadjustment.return_value = mock_vadj
+
+        pagination_controller.show_all()
+
+        # Should have captured scroll position
+        mock_vadj.get_value.assert_called()
+
+        # GLib.idle_add would be called to restore scroll position
+        # We can't directly test GLib.idle_add since it's mocked, but we
+        # verify the scroll position was captured for restoration
+
+    def test_show_all_with_no_scrolled_window(
+        self, pagination_controller_class, mock_listbox, mock_row_factory
+    ):
+        """Test that show_all() works when scrolled_window is None."""
+        controller = pagination_controller_class(
+            listbox=mock_listbox,
+            scrolled_window=None,
+            row_factory=mock_row_factory,
+        )
+
+        entries = [f"entry{i}" for i in range(50)]
+        controller._all_entries = entries
+        controller._displayed_count = 25
+        controller._load_more_row = mock.MagicMock()
+
+        # Should not raise exception even without scrolled_window
+        controller.show_all()
+
+        # Should still display all entries
+        assert controller._displayed_count == 50
+
+    def test_show_all_displays_correct_entries(
+        self, pagination_controller, mock_row_factory
+    ):
+        """Test that show_all() displays the correct remaining entries."""
+        entries = [f"entry{i}" for i in range(40)]
+        pagination_controller._all_entries = entries
+        pagination_controller._displayed_count = 10
+        pagination_controller._load_more_row = mock.MagicMock()
+
+        mock_row_factory.reset_mock()
+        pagination_controller.show_all()
+
+        # Should display entries 10-39 (30 remaining entries)
+        assert mock_row_factory.call_count == 30
+        for i in range(10, 40):
+            mock_row_factory.assert_any_call(f"entry{i}")
+
+    def test_show_all_uses_entries_to_display_property(
+        self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
+    ):
+        """Test that show_all() uses entries_to_display property (for filtering)."""
+
+        # Create a controller subclass with custom entries_to_display
+        class FilteredController(pagination_controller_class):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._filtered_entries = []
+
+            @property
+            def entries_to_display(self):
+                return self._filtered_entries
+
+        controller = FilteredController(
+            listbox=mock_listbox,
+            scrolled_window=mock_scrolled_window,
+            row_factory=mock_row_factory,
+        )
+
+        # Set filtered entries
+        controller._all_entries = [f"entry{i}" for i in range(50)]
+        controller._filtered_entries = [f"filtered{i}" for i in range(30)]
+        controller._displayed_count = 10
+        controller._load_more_row = mock.MagicMock()
+
+        mock_row_factory.reset_mock()
+        controller.show_all()
+
+        # Should display remaining 20 filtered entries
+        assert mock_row_factory.call_count == 20
+        for i in range(10, 30):
+            mock_row_factory.assert_any_call(f"filtered{i}")
+
+    def test_show_all_button_click_handler(
+        self, pagination_controller_class, mock_listbox, mock_scrolled_window, mock_row_factory
+    ):
+        """Test that _on_show_all_clicked calls show_all() method."""
+        controller = pagination_controller_class(
+            listbox=mock_listbox,
+            scrolled_window=mock_scrolled_window,
+            row_factory=mock_row_factory,
+        )
+
+        # Mock show_all method
+        controller.show_all = mock.MagicMock()
+
+        # Simulate button click
+        mock_button = mock.MagicMock()
+        controller._on_show_all_clicked(mock_button)
+
+        # Should have called show_all
+        controller.show_all.assert_called_once()
+
+
+# Module-level test function for verification
+def test_pagination_load_more_show_all_basic(mock_gi_modules):
+    """
+    Basic test function for load_more and show_all verification.
+
+    This test verifies the load_more and show_all functionality
+    using the centralized mock setup.
+    """
+    from src.ui.pagination import PaginatedListController
+
+    mock_listbox = mock.MagicMock()
+    mock_scrolled = mock.MagicMock()
+    mock_factory = mock.MagicMock(return_value=mock.MagicMock())
+
+    # Mock vertical adjustment for scroll position
+    mock_vadj = mock.MagicMock()
+    mock_vadj.get_value.return_value = 100.0
+    mock_scrolled.get_vadjustment.return_value = mock_vadj
+
+    controller = PaginatedListController(
+        listbox=mock_listbox,
+        scrolled_window=mock_scrolled,
+        row_factory=mock_factory,
+        initial_limit=10,
+        batch_size=5,
+    )
+
+    # Test 1: load_more displays next batch
+    controller._all_entries = [f"entry{i}" for i in range(20)]
+    controller._displayed_count = 10
+    controller._load_more_row = mock.MagicMock()
+    mock_factory.reset_mock()
+
+    controller.load_more()
+
+    assert mock_factory.call_count == 5  # batch_size
+    assert controller.displayed_count == 15
+
+    # Test 2: show_all displays all remaining
+    controller._displayed_count = 10
+    controller._load_more_row = mock.MagicMock()
+    mock_factory.reset_mock()
+
+    controller.show_all()
+
+    assert mock_factory.call_count == 10  # All remaining
+    assert controller.displayed_count == 20
+
+    # Test 3: Scroll position is captured
+    assert mock_vadj.get_value.call_count >= 2  # Called by both methods
+
+    # All tests passed
