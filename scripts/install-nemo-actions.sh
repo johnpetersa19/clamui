@@ -5,7 +5,7 @@
 # local Nemo actions directory, enabling right-click context menu integration.
 #
 # Usage:
-#   flatpak run --command=clamui-install-nemo-actions io.github.Pdzly.ClamUI
+#   flatpak run --command=clamui-install-nemo-actions io.github.linx_systems.ClamUI
 #
 # Or from within the Flatpak environment:
 #   clamui-install-nemo-actions
@@ -40,7 +40,7 @@ DEST_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/nemo/actions"
 if [ ! -d "$SOURCE_DIR" ]; then
     log_error "Nemo action files not found at $SOURCE_DIR"
     log_error "This script should be run from within the ClamUI Flatpak:"
-    log_error "  flatpak run --command=clamui-install-nemo-actions io.github.Pdzly.ClamUI"
+    log_error "  flatpak run --command=clamui-install-nemo-actions io.github.linx_systems.ClamUI"
     exit 1
 fi
 

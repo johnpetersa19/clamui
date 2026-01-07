@@ -1,7 +1,7 @@
 [Nemo Action]
 Name=Scan with ClamUI
 Comment=Scan selected files/folders with ClamUI antivirus
-Exec=clamui %F
-Icon-Name=io.github.Pdzly.ClamUI
+Exec=flatpak run io.github.linx_systems.ClamUI %F
+Icon-Name=io.github.linx_systems.ClamUI
 Selection=any
 Extensions=any;

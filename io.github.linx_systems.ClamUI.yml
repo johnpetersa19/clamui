@@ -1,4 +1,4 @@
-app-id: io.github.Pdzly.ClamUI
+app-id: io.github.linx_systems.ClamUI
 runtime: org.gnome.Platform
 runtime-version: '48'
 sdk: org.gnome.Sdk
@@ -148,13 +148,13 @@ modules:
     buildsystem: simple
     build-commands:
       - pip3 install --prefix=/app --no-deps --no-build-isolation .
-      - install -Dm644 io.github.Pdzly.ClamUI.desktop /app/share/applications/io.github.Pdzly.ClamUI.desktop
-      - install -Dm644 io.github.Pdzly.ClamUI.metainfo.xml /app/share/metainfo/io.github.Pdzly.ClamUI.metainfo.xml
-      - install -Dm644 icons/io.github.Pdzly.ClamUI.svg /app/share/icons/hicolor/scalable/apps/io.github.Pdzly.ClamUI.svg
-      - install -Dm644 icons/io.github.Pdzly.ClamUI.png /app/share/icons/hicolor/scalable/apps/io.github.Pdzly.ClamUI.png
+      - install -Dm644 io.github.linx_systems.ClamUI.desktop /app/share/applications/io.github.linx_systems.ClamUI.desktop
+      - install -Dm644 io.github.linx_systems.ClamUI.metainfo.xml /app/share/metainfo/io.github.linx_systems.ClamUI.metainfo.xml
+      - install -Dm644 icons/io.github.linx_systems.ClamUI.svg /app/share/icons/hicolor/scalable/apps/io.github.linx_systems.ClamUI.svg
+      - install -Dm644 icons/io.github.linx_systems.ClamUI.png /app/share/icons/hicolor/scalable/apps/io.github.linx_systems.ClamUI.png
       # Nemo context menu actions (for Cinnamon/Nemo file manager)
-      - install -Dm644 io.github.Pdzly.ClamUI.flatpak.nemo_action /app/share/clamui/nemo-actions/io.github.Pdzly.ClamUI.nemo_action
-      - install -Dm644 io.github.Pdzly.ClamUI-virustotal.flatpak.nemo_action /app/share/clamui/nemo-actions/io.github.Pdzly.ClamUI-virustotal.nemo_action
+      - install -Dm644 io.github.linx_systems.ClamUI.flatpak.nemo_action /app/share/clamui/nemo-actions/io.github.linx_systems.ClamUI.nemo_action
+      - install -Dm644 io.github.linx_systems.ClamUI-virustotal.flatpak.nemo_action /app/share/clamui/nemo-actions/io.github.linx_systems.ClamUI-virustotal.nemo_action
       - install -Dm755 scripts/install-nemo-actions.sh /app/bin/clamui-install-nemo-actions
     sources:
       - type: dir

@@ -169,7 +169,7 @@ remove_xdg_files() {
     FILES_REMOVED=0
 
     # Remove desktop entry
-    DESKTOP_FILE="$DESKTOP_DIR/io.github.Pdzly.ClamUI.desktop"
+    DESKTOP_FILE="$DESKTOP_DIR/io.github.linx_systems.ClamUI.desktop"
     if [ -f "$DESKTOP_FILE" ]; then
         log_info "Removing desktop entry..."
         rm -f "$DESKTOP_FILE"
@@ -180,7 +180,7 @@ remove_xdg_files() {
     fi
 
     # Remove application icons (SVG and PNG)
-    SVG_ICON_FILE="$ICON_DIR/io.github.Pdzly.ClamUI.svg"
+    SVG_ICON_FILE="$ICON_DIR/io.github.linx_systems.ClamUI.svg"
     if [ -f "$SVG_ICON_FILE" ]; then
         log_info "Removing SVG icon..."
         rm -f "$SVG_ICON_FILE"
@@ -190,7 +190,7 @@ remove_xdg_files() {
         log_info "SVG icon not found: $SVG_ICON_FILE"
     fi
 
-    PNG_ICON_FILE="$ICON_DIR/io.github.Pdzly.ClamUI.png"
+    PNG_ICON_FILE="$ICON_DIR/io.github.linx_systems.ClamUI.png"
     if [ -f "$PNG_ICON_FILE" ]; then
         log_info "Removing PNG icon..."
         rm -f "$PNG_ICON_FILE"
@@ -201,7 +201,7 @@ remove_xdg_files() {
     fi
 
     # Remove Nemo file manager actions
-    NEMO_FILE="$NEMO_ACTION_DIR/io.github.Pdzly.ClamUI.nemo_action"
+    NEMO_FILE="$NEMO_ACTION_DIR/io.github.linx_systems.ClamUI.nemo_action"
     if [ -f "$NEMO_FILE" ]; then
         log_info "Removing Nemo action..."
         rm -f "$NEMO_FILE"
@@ -212,7 +212,7 @@ remove_xdg_files() {
     fi
 
     # Remove VirusTotal Nemo action
-    NEMO_VT_FILE="$NEMO_ACTION_DIR/io.github.Pdzly.ClamUI-virustotal.nemo_action"
+    NEMO_VT_FILE="$NEMO_ACTION_DIR/io.github.linx_systems.ClamUI-virustotal.nemo_action"
     if [ -f "$NEMO_VT_FILE" ]; then
         log_info "Removing VirusTotal Nemo action..."
         rm -f "$NEMO_VT_FILE"
@@ -234,7 +234,7 @@ remove_xdg_files() {
     fi
 
     # Remove Dolphin service menus
-    DOLPHIN_VT_FILE="$DOLPHIN_SERVICES_DIR/io.github.Pdzly.ClamUI-virustotal.desktop"
+    DOLPHIN_VT_FILE="$DOLPHIN_SERVICES_DIR/io.github.linx_systems.ClamUI-virustotal.desktop"
     if [ -f "$DOLPHIN_VT_FILE" ]; then
         log_info "Removing Dolphin VirusTotal service menu..."
         rm -f "$DOLPHIN_VT_FILE"

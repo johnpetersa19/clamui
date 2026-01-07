@@ -54,7 +54,7 @@ class TestFindClamuiBaseIcon:
         # Create a mock icon file in a temp directory
         icons_dir = tmp_path / "icons"
         icons_dir.mkdir()
-        icon_file = icons_dir / "io.github.Pdzly.ClamUI.png"
+        icon_file = icons_dir / "io.github.linx_systems.ClamUI.png"
         icon_file.write_bytes(b"fake png data")
 
         # Mock the module path to point to our temp structure
