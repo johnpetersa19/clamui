@@ -24,11 +24,6 @@
       <li>Graceful handling when ClamAV is not installed</li>
       <li>Modern Adwaita styling with proper GNOME integration</li>
     </ul>
-    <p>
-      Note: ClamUI requires ClamAV to be installed on your system. The application
-      provides the graphical interface while relying on the host system's ClamAV
-      installation for virus scanning capabilities.
-    </p>
   </description>
 
   <launchable type="desktop-id">io.github.linx_systems.ClamUI.desktop</launchable>
@@ -73,7 +68,7 @@
   </keywords>
 
   <releases>
-    <release version="0.1.0" date="2025-01-15">
+    <release version="0.1.0" date="2026-01-07">
       <description>
         <p>Initial release of ClamUI</p>
         <ul>
