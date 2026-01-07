@@ -319,7 +319,9 @@ class Scanner:
             )
 
             try:
-                stdout, stderr = self._current_process.communicate()
+                stdout, stderr, was_cancelled = self._communicate_with_cancel_check(
+                    self._current_process
+                )
                 exit_code = self._current_process.returncode
             finally:
                 # Ensure process is cleaned up even if communicate() raises
@@ -334,13 +336,13 @@ class Scanner:
                         pass
 
             # Check if cancelled during execution
-            if self._scan_cancelled:
+            if was_cancelled:
                 result = ScanResult(
                     status=ScanStatus.CANCELLED,
                     path=path,
                     stdout=stdout,
                     stderr=stderr,
-                    exit_code=exit_code,
+                    exit_code=exit_code if exit_code is not None else -1,
                     infected_files=[],
                     scanned_files=0,
                     scanned_dirs=0,
@@ -439,6 +441,43 @@ class Scanner:
         thread = threading.Thread(target=scan_thread)
         thread.daemon = True
         thread.start()
+
+    def _communicate_with_cancel_check(self, process: subprocess.Popen) -> tuple[str, str, bool]:
+        """
+        Communicate with process while checking for cancellation.
+
+        Uses a polling loop with timeout to allow periodic cancellation checks.
+        This prevents the scan thread from blocking indefinitely on communicate().
+
+        Args:
+            process: The subprocess to communicate with.
+
+        Returns:
+            Tuple of (stdout, stderr, was_cancelled).
+        """
+        stdout_parts: list[str] = []
+        stderr_parts: list[str] = []
+
+        while True:
+            if self._scan_cancelled:
+                # Terminate process and collect any remaining output
+                try:
+                    process.terminate()
+                    stdout, stderr = process.communicate(timeout=2.0)
+                    stdout_parts.append(stdout or "")
+                    stderr_parts.append(stderr or "")
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+                return "".join(stdout_parts), "".join(stderr_parts), True
+
+            try:
+                stdout, stderr = process.communicate(timeout=0.5)
+                stdout_parts.append(stdout or "")
+                stderr_parts.append(stderr or "")
+                return "".join(stdout_parts), "".join(stderr_parts), False
+            except subprocess.TimeoutExpired:
+                continue  # Loop again, check cancel flag
 
     def cancel(self) -> None:
         """

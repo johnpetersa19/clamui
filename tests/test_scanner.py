@@ -806,14 +806,26 @@ Infected files: 1
 
     def test_threat_details_with_cancelled_scan(self, tmp_path):
         """Integration test: cancelled scan produces empty threat_details."""
+        import subprocess
+
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
 
         scanner = Scanner()
 
-        # Set up mock to simulate cancellation during communicate()
-        def simulate_cancel(*args, **kwargs):
-            scanner._scan_cancelled = True
+        # Set up mock to simulate cancellation during polling loop:
+        # First call raises TimeoutExpired (process still running),
+        # then we set _scan_cancelled, and the loop detects cancellation
+        call_count = 0
+
+        def simulate_timeout_then_cancel(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First call: simulate process still running
+                scanner._scan_cancelled = True  # Simulate cancel() being called
+                raise subprocess.TimeoutExpired(cmd="clamscan", timeout=0.5)
+            # Second call: return output after termination
             return ("", "")
 
         with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
@@ -823,8 +835,9 @@ Infected files: 1
                 ):
                     with mock.patch("subprocess.Popen") as mock_popen:
                         mock_process = mock.MagicMock()
-                        mock_process.communicate.side_effect = simulate_cancel
+                        mock_process.communicate.side_effect = simulate_timeout_then_cancel
                         mock_process.returncode = 0
+                        mock_process.poll.return_value = None  # Process still running
                         mock_popen.return_value = mock_process
 
                         result = scanner.scan_sync(str(test_file))

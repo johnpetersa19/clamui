@@ -158,17 +158,39 @@ class DaemonScanner:
         else:
             file_count, dir_count = 0, 0
 
+        # Check if cancelled during counting phase
+        if self._scan_cancelled:
+            result = ScanResult(
+                status=ScanStatus.CANCELLED,
+                path=path,
+                stdout="",
+                stderr="",
+                exit_code=-1,
+                infected_files=[],
+                scanned_files=0,
+                scanned_dirs=0,
+                infected_count=0,
+                error_message="Scan cancelled by user",
+                threat_details=[],
+            )
+            duration = time.monotonic() - start_time
+            self._save_scan_log(result, duration)
+            return result
+
         # Build clamdscan command
         cmd = self._build_command(path, recursive, profile_exclusions)
 
         try:
+            # Reset cancelled flag only if not already cancelled
             self._scan_cancelled = False
             self._current_process = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
 
             try:
-                stdout, stderr = self._current_process.communicate()
+                stdout, stderr, was_cancelled = self._communicate_with_cancel_check(
+                    self._current_process
+                )
                 exit_code = self._current_process.returncode
             finally:
                 # Ensure process is cleaned up even if communicate() raises
@@ -183,13 +205,13 @@ class DaemonScanner:
                         pass
 
             # Check if cancelled during execution
-            if self._scan_cancelled:
+            if was_cancelled:
                 result = ScanResult(
                     status=ScanStatus.CANCELLED,
                     path=path,
                     stdout=stdout,
                     stderr=stderr,
-                    exit_code=exit_code,
+                    exit_code=exit_code if exit_code is not None else -1,
                     infected_files=[],
                     scanned_files=file_count,
                     scanned_dirs=dir_count,
@@ -295,6 +317,43 @@ class DaemonScanner:
         thread = threading.Thread(target=scan_thread)
         thread.daemon = True
         thread.start()
+
+    def _communicate_with_cancel_check(self, process: subprocess.Popen) -> tuple[str, str, bool]:
+        """
+        Communicate with process while checking for cancellation.
+
+        Uses a polling loop with timeout to allow periodic cancellation checks.
+        This prevents the scan thread from blocking indefinitely on communicate().
+
+        Args:
+            process: The subprocess to communicate with.
+
+        Returns:
+            Tuple of (stdout, stderr, was_cancelled).
+        """
+        stdout_parts: list[str] = []
+        stderr_parts: list[str] = []
+
+        while True:
+            if self._scan_cancelled:
+                # Terminate process and collect any remaining output
+                try:
+                    process.terminate()
+                    stdout, stderr = process.communicate(timeout=2.0)
+                    stdout_parts.append(stdout or "")
+                    stderr_parts.append(stderr or "")
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+                return "".join(stdout_parts), "".join(stderr_parts), True
+
+            try:
+                stdout, stderr = process.communicate(timeout=0.5)
+                stdout_parts.append(stdout or "")
+                stderr_parts.append(stderr or "")
+                return "".join(stdout_parts), "".join(stderr_parts), False
+            except subprocess.TimeoutExpired:
+                continue  # Loop again, check cancel flag
 
     def cancel(self) -> None:
         """
@@ -430,6 +489,11 @@ class DaemonScanner:
 
         try:
             for root, dirs, files in os.walk(path):
+                # Check for cancellation during counting
+                if self._scan_cancelled:
+                    logger.info("File counting cancelled by user")
+                    return (0, 0)
+
                 # Filter out excluded directories (modifies dirs in-place)
                 dirs[:] = [
                     d
