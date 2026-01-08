@@ -107,28 +107,24 @@ class LogsView(Gtk.Box):
     def _create_historical_logs_tab(self):
         """Create the historical logs tab containing log list and details."""
         # Container for historical logs tab content
+        # No outer ScrolledWindow - we want the detail section to expand
         tab_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         tab_content.set_spacing(18)
         tab_content.set_margin_top(12)
         tab_content.set_margin_bottom(12)
         tab_content.set_margin_start(12)
         tab_content.set_margin_end(12)
+        tab_content.set_vexpand(True)
 
-        # Create scrollable container for the entire tab
-        scrolled_container = Gtk.ScrolledWindow()
-        scrolled_container.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scrolled_container.set_vexpand(True)
-        scrolled_container.set_child(tab_content)
-
-        # Create the historical logs section
+        # Create the historical logs section (fixed height)
         self._create_historical_logs_section(tab_content)
 
-        # Create the log detail section
+        # Create the log detail section (expands to fill remaining space)
         self._create_log_detail_section(tab_content)
 
         # Add to view stack
         self._view_stack.add_titled_with_icon(
-            scrolled_container, "historical", "Historical Logs", "document-open-recent-symbolic"
+            tab_content, "historical", "Historical Logs", "document-open-recent-symbolic"
         )
 
     def _create_daemon_logs_tab(self):
@@ -317,14 +313,15 @@ class LogsView(Gtk.Box):
         header_box.append(fullscreen_button)
         detail_group.set_header_suffix(header_box)
 
-        # Detail container
+        # Detail container - expands to fill remaining vertical space
         detail_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         detail_box.set_spacing(12)
+        detail_box.set_vexpand(True)
 
         # Log detail text view in a scrolled window
         scrolled = Gtk.ScrolledWindow()
-        scrolled.set_min_content_height(200)
-        scrolled.set_vexpand(False)
+        scrolled.set_min_content_height(150)
+        scrolled.set_vexpand(True)
         scrolled.add_css_class("card")
 
         self._detail_text = Gtk.TextView()
