@@ -18,14 +18,15 @@ finish-args:
 
   # Specific D-Bus permissions (instead of full session-bus)
   - --talk-name=org.freedesktop.Notifications
-  - --talk-name=org.kde.StatusNotifierWatcher
+  # XApp StatusIcon for Cinnamon/MATE/XFCE system tray
+  - --own-name=org.x.StatusIcon.*
 
   # GVFS for file browser integration
   - --filesystem=xdg-run/gvfsd
 
 modules:
-  # System tray indicator support (AyatanaAppIndicator3)
-  - shared-modules/libayatana-appindicator/libayatana-appindicator-gtk3.json
+  # System tray uses org.x.StatusIcon D-Bus protocol (no GTK3 required)
+  # Supports: Cinnamon, MATE, XFCE, Budgie
 
   - name: json-c
     buildsystem: cmake-ninja

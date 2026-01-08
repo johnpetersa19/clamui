@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-# ClamUI Tray Service - Subprocess Script
+# ClamUI Tray Service - StatusNotifierItem D-Bus Implementation
 """
-Standalone tray indicator service that runs in a separate subprocess.
+Standalone tray indicator service using the StatusNotifierItem (SNI) D-Bus protocol.
 
-This script MUST be run as a separate Python process to avoid GTK3/GTK4
-version conflicts. It loads GTK3 first (required by AyatanaAppIndicator3)
-and communicates with the main GTK4 application via JSON messages on stdin/stdout.
+This implementation uses GIO's D-Bus API directly, avoiding the need for GTK3.
+It implements the org.kde.StatusNotifierItem specification which is supported by:
+- Cinnamon (via xapp-sn-watcher)
+- KDE Plasma
+- XFCE (with status notifier plugin)
+- Many other desktop environments
 
-For detailed architecture documentation including process boundaries, IPC protocol,
-threading model, and sequence diagrams, see: docs/architecture/tray-subprocess.md
+The SNI protocol uses DBusMenu for context menus, which allows right-click
+functionality without requiring GTK.
+
+For detailed architecture documentation, see: docs/architecture/tray-subprocess.md
 
 Protocol:
 - Input (stdin): JSON commands like {"action": "update_status", "status": "scanning"}
@@ -33,56 +38,43 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# GTK3 imports MUST happen before any GTK4 contamination
-# This is why this runs in a separate subprocess
-APPINDICATOR_AVAILABLE = False
-AppIndicator = None
-
+# GLib/Gio imports for D-Bus (part of GObject, works with GTK4)
 try:
     import gi
 
-    gi.require_version("Gtk", "3.0")
-    from gi.repository import GLib
-    from gi.repository import Gtk as Gtk3
+    gi.require_version("Gio", "2.0")
+    gi.require_version("GLib", "2.0")
+    from gi.repository import Gio, GLib
 
-    # Try AyatanaAppIndicator3 first (newer), then AppIndicator3 (legacy)
-    try:
-        gi.require_version("AyatanaAppIndicator3", "0.1")
-        from gi.repository import AyatanaAppIndicator3 as AppIndicator
-
-        APPINDICATOR_AVAILABLE = True
-        logger.info("AyatanaAppIndicator3 loaded successfully")
-    except (ValueError, ImportError):
-        try:
-            gi.require_version("AppIndicator3", "0.1")
-            from gi.repository import AppIndicator3 as AppIndicator
-
-            APPINDICATOR_AVAILABLE = True
-            logger.info("AppIndicator3 (legacy) loaded successfully")
-        except (ValueError, ImportError) as e:
-            logger.error(f"No AppIndicator library available: {e}")
-
+    DBUS_AVAILABLE = True
 except (ValueError, ImportError) as e:
-    logger.error(f"Failed to load GTK3: {e}")
+    logger.error(f"Failed to load GIO D-Bus: {e}")
+    DBUS_AVAILABLE = False
 
-if not APPINDICATOR_AVAILABLE:
-    print(
-        json.dumps({"event": "error", "message": "No AppIndicator library available"}), flush=True
-    )
+# Try to load libdbusmenu for menu export
+DBUSMENU_AVAILABLE = False
+Dbusmenu = None
+try:
+    gi.require_version("Dbusmenu", "0.4")
+    from gi.repository import Dbusmenu
+
+    DBUSMENU_AVAILABLE = True
+    logger.info("libdbusmenu available for menu export")
+except (ValueError, ImportError) as e:
+    logger.info(f"libdbusmenu not available, menu will not be shown: {e}")
+
+if not DBUS_AVAILABLE:
+    print(json.dumps({"event": "error", "message": "GIO D-Bus not available"}), flush=True)
     sys.exit(1)
 
-# Import tray icon generator (after GTK3 loads successfully)
+# Import tray icon generator
 CUSTOM_ICONS_AVAILABLE = False
 TrayIconGenerator = None
 find_clamui_base_icon = None
 get_tray_icon_cache_dir = None
 
-# Try to import tray_icons - handles both module and standalone script execution
-# When running as a standalone script, we can't use relative imports and must
-# avoid importing src.ui (which loads GTK4 views and conflicts with GTK3)
 try:
     try:
-        # Try relative import first (when run as a module)
         from .tray_icons import (
             TrayIconGenerator,
             find_clamui_base_icon,
@@ -92,8 +84,6 @@ try:
             is_available as icons_available,
         )
     except ImportError:
-        # Running as standalone script - import tray_icons directly from same directory
-        # to avoid triggering src/ui/__init__.py which imports GTK4 views
         import importlib.util
 
         tray_icons_path = Path(__file__).parent / "tray_icons.py"
@@ -114,12 +104,60 @@ except Exception as e:
     logger.warning(f"Could not import tray_icons module: {e}")
 
 
+# StatusNotifierItem D-Bus interface XML
+STATUS_NOTIFIER_ITEM_XML = """
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.kde.StatusNotifierItem">
+    <property type="s" name="Category" access="read"/>
+    <property type="s" name="Id" access="read"/>
+    <property type="s" name="Title" access="read"/>
+    <property type="s" name="Status" access="read"/>
+    <property type="u" name="WindowId" access="read"/>
+    <property type="s" name="IconName" access="read"/>
+    <property type="s" name="IconThemePath" access="read"/>
+    <property type="s" name="OverlayIconName" access="read"/>
+    <property type="s" name="AttentionIconName" access="read"/>
+    <property type="s" name="AttentionMovieName" access="read"/>
+    <property type="(sa(iiay)ss)" name="ToolTip" access="read"/>
+    <property type="b" name="ItemIsMenu" access="read"/>
+    <property type="o" name="Menu" access="read"/>
+    <method name="ContextMenu">
+      <arg type="i" name="x" direction="in"/>
+      <arg type="i" name="y" direction="in"/>
+    </method>
+    <method name="Activate">
+      <arg type="i" name="x" direction="in"/>
+      <arg type="i" name="y" direction="in"/>
+    </method>
+    <method name="SecondaryActivate">
+      <arg type="i" name="x" direction="in"/>
+      <arg type="i" name="y" direction="in"/>
+    </method>
+    <method name="Scroll">
+      <arg type="i" name="delta" direction="in"/>
+      <arg type="s" name="orientation" direction="in"/>
+    </method>
+    <signal name="NewTitle"/>
+    <signal name="NewIcon"/>
+    <signal name="NewAttentionIcon"/>
+    <signal name="NewOverlayIcon"/>
+    <signal name="NewToolTip"/>
+    <signal name="NewStatus">
+      <arg type="s" name="status"/>
+    </signal>
+  </interface>
+</node>
+"""
+
+
 class TrayService:
     """
-    System tray indicator service.
+    System tray indicator service using StatusNotifierItem (SNI) D-Bus protocol.
 
-    Runs in a separate subprocess with GTK3 and communicates
-    with the main GTK4 application via JSON IPC.
+    This implementation doesn't require GTK3 - it uses GIO's D-Bus API which
+    is part of GLib and works with GTK4. It uses DBusMenu for the context menu.
     """
 
     # Icon mapping for different protection states
@@ -130,63 +168,48 @@ class TrayService:
         "threat": "dialog-error-symbolic",
     }
 
-    # Fallback chains for each status
-    ICON_FALLBACKS = {
-        "protected": [
-            "clamui-protected-symbolic",
-            "security-high-symbolic",
-            "emblem-ok-symbolic",
-            "emblem-default-symbolic",
-        ],
-        "warning": [
-            "clamui-warning-symbolic",
-            "dialog-warning-symbolic",
-            "emblem-important-symbolic",
-            "dialog-information-symbolic",
-        ],
-        "scanning": [
-            "clamui-scanning-symbolic",
-            "emblem-synchronizing-symbolic",
-            "process-working-symbolic",
-            "view-refresh-symbolic",
-        ],
-        "threat": [
-            "clamui-threat-symbolic",
-            "dialog-error-symbolic",
-            "emblem-unreadable-symbolic",
-            "security-low-symbolic",
-        ],
+    # SNI status mapping
+    SNI_STATUS_MAP = {
+        "protected": "Active",
+        "warning": "NeedsAttention",
+        "scanning": "Active",
+        "threat": "NeedsAttention",
     }
 
-    DEFAULT_ICON = "security-high-symbolic"
-    INDICATOR_ID = "clamui-tray"
+    DBUS_NAME = "org.kde.StatusNotifierItem-clamui-1"
+    SNI_PATH = "/StatusNotifierItem"
+    MENU_PATH = "/MenuBar"
 
     def __init__(self):
         """Initialize the tray service."""
-        self._indicator: AppIndicator.Indicator | None = None
-        self._menu: Gtk3.Menu | None = None
-        self._current_status = "protected"
-        self._icon_theme: Gtk3.IconTheme | None = None
-        self._window_visible = True
-        self._show_window_item: Gtk3.MenuItem | None = None
+        self._loop: GLib.MainLoop | None = None
+        self._bus: Gio.DBusConnection | None = None
+        self._sni_registration_id = 0
+        self._bus_name_id = 0
         self._running = True
 
-        # Profile menu state
+        # Status state
+        self._current_status = "protected"
+        self._window_visible = True
+        self._progress_label = ""
+
+        # Profile state
         self._profiles: list[dict] = []
-        self._profiles_menu: Gtk3.Menu | None = None
-        self._profiles_menu_item: Gtk3.MenuItem | None = None
         self._current_profile_id: str | None = None
 
         # Custom icon generator
         self._icon_generator: TrayIconGenerator | None = None
-        self._icon_cache_dir: str | None = None
         self._using_custom_icons = False
 
-        # Set up custom icons if available
+        # DBusMenu server for context menu
+        self._dbusmenu_server = None
+        self._menu_root = None
+
+        # Set up custom icons
         self._setup_custom_icons()
 
-        # Create indicator
-        self._create_indicator()
+        # Set up DBusMenu
+        self._setup_dbusmenu()
 
     def _setup_custom_icons(self) -> None:
         """Set up custom ClamUI icon generation."""
@@ -200,190 +223,316 @@ class TrayService:
             return
 
         try:
-            self._icon_cache_dir = get_tray_icon_cache_dir()
-            self._icon_generator = TrayIconGenerator(base_icon, self._icon_cache_dir)
-
-            # Pre-generate all status icons for responsiveness
+            cache_dir = get_tray_icon_cache_dir()
+            self._icon_generator = TrayIconGenerator(base_icon, cache_dir)
             self._icon_generator.pregenerate_all()
-
             self._using_custom_icons = True
-            logger.info("Custom tray icons enabled")
-            logger.info(f"  Icon dir: {self._icon_cache_dir}")
+            logger.info(f"Custom tray icons enabled, cache: {cache_dir}")
         except Exception as e:
-            logger.warning(f"Failed to set up custom icons: {e}, using theme icons")
+            logger.warning(f"Failed to set up custom icons: {e}")
             self._using_custom_icons = False
-            self._icon_generator = None
 
-    def _get_icon_theme(self) -> Gtk3.IconTheme:
-        """Get the current GTK icon theme."""
-        if self._icon_theme is None:
-            self._icon_theme = Gtk3.IconTheme.get_default()
-        return self._icon_theme
-
-    def _icon_exists(self, icon_name: str) -> bool:
-        """Check if an icon exists in the current theme."""
-        theme = self._get_icon_theme()
-        return theme.has_icon(icon_name)
-
-    def _resolve_icon(self, status: str) -> str:
-        """Resolve the best available icon for a given status."""
-        fallback_chain = self.ICON_FALLBACKS.get(status, [])
-
-        for icon_name in fallback_chain:
-            if self._icon_exists(icon_name):
-                return icon_name
-
-        primary_icon = self.ICON_MAP.get(status, self.DEFAULT_ICON)
-        if self._icon_exists(primary_icon):
-            return primary_icon
-
-        return self.DEFAULT_ICON
-
-    def _create_indicator(self) -> None:
-        """Create and configure the AppIndicator instance."""
-        if self._using_custom_icons and self._icon_generator:
-            # Use custom generated icon with ClamUI logo
-            # Generate the icon first to ensure it exists
-            icon_path = self._icon_generator.get_icon_path(self._current_status)
-            icon_name = self._icon_generator.get_icon_name(self._current_status)
-
-            # Create indicator with the custom icon
-            # Icons are in ~/.local/share/icons/hicolor/ which is in GTK3's search path
-            self._indicator = AppIndicator.Indicator.new(
-                self.INDICATOR_ID,
-                icon_name,  # GTK3 will find this in XDG icon directories
-                AppIndicator.IndicatorCategory.APPLICATION_STATUS,
-            )
-
-            logger.info(f"Tray indicator created with custom icon: {icon_name}")
-            logger.info(f"  Icon file: {icon_path}")
-        else:
-            # Fall back to theme icons
-            initial_icon = self._resolve_icon(self._current_status)
-
-            self._indicator = AppIndicator.Indicator.new(
-                self.INDICATOR_ID,
-                initial_icon,
-                AppIndicator.IndicatorCategory.APPLICATION_STATUS,
-            )
-            logger.info(f"Tray indicator created with theme icon: {initial_icon}")
-
-        # Build menu
-        self._menu = self._build_menu()
-        self._indicator.set_menu(self._menu)
-
-        # Set tooltip/title
-        self._indicator.set_title("ClamUI")
-
-        # Activate to show icon
-        self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
-
-    def _build_menu(self) -> Gtk3.Menu:
-        """Build the GTK3 context menu."""
-        menu = Gtk3.Menu()
-
-        # Show/Hide Window
-        self._show_window_item = Gtk3.MenuItem(label="Hide Window")
-        self._show_window_item.connect("activate", self._on_toggle_window)
-        menu.append(self._show_window_item)
-
-        menu.append(Gtk3.SeparatorMenuItem())
-
-        # Profiles submenu
-        self._profiles_menu_item = Gtk3.MenuItem(label="Profiles")
-        self._profiles_menu = self._build_profiles_menu()
-        self._profiles_menu_item.set_submenu(self._profiles_menu)
-        menu.append(self._profiles_menu_item)
-
-        menu.append(Gtk3.SeparatorMenuItem())
-
-        # Quick Scan
-        quick_scan_item = Gtk3.MenuItem(label="Quick Scan")
-        quick_scan_item.connect("activate", lambda w: self._send_action("quick_scan"))
-        menu.append(quick_scan_item)
-
-        # Full Scan
-        full_scan_item = Gtk3.MenuItem(label="Full Scan")
-        full_scan_item.connect("activate", lambda w: self._send_action("full_scan"))
-        menu.append(full_scan_item)
-
-        menu.append(Gtk3.SeparatorMenuItem())
-
-        # Update Definitions
-        update_item = Gtk3.MenuItem(label="Update Definitions")
-        update_item.connect("activate", lambda w: self._send_action("update"))
-        menu.append(update_item)
-
-        menu.append(Gtk3.SeparatorMenuItem())
-
-        # Quit
-        quit_item = Gtk3.MenuItem(label="Quit")
-        quit_item.connect("activate", lambda w: self._send_action("quit"))
-        menu.append(quit_item)
-
-        menu.show_all()
-        return menu
-
-    def _build_profiles_menu(self) -> Gtk3.Menu:
-        """Build the profiles submenu."""
-        menu = Gtk3.Menu()
-
-        if not self._profiles:
-            # Show placeholder when no profiles loaded
-            no_profiles_item = Gtk3.MenuItem(label="(No profiles)")
-            no_profiles_item.set_sensitive(False)
-            menu.append(no_profiles_item)
-        else:
-            # Add each profile as a menu item
-            for profile in self._profiles:
-                profile_id = profile.get("id", "")
-                profile_name = profile.get("name", "Unknown")
-                is_default = profile.get("is_default", False)
-
-                # Add indicator for default profiles
-                label = f"• {profile_name}" if is_default else profile_name
-
-                # Mark currently selected profile
-                if profile_id == self._current_profile_id:
-                    label = f"✓ {profile_name}"
-
-                item = Gtk3.MenuItem(label=label)
-                # Use a closure to capture profile_id properly
-                item.connect("activate", lambda w, pid=profile_id: self._on_profile_selected(pid))
-                menu.append(item)
-
-        menu.show_all()
-        return menu
-
-    def _on_profile_selected(self, profile_id: str) -> None:
-        """Handle profile selection from menu."""
-        self._current_profile_id = profile_id
-        message = {"event": "menu_action", "action": "select_profile", "profile_id": profile_id}
-        self._send_message(message)
-        # Rebuild menu to update checkmark
-        self._rebuild_profiles_menu()
-
-    def _rebuild_profiles_menu(self) -> None:
-        """Rebuild the profiles submenu to reflect current state."""
-        if self._profiles_menu_item is None:
+    def _setup_dbusmenu(self) -> None:
+        """Set up the DBusMenu server for context menu export."""
+        if not DBUSMENU_AVAILABLE:
+            logger.debug("DBusMenu not available, context menu will not be shown")
             return
 
-        # Build new submenu
-        new_menu = self._build_profiles_menu()
-        self._profiles_menu = new_menu
-        self._profiles_menu_item.set_submenu(new_menu)
+        try:
+            # Create server at the MenuBar path (standard for SNI)
+            self._dbusmenu_server = Dbusmenu.Server.new(self.MENU_PATH)
 
-    def update_profiles(self, profiles: list[dict], current_profile_id: str | None = None) -> None:
-        """Update the profiles list in the tray menu."""
-        self._profiles = profiles
-        if current_profile_id is not None:
-            self._current_profile_id = current_profile_id
-        self._rebuild_profiles_menu()
-        logger.debug(f"Updated profiles: {len(profiles)} profiles")
+            # Create root menu item
+            self._menu_root = Dbusmenu.Menuitem.new()
 
-    def _on_toggle_window(self, widget) -> None:
-        """Handle window toggle menu item."""
+            # Build menu structure
+            self._rebuild_menu()
+
+            # Set root node
+            self._dbusmenu_server.set_root(self._menu_root)
+
+            logger.info(f"DBusMenu server initialized at {self.MENU_PATH}")
+        except Exception as e:
+            logger.warning(f"Failed to set up DBusMenu: {e}")
+            self._dbusmenu_server = None
+            self._menu_root = None
+
+    def _rebuild_menu(self) -> None:
+        """Rebuild the menu structure."""
+        if not self._menu_root or not DBUSMENU_AVAILABLE:
+            return
+
+        # Clear existing children
+        children = self._menu_root.get_children()
+        for child in children:
+            self._menu_root.child_delete(child)
+
+        # Create menu items with unique IDs (using new_with_id)
+        item_id = 1
+
+        # Show/Hide Window
+        toggle_item = Dbusmenu.Menuitem.new_with_id(item_id)
+        item_id += 1
+        toggle_label = "Hide Window" if self._window_visible else "Show Window"
+        toggle_item.property_set(Dbusmenu.MENUITEM_PROP_LABEL, toggle_label)
+        toggle_item.connect("item-activated", self._on_menu_toggle_window)
+        self._menu_root.child_append(toggle_item)
+
+        # Separator
+        sep1 = Dbusmenu.Menuitem.new_with_id(item_id)
+        item_id += 1
+        sep1.property_set(Dbusmenu.MENUITEM_PROP_TYPE, "separator")
+        self._menu_root.child_append(sep1)
+
+        # Quick Scan
+        quick_scan = Dbusmenu.Menuitem.new_with_id(item_id)
+        item_id += 1
+        quick_scan.property_set(Dbusmenu.MENUITEM_PROP_LABEL, "Quick Scan")
+        quick_scan.connect("item-activated", self._on_menu_quick_scan)
+        self._menu_root.child_append(quick_scan)
+
+        # Full Scan
+        full_scan = Dbusmenu.Menuitem.new_with_id(item_id)
+        item_id += 1
+        full_scan.property_set(Dbusmenu.MENUITEM_PROP_LABEL, "Full Scan")
+        full_scan.connect("item-activated", self._on_menu_full_scan)
+        self._menu_root.child_append(full_scan)
+
+        # Separator
+        sep2 = Dbusmenu.Menuitem.new_with_id(item_id)
+        item_id += 1
+        sep2.property_set(Dbusmenu.MENUITEM_PROP_TYPE, "separator")
+        self._menu_root.child_append(sep2)
+
+        # Update Definitions
+        update_item = Dbusmenu.Menuitem.new_with_id(item_id)
+        item_id += 1
+        update_item.property_set(Dbusmenu.MENUITEM_PROP_LABEL, "Update Definitions")
+        update_item.connect("item-activated", self._on_menu_update)
+        self._menu_root.child_append(update_item)
+
+        # Separator
+        sep3 = Dbusmenu.Menuitem.new_with_id(item_id)
+        item_id += 1
+        sep3.property_set(Dbusmenu.MENUITEM_PROP_TYPE, "separator")
+        self._menu_root.child_append(sep3)
+
+        # Quit
+        quit_item = Dbusmenu.Menuitem.new_with_id(item_id)
+        quit_item.property_set(Dbusmenu.MENUITEM_PROP_LABEL, "Quit")
+        quit_item.connect("item-activated", self._on_menu_quit)
+        self._menu_root.child_append(quit_item)
+
+        logger.debug("Menu rebuilt")
+
+    def _on_menu_toggle_window(self, menuitem, timestamp):
+        """Handle toggle window menu item activation."""
         self._send_action("toggle_window")
+
+    def _on_menu_quick_scan(self, menuitem, timestamp):
+        """Handle quick scan menu item activation."""
+        self._send_action("quick_scan")
+
+    def _on_menu_full_scan(self, menuitem, timestamp):
+        """Handle full scan menu item activation."""
+        self._send_action("full_scan")
+
+    def _on_menu_update(self, menuitem, timestamp):
+        """Handle update definitions menu item activation."""
+        self._send_action("update")
+
+    def _on_menu_quit(self, menuitem, timestamp):
+        """Handle quit menu item activation."""
+        self._send_action("quit")
+
+    def _get_icon_name(self) -> str:
+        """Get the current icon name based on status."""
+        if self._using_custom_icons and self._icon_generator:
+            return self._icon_generator.get_icon_name(self._current_status)
+        return self.ICON_MAP.get(self._current_status, "security-high-symbolic")
+
+    def _get_icon_theme_path(self) -> str:
+        """Get the icon theme path for custom icons."""
+        if self._using_custom_icons and self._icon_generator:
+            # Return the parent of the icon cache directory
+            cache_dir = Path(get_tray_icon_cache_dir())
+            # Icons are in ~/.local/share/icons/hicolor/22x22/apps
+            # Theme path should be ~/.local/share/icons/hicolor
+            return str(cache_dir.parent.parent)
+        return ""
+
+    def _get_tooltip(self) -> str:
+        """Get the tooltip text."""
+        tooltip = f"ClamUI - {self._current_status.capitalize()}"
+        if self._progress_label:
+            tooltip += f" ({self._progress_label})"
+        return tooltip
+
+    def _get_sni_status(self) -> str:
+        """Get the SNI status string."""
+        return self.SNI_STATUS_MAP.get(self._current_status, "Active")
+
+    def _handle_method_call(
+        self,
+        connection: Gio.DBusConnection,
+        sender: str,
+        object_path: str,
+        interface_name: str,
+        method_name: str,
+        parameters: GLib.Variant,
+        invocation: Gio.DBusMethodInvocation,
+    ) -> None:
+        """Handle D-Bus method calls for org.kde.StatusNotifierItem."""
+        logger.debug(f"Method call: {method_name} from {sender}")
+
+        if method_name == "Activate":
+            # Left click - toggle window
+            self._send_action("toggle_window")
+            invocation.return_value(None)
+
+        elif method_name == "ContextMenu":
+            # Right click - menu is handled by DBusMenu
+            # The applet will query our Menu property and use DBusMenu
+            invocation.return_value(None)
+
+        elif method_name == "SecondaryActivate":
+            # Middle click
+            invocation.return_value(None)
+
+        elif method_name == "Scroll":
+            delta, orientation = parameters.unpack()
+            logger.debug(f"Scroll: delta={delta}, orientation={orientation}")
+            invocation.return_value(None)
+
+        else:
+            invocation.return_dbus_error(
+                "org.freedesktop.DBus.Error.UnknownMethod", f"Unknown method: {method_name}"
+            )
+
+    def _handle_get_property(
+        self,
+        connection: Gio.DBusConnection,
+        sender: str,
+        object_path: str,
+        interface_name: str,
+        property_name: str,
+    ) -> GLib.Variant | None:
+        """Handle D-Bus property reads for org.kde.StatusNotifierItem."""
+        if property_name == "Category":
+            return GLib.Variant("s", "ApplicationStatus")
+        elif property_name == "Id":
+            return GLib.Variant("s", "clamui")
+        elif property_name == "Title":
+            return GLib.Variant("s", "ClamUI")
+        elif property_name == "Status":
+            return GLib.Variant("s", self._get_sni_status())
+        elif property_name == "WindowId":
+            return GLib.Variant("u", 0)
+        elif property_name == "IconName":
+            return GLib.Variant("s", self._get_icon_name())
+        elif property_name == "IconThemePath":
+            return GLib.Variant("s", self._get_icon_theme_path())
+        elif property_name == "OverlayIconName":
+            return GLib.Variant("s", "")
+        elif property_name == "AttentionIconName":
+            return GLib.Variant("s", self.ICON_MAP.get("threat", "dialog-error-symbolic"))
+        elif property_name == "AttentionMovieName":
+            return GLib.Variant("s", "")
+        elif property_name == "ToolTip":
+            # ToolTip is (icon_name, icon_data, title, description)
+            # icon_data is array of (width, height, pixel_data)
+            tooltip = self._get_tooltip()
+            return GLib.Variant("(sa(iiay)ss)", ("", [], "ClamUI", tooltip))
+        elif property_name == "ItemIsMenu":
+            return GLib.Variant("b", False)
+        elif property_name == "Menu":
+            return GLib.Variant("o", self.MENU_PATH)
+        return None
+
+    def _emit_signal(self, signal_name: str, args: GLib.Variant | None = None) -> None:
+        """Emit a signal on the StatusNotifierItem interface."""
+        if self._bus:
+            try:
+                self._bus.emit_signal(
+                    None,
+                    self.SNI_PATH,
+                    "org.kde.StatusNotifierItem",
+                    signal_name,
+                    args,
+                )
+            except Exception as e:
+                logger.error(f"Failed to emit {signal_name}: {e}")
+
+    def _register_with_watcher(self) -> None:
+        """Register with the StatusNotifierWatcher."""
+        if not self._bus:
+            return
+
+        # Try xapp watcher first, then kde watcher
+        watchers = ["org.x.StatusNotifierWatcher", "org.kde.StatusNotifierWatcher"]
+
+        for watcher in watchers:
+            try:
+                self._bus.call(
+                    watcher,
+                    "/StatusNotifierWatcher",
+                    "org.kde.StatusNotifierWatcher",
+                    "RegisterStatusNotifierItem",
+                    GLib.Variant("(s)", (self.DBUS_NAME,)),
+                    None,
+                    Gio.DBusCallFlags.NONE,
+                    -1,
+                    None,
+                    self._on_register_complete,
+                    watcher,
+                )
+                logger.info(f"Registering with {watcher}...")
+                return
+            except Exception as e:
+                logger.debug(f"Could not register with {watcher}: {e}")
+
+        logger.warning("No StatusNotifierWatcher available")
+
+    def _on_register_complete(self, source, result, watcher_name):
+        """Callback when registration completes."""
+        try:
+            self._bus.call_finish(result)
+            logger.info(f"Successfully registered with {watcher_name}")
+        except Exception as e:
+            logger.warning(f"Failed to register with {watcher_name}: {e}")
+
+    def _on_bus_acquired(
+        self, connection: Gio.DBusConnection, name: str, user_data: object = None
+    ) -> None:
+        """Called when D-Bus connection is acquired."""
+        logger.info(f"D-Bus connection acquired: {name}")
+        self._bus = connection
+
+        # Register the StatusNotifierItem interface
+        node_info = Gio.DBusNodeInfo.new_for_xml(STATUS_NOTIFIER_ITEM_XML)
+        self._sni_registration_id = connection.register_object(
+            self.SNI_PATH,
+            node_info.interfaces[0],
+            self._handle_method_call,
+            self._handle_get_property,
+            None,
+        )
+        logger.info(f"StatusNotifierItem interface registered at {self.SNI_PATH}")
+
+        # Register with the StatusNotifierWatcher
+        self._register_with_watcher()
+
+    def _on_name_acquired(
+        self, connection: Gio.DBusConnection, name: str, user_data: object = None
+    ) -> None:
+        """Called when D-Bus name is acquired."""
+        logger.info(f"D-Bus name acquired: {name}")
+
+    def _on_name_lost(
+        self, connection: Gio.DBusConnection, name: str, user_data: object = None
+    ) -> None:
+        """Called when D-Bus name is lost."""
+        logger.warning(f"D-Bus name lost: {name}")
 
     def _send_action(self, action: str) -> None:
         """Send an action event to the main application."""
@@ -399,44 +548,40 @@ class TrayService:
 
     def update_status(self, status: str) -> None:
         """Update the tray icon based on protection status."""
-        if self._indicator is None:
-            return
-
         if status not in self.ICON_MAP:
             logger.warning(f"Unknown status '{status}', using 'protected'")
             status = "protected"
 
-        tooltip = f"ClamUI - {status.capitalize()}"
-
-        if self._using_custom_icons and self._icon_generator:
-            # Use custom generated icon with ClamUI logo
-            self._icon_generator.get_icon_path(status)  # Ensure icon exists
-            icon_name = self._icon_generator.get_icon_name(status)
-            self._indicator.set_icon_full(icon_name, tooltip)
-        else:
-            # Fall back to theme icons
-            icon_name = self._resolve_icon(status)
-            self._indicator.set_icon_full(icon_name, tooltip)
-
         self._current_status = status
+
+        # Emit signals to update the icon
+        self._emit_signal("NewIcon")
+        self._emit_signal("NewToolTip")
+        self._emit_signal("NewStatus", GLib.Variant("(s)", (self._get_sni_status(),)))
+
         logger.debug(f"Status updated to: {status}")
 
     def update_progress(self, percentage: int) -> None:
         """Show scan progress percentage."""
-        if self._indicator is None:
-            return
-
         if 0 < percentage <= 100:
-            self._indicator.set_label(f"{percentage}%", "")
+            self._progress_label = f"{percentage}%"
         else:
-            self._indicator.set_label("", "")
+            self._progress_label = ""
+
+        self._emit_signal("NewToolTip")
 
     def update_window_visible(self, visible: bool) -> None:
-        """Update window visibility state and menu label."""
+        """Update window visibility state."""
         self._window_visible = visible
-        if self._show_window_item:
-            label = "Hide Window" if visible else "Show Window"
-            self._show_window_item.set_label(label)
+        # Update DBusMenu to reflect new Show/Hide label
+        self._rebuild_menu()
+
+    def update_profiles(self, profiles: list[dict], current_profile_id: str | None = None) -> None:
+        """Update the profiles list."""
+        self._profiles = profiles
+        if current_profile_id is not None:
+            self._current_profile_id = current_profile_id
+        logger.debug(f"Updated profiles: {len(profiles)} profiles")
 
     def handle_command(self, command: dict) -> None:
         """Handle a command from the main application."""
@@ -472,12 +617,32 @@ class TrayService:
     def _quit(self) -> None:
         """Quit the service."""
         self._running = False
-        if self._indicator:
-            self._indicator.set_status(AppIndicator.IndicatorStatus.PASSIVE)
-        Gtk3.main_quit()
+
+        # Unregister D-Bus objects
+        if self._bus:
+            if self._sni_registration_id:
+                self._bus.unregister_object(self._sni_registration_id)
+
+        # Release bus name
+        if self._bus_name_id:
+            Gio.bus_unown_name(self._bus_name_id)
+
+        # Quit main loop
+        if self._loop:
+            self._loop.quit()
 
     def run(self) -> None:
         """Run the tray service main loop."""
+        # Own a name on the session bus
+        self._bus_name_id = Gio.bus_own_name(
+            Gio.BusType.SESSION,
+            self.DBUS_NAME,
+            Gio.BusNameOwnerFlags.NONE,
+            self._on_bus_acquired,
+            self._on_name_acquired,
+            self._on_name_lost,
+        )
+
         # Send ready event
         self._send_message({"event": "ready"})
 
@@ -485,10 +650,11 @@ class TrayService:
         reader_thread = threading.Thread(target=self._read_stdin, daemon=True)
         reader_thread.start()
 
-        # Run GTK main loop
-        logger.info("Starting GTK main loop")
-        Gtk3.main()
-        logger.info("GTK main loop ended")
+        # Run GLib main loop
+        logger.info("Starting GLib main loop")
+        self._loop = GLib.MainLoop()
+        self._loop.run()
+        logger.info("GLib main loop ended")
 
     def _read_stdin(self) -> None:
         """Read commands from stdin in a background thread."""
@@ -510,14 +676,13 @@ class TrayService:
         except Exception as e:
             logger.error(f"Error reading stdin: {e}")
         finally:
-            # If stdin closes, quit the service
             GLib.idle_add(self._quit)
 
 
 def main():
     """Main entry point for the tray service."""
-    if not APPINDICATOR_AVAILABLE:
-        logger.error("AppIndicator not available, exiting")
+    if not DBUS_AVAILABLE:
+        logger.error("GIO D-Bus not available, exiting")
         sys.exit(1)
 
     try:
