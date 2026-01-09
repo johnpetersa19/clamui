@@ -72,6 +72,7 @@ class ScanView(Gtk.Box):
 
         # Scanning state
         self._is_scanning = False
+        self._cancel_all_requested = False
 
         # Temp file path for EICAR test (for cleanup)
         self._eicar_temp_path: str = ""
@@ -1019,10 +1020,20 @@ class ScanView(Gtk.Box):
     def _start_scanning(self):
         """Start the scanning process."""
         self._is_scanning = True
+        self._cancel_all_requested = False
         self._scan_button.set_sensitive(False)
         self._eicar_button.set_sensitive(False)
         self._path_row.set_sensitive(False)
         self._cancel_button.set_visible(True)
+
+        # Update cancel button text based on number of targets
+        path_count = len(self._selected_paths)
+        if path_count > 1:
+            self._cancel_button.set_label("Cancel All")
+            self._cancel_button.set_tooltip_text("Cancel all remaining scans")
+        else:
+            self._cancel_button.set_label("Cancel")
+            self._cancel_button.set_tooltip_text("Cancel the current scan")
 
         # Dismiss any previous status banner
         self._status_banner.set_revealed(False)
@@ -1033,7 +1044,6 @@ class ScanView(Gtk.Box):
         # Show progress section with status message
         if self._progress_section is not None:
             # Format path for display (handles Flatpak portal paths and truncation)
-            path_count = len(self._selected_paths)
             if path_count == 1:
                 display_path = format_scan_path(self._selected_paths[0])
                 if len(display_path) > 50:
@@ -1061,30 +1071,140 @@ class ScanView(Gtk.Box):
 
     def _scan_worker(self):
         """
-        Perform the actual scan.
+        Perform the actual scan on all selected paths.
 
         This runs in a background thread to avoid blocking the UI.
-        Currently scans the first selected path. Multi-path scanning
-        will be implemented when the scanner backend is updated.
+        Scans each selected path sequentially and aggregates results.
         """
         try:
-            # TODO: Update to support multi-path scanning when scanner is modified
-            # For now, scan the first path
-            if self._selected_paths:
-                result = self._scanner.scan_sync(self._selected_paths[0])
-            else:
+            if not self._selected_paths:
                 # Should not happen, but handle gracefully
-                from ..core.scanner import ScanResult, ScanStatus
-
                 result = ScanResult(
                     status=ScanStatus.ERROR,
+                    path="",
+                    stdout="",
+                    stderr="",
+                    exit_code=2,
+                    infected_files=[],
+                    scanned_files=0,
+                    scanned_dirs=0,
+                    infected_count=0,
                     error_message="No paths selected for scanning",
+                    threat_details=[],
                 )
+                GLib.idle_add(self._on_scan_complete, result)
+                return
+
+            # Track aggregated results
+            total_scanned_files = 0
+            total_scanned_dirs = 0
+            total_infected_count = 0
+            all_infected_files: list[str] = []
+            all_threat_details: list = []
+            all_stdout: list[str] = []
+            all_stderr: list[str] = []
+            has_errors = False
+            error_messages: list[str] = []
+            final_status = ScanStatus.CLEAN
+
+            target_count = len(self._selected_paths)
+
+            for idx, target_path in enumerate(self._selected_paths, start=1):
+                # Check if cancel all was requested before starting next target
+                if self._cancel_all_requested:
+                    logger.info(f"Cancel all requested, skipping target {idx}/{target_count}")
+                    final_status = ScanStatus.CANCELLED
+                    break
+
+                # Update progress to show current target
+                GLib.idle_add(self._update_scan_progress, idx, target_count, target_path)
+
+                # Scan this target
+                result = self._scanner.scan_sync(target_path)
+
+                # Check if scan was cancelled (either this target or cancel all)
+                if result.status == ScanStatus.CANCELLED or self._cancel_all_requested:
+                    final_status = ScanStatus.CANCELLED
+                    break
+
+                # Aggregate results
+                total_scanned_files += result.scanned_files
+                total_scanned_dirs += result.scanned_dirs
+                total_infected_count += result.infected_count
+                all_infected_files.extend(result.infected_files)
+                all_threat_details.extend(result.threat_details)
+
+                if result.stdout:
+                    all_stdout.append(f"=== {target_path} ===\n{result.stdout}")
+                if result.stderr:
+                    all_stderr.append(f"=== {target_path} ===\n{result.stderr}")
+
+                # Track status
+                if result.status == ScanStatus.ERROR:
+                    has_errors = True
+                    if result.error_message:
+                        error_messages.append(f"{target_path}: {result.error_message}")
+                elif result.status == ScanStatus.INFECTED:
+                    final_status = ScanStatus.INFECTED
+
+            # Determine final status if not cancelled
+            if final_status != ScanStatus.CANCELLED:
+                if total_infected_count > 0:
+                    final_status = ScanStatus.INFECTED
+                elif has_errors:
+                    final_status = ScanStatus.ERROR
+                else:
+                    final_status = ScanStatus.CLEAN
+
+            # Build aggregated result
+            aggregated_result = ScanResult(
+                status=final_status,
+                path=", ".join(self._selected_paths)
+                if target_count > 1
+                else self._selected_paths[0],
+                stdout="\n\n".join(all_stdout),
+                stderr="\n\n".join(all_stderr),
+                exit_code=1 if final_status == ScanStatus.INFECTED else (2 if has_errors else 0),
+                infected_files=all_infected_files,
+                scanned_files=total_scanned_files,
+                scanned_dirs=total_scanned_dirs,
+                infected_count=total_infected_count,
+                error_message="; ".join(error_messages) if error_messages else None,
+                threat_details=all_threat_details,
+            )
+
             # Schedule UI update on main thread
-            GLib.idle_add(self._on_scan_complete, result)
+            GLib.idle_add(self._on_scan_complete, aggregated_result)
         except Exception as e:
             logger.error(f"Scan error: {e}")
             GLib.idle_add(self._on_scan_error, str(e))
+
+    def _update_scan_progress(self, current_idx: int, total_count: int, current_path: str):
+        """
+        Update the progress display with current scan target.
+
+        This is called from the scan worker thread via GLib.idle_add
+        to update the UI on the main thread.
+
+        Args:
+            current_idx: Current target index (1-based)
+            total_count: Total number of targets
+            current_path: Path currently being scanned
+        """
+        if self._progress_label is None:
+            return
+
+        # Format path for display
+        display_path = format_scan_path(current_path)
+        if len(display_path) > 40:
+            display_path = "..." + display_path[-37:]
+
+        if total_count == 1:
+            self._progress_label.set_label(f"Scanning {display_path}")
+        else:
+            self._progress_label.set_label(
+                f"Scanning target {current_idx}/{total_count}: {display_path}"
+            )
 
     def _on_scan_complete(self, result: ScanResult):
         """
@@ -1181,11 +1301,16 @@ class ScanView(Gtk.Box):
         self._status_banner.set_revealed(True)
 
     def _on_cancel_clicked(self, button: Gtk.Button) -> None:
-        """Handle cancel button click."""
+        """Handle cancel button click.
+
+        For multi-target scans, this sets _cancel_all_requested to skip
+        remaining targets after the current scan completes or is cancelled.
+        """
         logger.info("Scan cancelled by user")
+        self._cancel_all_requested = True
         self._scanner.cancel()
-        # The scan thread will complete with CANCELLED status
-        # and _on_scan_complete will handle the UI update
+        # The scan thread will check _cancel_all_requested and skip remaining targets
+        # _on_scan_complete will handle the UI update
 
     def _create_backend_indicator(self):
         """Create a small indicator showing the active scan backend."""
