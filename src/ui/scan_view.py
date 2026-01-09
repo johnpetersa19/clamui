@@ -293,8 +293,8 @@ class ScanView(Gtk.Box):
         """
         Handle file drop.
 
-        Extracts file paths from the dropped Gdk.FileList and sets the first
-        valid path as the scan target.
+        Extracts file paths from the dropped Gdk.FileList and adds all valid
+        paths as scan targets.
 
         Args:
             target: The DropTarget controller
@@ -326,8 +326,9 @@ class ScanView(Gtk.Box):
         valid_paths, errors = validate_dropped_files(paths)
 
         if valid_paths:
-            # Use the first valid path
-            self._set_selected_path(valid_paths[0])
+            # Add all valid paths to the selection
+            for path in valid_paths:
+                self._add_path(path)
             return True
 
         # No valid paths - show error and reject drop
