@@ -69,6 +69,8 @@ class ScanView(Gtk.Box):
 
         # Current selected paths (supports multiple targets)
         self._selected_paths: list[str] = []
+        # Normalized paths for O(1) duplicate checking
+        self._normalized_paths: set[str] = set()
 
         # Scanning state
         self._is_scanning = False
@@ -815,11 +817,12 @@ class ScanView(Gtk.Box):
         Returns:
             True if the path was added, False if it was a duplicate
         """
-        # Normalize path for comparison
+        # Normalize path for O(1) duplicate check
         normalized = os.path.normpath(path)
-        if normalized in [os.path.normpath(p) for p in self._selected_paths]:
+        if normalized in self._normalized_paths:
             return False
 
+        self._normalized_paths.add(normalized)
         self._selected_paths.append(path)
 
         # Hide placeholder and add path row to listbox
@@ -841,6 +844,10 @@ class ScanView(Gtk.Box):
             True if the path was removed, False if it wasn't in the list
         """
         normalized = os.path.normpath(path)
+        if normalized not in self._normalized_paths:
+            return False
+
+        self._normalized_paths.discard(normalized)
         for i, existing in enumerate(self._selected_paths):
             if os.path.normpath(existing) == normalized:
                 self._selected_paths.pop(i)

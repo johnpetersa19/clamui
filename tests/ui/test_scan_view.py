@@ -77,6 +77,7 @@ def mock_scan_view(scan_view_class):
 
     # Set up required attributes for multi-path functionality
     view._selected_paths = []
+    view._normalized_paths = set()
     view._is_scanning = False
     view._cancel_all_requested = False
 
@@ -219,6 +220,7 @@ class TestRemovePath:
         """Test that removing a path removes it from the list."""
         mock_scan_view._update_path_display = mock.MagicMock()
         mock_scan_view._selected_paths = ["/path1", "/path2", "/path3"]
+        mock_scan_view._normalized_paths = {"/path1", "/path2", "/path3"}
 
         result = mock_scan_view._remove_path("/path2")
 
@@ -230,6 +232,7 @@ class TestRemovePath:
         """Test that removing a path preserves other paths."""
         mock_scan_view._update_path_display = mock.MagicMock()
         mock_scan_view._selected_paths = ["/path1", "/path2", "/path3"]
+        mock_scan_view._normalized_paths = {"/path1", "/path2", "/path3"}
 
         mock_scan_view._remove_path("/path2")
 
@@ -239,6 +242,7 @@ class TestRemovePath:
         """Test that removing a non-existent path returns False."""
         mock_scan_view._update_path_display = mock.MagicMock()
         mock_scan_view._selected_paths = ["/path1", "/path2"]
+        mock_scan_view._normalized_paths = {"/path1", "/path2"}
 
         result = mock_scan_view._remove_path("/nonexistent")
 
@@ -249,6 +253,7 @@ class TestRemovePath:
         """Test that removing a path calls display update."""
         mock_scan_view._update_path_display = mock.MagicMock()
         mock_scan_view._selected_paths = ["/path1", "/path2"]
+        mock_scan_view._normalized_paths = {"/path1", "/path2"}
 
         mock_scan_view._remove_path("/path1")
 
@@ -258,6 +263,8 @@ class TestRemovePath:
         """Test that path removal handles path normalization."""
         mock_scan_view._update_path_display = mock.MagicMock()
         mock_scan_view._selected_paths = ["/home/user/./documents"]
+        # The set stores normalized paths
+        mock_scan_view._normalized_paths = {os.path.normpath("/home/user/./documents")}
 
         # Normalized version should still match
         result = mock_scan_view._remove_path("/home/user/documents")
@@ -273,16 +280,19 @@ class TestClearPaths:
         """Test that clearing paths empties the entire list."""
         mock_scan_view._update_path_display = mock.MagicMock()
         mock_scan_view._selected_paths = ["/path1", "/path2", "/path3"]
+        mock_scan_view._normalized_paths = {"/path1", "/path2", "/path3"}
 
         mock_scan_view._clear_paths()
 
         assert mock_scan_view._selected_paths == []
         assert len(mock_scan_view._selected_paths) == 0
+        assert len(mock_scan_view._normalized_paths) == 0
 
     def test_clear_paths_calls_update_display(self, mock_scan_view):
         """Test that clearing paths calls display update."""
         mock_scan_view._update_path_display = mock.MagicMock()
         mock_scan_view._selected_paths = ["/path1", "/path2"]
+        mock_scan_view._normalized_paths = {"/path1", "/path2"}
 
         mock_scan_view._clear_paths()
 
@@ -674,6 +684,7 @@ def test_scan_view_multi_path_basic(mock_gi_modules):
         # Test 2: Create mock instance and test basic path methods
         view = object.__new__(ScanView)
         view._selected_paths = []
+        view._normalized_paths = set()
         view._path_label = mock.MagicMock()
         view._path_row = mock.MagicMock()
 
@@ -702,9 +713,11 @@ def test_scan_view_multi_path_basic(mock_gi_modules):
         view._add_path("/test/path3")
         view._clear_paths()
         assert view._selected_paths == []
+        assert len(view._normalized_paths) == 0
 
         # Test get_selected_paths returns copy
         view._selected_paths = ["/a", "/b"]
+        view._normalized_paths = {"/a", "/b"}
         paths_copy = view.get_selected_paths()
         assert paths_copy == ["/a", "/b"]
         assert paths_copy is not view._selected_paths
