@@ -165,9 +165,9 @@ class ProfileDialog(Adw.Dialog):
 
     def _create_targets_group(self, preferences_page: Adw.PreferencesPage):
         """Create the scan targets group."""
-        targets_group = Adw.PreferencesGroup()
-        targets_group.set_title("Scan Targets")
-        targets_group.set_description("Directories and files to scan")
+        self._targets_group = Adw.PreferencesGroup()
+        self._targets_group.set_title("Scan Targets")
+        self._targets_group.set_description("Directories and files to scan")
 
         # Add target buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -187,7 +187,7 @@ class ProfileDialog(Adw.Dialog):
         add_file_btn.connect("clicked", self._on_add_target_file_clicked)
         button_box.append(add_file_btn)
 
-        targets_group.set_header_suffix(button_box)
+        self._targets_group.set_header_suffix(button_box)
 
         # Targets list box
         self._targets_listbox = Gtk.ListBox()
@@ -204,14 +204,14 @@ class ProfileDialog(Adw.Dialog):
         self._targets_placeholder.add_css_class("dim-label")
         self._targets_listbox.append(self._targets_placeholder)
 
-        targets_group.add(self._targets_listbox)
-        preferences_page.add(targets_group)
+        self._targets_group.add(self._targets_listbox)
+        preferences_page.add(self._targets_group)
 
     def _create_exclusions_group(self, preferences_page: Adw.PreferencesPage):
         """Create the exclusions group."""
-        exclusions_group = Adw.PreferencesGroup()
-        exclusions_group.set_title("Exclusions")
-        exclusions_group.set_description("Paths and patterns to skip during scan")
+        self._exclusions_group = Adw.PreferencesGroup()
+        self._exclusions_group.set_title("Exclusions")
+        self._exclusions_group.set_description("Paths and patterns to skip during scan")
 
         # Add exclusion buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -231,7 +231,7 @@ class ProfileDialog(Adw.Dialog):
         add_pattern_btn.connect("clicked", self._on_add_exclusion_pattern_clicked)
         button_box.append(add_pattern_btn)
 
-        exclusions_group.set_header_suffix(button_box)
+        self._exclusions_group.set_header_suffix(button_box)
 
         # Exclusions list box
         self._exclusions_listbox = Gtk.ListBox()
@@ -246,8 +246,8 @@ class ProfileDialog(Adw.Dialog):
         self._exclusions_placeholder.add_css_class("dim-label")
         self._exclusions_listbox.append(self._exclusions_placeholder)
 
-        exclusions_group.add(self._exclusions_listbox)
-        preferences_page.add(exclusions_group)
+        self._exclusions_group.add(self._exclusions_listbox)
+        preferences_page.add(self._exclusions_group)
 
     def _load_profile_data(self):
         """Load existing profile data into the form."""
@@ -294,15 +294,21 @@ class ProfileDialog(Adw.Dialog):
 
     def _on_add_target_folder_clicked(self, button):
         """Handle add target folder button click."""
-        self._open_file_dialog(select_folder=True, callback=self._on_target_selected)
+        self._open_file_dialog(
+            select_folder=True, multiple=True, callback=self._on_targets_selected
+        )
 
     def _on_add_target_file_clicked(self, button):
         """Handle add target file button click."""
-        self._open_file_dialog(select_folder=False, callback=self._on_target_selected)
+        self._open_file_dialog(
+            select_folder=False, multiple=True, callback=self._on_targets_selected
+        )
 
     def _on_add_exclusion_path_clicked(self, button):
         """Handle add exclusion path button click."""
-        self._open_file_dialog(select_folder=True, callback=self._on_exclusion_path_selected)
+        self._open_file_dialog(
+            select_folder=True, multiple=True, callback=self._on_exclusion_paths_selected
+        )
 
     def _on_add_exclusion_pattern_clicked(self, button):
         """Handle add exclusion pattern button click."""
@@ -318,59 +324,80 @@ class ProfileDialog(Adw.Dialog):
             if pattern and pattern not in self._exclusion_patterns:
                 self._add_exclusion_pattern_to_list(pattern)
 
-    def _open_file_dialog(self, select_folder: bool, callback):
+    def _open_file_dialog(self, select_folder: bool, multiple: bool, callback):
         """
-        Open a file/folder selection dialog.
+        Open a file/folder selection dialog with optional multi-selection.
 
         Args:
             select_folder: True to select folders, False for files
+            multiple: True to allow selecting multiple items
             callback: Callback function to handle the selection
         """
         dialog = Gtk.FileDialog()
 
         if select_folder:
-            dialog.set_title("Select Folder")
+            dialog.set_title("Select Folders" if multiple else "Select Folder")
         else:
-            dialog.set_title("Select File")
+            dialog.set_title("Select Files" if multiple else "Select File")
 
         # Get the parent window
         window = self.get_root()
 
         if select_folder:
-            dialog.select_folder(window, None, callback)
+            if multiple:
+                dialog.select_multiple_folders(window, None, callback)
+            else:
+                dialog.select_folder(window, None, callback)
         else:
-            dialog.open(window, None, callback)
+            if multiple:
+                dialog.open_multiple(window, None, callback)
+            else:
+                dialog.open(window, None, callback)
 
-    def _on_target_selected(self, dialog, result):
-        """Handle target selection result."""
+    def _on_targets_selected(self, dialog, result):
+        """Handle multi-select target selection result."""
         try:
-            if hasattr(dialog, "select_folder_finish"):
+            # Try multi-folder selection first
+            try:
+                files = dialog.select_multiple_folders_finish(result)
+            except GLib.Error:
+                # Not a folder selection, try file selection
                 try:
-                    folder = dialog.select_folder_finish(result)
-                    if folder:
-                        path = folder.get_path()
-                        if path and path not in self._targets:
-                            self._add_target_to_list(path)
-                    return
+                    files = dialog.open_multiple_finish(result)
                 except GLib.Error:
-                    pass
+                    return  # User cancelled
 
-            file = dialog.open_finish(result)
-            if file:
-                path = file.get_path()
-                if path and path not in self._targets:
-                    self._add_target_to_list(path)
+            if files is None:
+                return
+
+            # Iterate through the ListModel of Gio.File objects
+            # Duplicate detection is handled in _add_target_to_list
+            for i in range(files.get_n_items()):
+                file = files.get_item(i)
+                if file:
+                    path = file.get_path()
+                    if path and path not in self._targets:
+                        self._add_target_to_list(path)
+
         except GLib.Error:
             pass  # User cancelled
 
-    def _on_exclusion_path_selected(self, dialog, result):
-        """Handle exclusion path selection result."""
+    def _on_exclusion_paths_selected(self, dialog, result):
+        """Handle multi-select exclusion path selection result."""
         try:
-            folder = dialog.select_folder_finish(result)
-            if folder:
-                path = folder.get_path()
-                if path and path not in self._exclusion_paths:
-                    self._add_exclusion_path_to_list(path)
+            files = dialog.select_multiple_folders_finish(result)
+            if files is None:
+                return
+
+            # Iterate through the ListModel of Gio.File objects
+            # Duplicate detection is handled in _add_exclusion_path_to_list
+            for i in range(files.get_n_items()):
+                file = files.get_item(i)
+                if file:
+                    path = file.get_path()
+                    if path and path not in self._exclusion_paths:
+                        self._add_exclusion_path_to_list(path)
+
         except GLib.Error:
             pass  # User cancelled
 
@@ -387,6 +414,9 @@ class ProfileDialog(Adw.Dialog):
             path=path, icon_name="folder-symbolic", on_remove=lambda: self._remove_target(path)
         )
         self._targets_listbox.append(row)
+
+        # Update header count
+        self._update_targets_header()
 
     def _add_exclusion_path_to_list(self, path: str):
         """Add an exclusion path to the list UI."""
@@ -405,6 +435,9 @@ class ProfileDialog(Adw.Dialog):
         )
         self._exclusions_listbox.append(row)
 
+        # Update header count
+        self._update_exclusions_header()
+
     def _add_exclusion_pattern_to_list(self, pattern: str):
         """Add an exclusion pattern to the list UI."""
         # Remove placeholder if this is the first exclusion
@@ -421,6 +454,9 @@ class ProfileDialog(Adw.Dialog):
             subtitle="Pattern",
         )
         self._exclusions_listbox.append(row)
+
+        # Update header count
+        self._update_exclusions_header()
 
     def _create_path_row(
         self, path: str, icon_name: str, on_remove, subtitle: str = None
@@ -466,6 +502,10 @@ class ProfileDialog(Adw.Dialog):
         # Restore placeholder if lists are empty
         self._update_placeholders()
 
+        # Update headers to reflect new counts
+        self._update_targets_header()
+        self._update_exclusions_header()
+
     def _remove_target(self, path: str):
         """Remove a target path."""
         if path in self._targets:
@@ -495,6 +535,22 @@ class ProfileDialog(Adw.Dialog):
             first_row = self._exclusions_listbox.get_row_at_index(0)
             if first_row is None:
                 self._exclusions_listbox.append(self._exclusions_placeholder)
+
+    def _update_targets_header(self):
+        """Update the targets group header to show item count."""
+        count = len(self._targets)
+        if count > 0:
+            self._targets_group.set_title(f"Scan Targets ({count})")
+        else:
+            self._targets_group.set_title("Scan Targets")
+
+    def _update_exclusions_header(self):
+        """Update the exclusions group header to show item count."""
+        count = len(self._exclusion_paths) + len(self._exclusion_patterns)
+        if count > 0:
+            self._exclusions_group.set_title(f"Exclusions ({count})")
+        else:
+            self._exclusions_group.set_title("Exclusions")
 
     def _on_cancel_clicked(self, button):
         """Handle cancel button click."""
