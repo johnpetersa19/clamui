@@ -607,6 +607,150 @@ class TestQuarantineManagerDelete:
         assert not quarantine_path.exists()
 
 
+class TestQuarantineManagerDatabaseFailure:
+    """Tests for quarantine rollback when database operations fail."""
+
+    @pytest.fixture
+    def temp_dir(self):
+        """Create a temporary directory for quarantine operations."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def manager(self, temp_dir):
+        """Create a QuarantineManager with temporary directories."""
+        quarantine_dir = os.path.join(temp_dir, "quarantine")
+        db_path = os.path.join(temp_dir, "quarantine.db")
+        mgr = QuarantineManager(
+            quarantine_directory=quarantine_dir,
+            database_path=db_path,
+        )
+        yield mgr
+        mgr._database.close()
+
+    @pytest.fixture
+    def test_file(self, temp_dir):
+        """Create a temporary test file."""
+        file_path = os.path.join(temp_dir, "test_infected.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"This is test malware content for testing purposes.")
+        return file_path
+
+    def test_database_failure_restores_file(self, manager, test_file):
+        """Test that file is restored when database add_entry fails."""
+        from unittest.mock import patch
+
+        original_path = Path(test_file).resolve()
+        original_content = original_path.read_bytes()
+
+        # Mock the database add_entry to simulate failure
+        with patch.object(manager._database, "add_entry", return_value=None):
+            result = manager.quarantine_file(test_file, "TestThreat")
+
+        # Should return database error
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.DATABASE_ERROR
+        assert result.entry is None
+        assert "Failed to record quarantine entry" in result.error_message
+        assert "restored to original location" in result.error_message
+
+        # File should be restored to original location
+        assert original_path.exists()
+        assert original_path.read_bytes() == original_content
+
+        # No entries should be in the database
+        assert manager.get_all_entries() == []
+
+    def test_database_failure_reports_orphan_on_rollback_failure(self, manager, test_file):
+        """Test that orphaned file is reported when both DB and rollback fail."""
+        from unittest.mock import MagicMock, patch
+
+        original_path = Path(test_file).resolve()
+
+        # Mock both database and file handler to simulate cascading failure
+        with (
+            patch.object(manager._database, "add_entry", return_value=None),
+            patch.object(manager._file_handler, "restore_from_quarantine") as mock_restore,
+        ):
+            # Simulate restore failure
+            mock_result = MagicMock()
+            mock_result.is_success = False
+            mock_result.error_message = "Simulated restore failure"
+            mock_restore.return_value = mock_result
+
+            result = manager.quarantine_file(test_file, "TestThreat")
+
+        # Should return database error with orphan warning
+        assert result.is_success is False
+        assert result.status == QuarantineStatus.DATABASE_ERROR
+        assert "Rollback also failed" in result.error_message
+        assert "orphaned" in result.error_message
+
+        # Original file should NOT exist (it was moved)
+        assert not original_path.exists()
+
+    def test_database_failure_with_successful_rollback_logs_info(self, manager, test_file, caplog):
+        """Test that successful rollback is logged at INFO level."""
+        import logging
+        from unittest.mock import patch
+
+        with (
+            caplog.at_level(logging.INFO, logger="src.core.quarantine.manager"),
+            patch.object(manager._database, "add_entry", return_value=None),
+        ):
+            result = manager.quarantine_file(test_file, "TestThreat")
+
+        assert result.is_success is False
+        # Check that rollback success was logged
+        assert any("Successfully rolled back" in record.message for record in caplog.records)
+
+    def test_database_failure_with_failed_rollback_logs_critical(self, manager, test_file, caplog):
+        """Test that failed rollback is logged at CRITICAL level."""
+        import logging
+        from unittest.mock import MagicMock, patch
+
+        with (
+            caplog.at_level(logging.CRITICAL, logger="src.core.quarantine.manager"),
+            patch.object(manager._database, "add_entry", return_value=None),
+            patch.object(manager._file_handler, "restore_from_quarantine") as mock_restore,
+        ):
+            # Simulate restore failure
+            mock_result = MagicMock()
+            mock_result.is_success = False
+            mock_result.error_message = "Permission denied"
+            mock_restore.return_value = mock_result
+
+            result = manager.quarantine_file(test_file, "TestThreat")
+
+        assert result.is_success is False
+        # Check that orphaned file was logged at CRITICAL level
+        assert any(
+            "ORPHANED QUARANTINE FILE" in record.message
+            for record in caplog.records
+            if record.levelno == logging.CRITICAL
+        )
+
+    def test_database_failure_preserves_file_permissions(self, manager, temp_dir):
+        """Test that restored file has original permissions after rollback."""
+        from unittest.mock import patch
+
+        # Create file with specific permissions
+        file_path = os.path.join(temp_dir, "executable.sh")
+        with open(file_path, "wb") as f:
+            f.write(b"#!/bin/bash\necho 'test'")
+        os.chmod(file_path, 0o755)
+
+        # Mock database failure
+        with patch.object(manager._database, "add_entry", return_value=None):
+            result = manager.quarantine_file(file_path, "TestThreat")
+
+        assert result.is_success is False
+
+        # File should be restored with original permissions
+        restored_mode = os.stat(file_path).st_mode & 0o777
+        assert restored_mode == 0o755
+
+
 class TestQuarantineManagerQueries:
     """Tests for the QuarantineManager query operations."""
 

@@ -156,12 +156,31 @@ class QuarantineManager:
             )
 
             if entry_id is None:
-                # Database error - try to restore the file
-                # This is a critical error, but file is already moved
+                # Database error - attempt to rollback by restoring the file
+                logger.error(
+                    "Database add_entry failed for %s. Attempting rollback...",
+                    source_str,
+                )
+                rollback_success, rollback_error = self._rollback_quarantine(
+                    file_result.destination_path or "",
+                    source_str,
+                    file_result.original_permissions,
+                )
+                if rollback_success:
+                    error_msg = (
+                        "Failed to record quarantine entry in database. "
+                        "File has been restored to original location."
+                    )
+                else:
+                    error_msg = (
+                        "Failed to record quarantine entry in database. "
+                        f"Rollback also failed: {rollback_error}. "
+                        f"File may be orphaned at: {file_result.destination_path}"
+                    )
                 return QuarantineResult(
                     status=QuarantineStatus.DATABASE_ERROR,
                     entry=None,
-                    error_message="Failed to record quarantine entry in database",
+                    error_message=error_msg,
                 )
 
             # Retrieve the created entry
@@ -511,6 +530,65 @@ class QuarantineManager:
         thread = threading.Thread(target=_cleanup_thread)
         thread.daemon = True
         thread.start()
+
+    def _rollback_quarantine(
+        self,
+        quarantine_path: str,
+        original_path: str,
+        original_permissions: int,
+    ) -> tuple[bool, str | None]:
+        """
+        Attempt to restore a file from quarantine to its original location.
+
+        Used for rollback when database entry creation fails after a file
+        has already been moved to quarantine.
+
+        Args:
+            quarantine_path: Path to the quarantined file
+            original_path: Original path where the file should be restored
+            original_permissions: Original file permissions to restore
+
+        Returns:
+            Tuple of (success, error_message):
+            - (True, None) if rollback succeeded
+            - (False, error_message) if rollback failed
+        """
+        try:
+            restore_result = self._file_handler.restore_from_quarantine(
+                quarantine_path,
+                original_path,
+                original_permissions,
+            )
+            if restore_result.is_success:
+                logger.info(
+                    "Successfully rolled back quarantine: restored %s to %s",
+                    quarantine_path,
+                    original_path,
+                )
+                return (True, None)
+            else:
+                error_msg = (
+                    f"Rollback failed: could not restore {quarantine_path} to "
+                    f"{original_path}: {restore_result.error_message}"
+                )
+                logger.critical(
+                    "ORPHANED QUARANTINE FILE: %s - Database entry failed and rollback "
+                    "also failed. File is orphaned and cannot be accessed through UI. "
+                    "Error: %s",
+                    quarantine_path,
+                    restore_result.error_message,
+                )
+                return (False, error_msg)
+        except Exception as e:
+            error_msg = f"Rollback exception: {e}"
+            logger.critical(
+                "ORPHANED QUARANTINE FILE: %s - Database entry failed and rollback "
+                "raised exception. File is orphaned and cannot be accessed through UI. "
+                "Exception: %s",
+                quarantine_path,
+                e,
+            )
+            return (False, error_msg)
 
     def _map_file_status(self, file_status: FileOperationStatus) -> QuarantineStatus:
         """Map FileOperationStatus to QuarantineStatus."""
