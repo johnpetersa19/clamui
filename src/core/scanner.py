@@ -134,6 +134,7 @@ class Scanner:
                               exclusion patterns and scan backend settings.
         """
         self._current_process: subprocess.Popen | None = None
+        self._process_lock = threading.Lock()
         self._scan_cancelled = False
         self._log_manager = log_manager if log_manager else LogManager()
         self._settings_manager = settings_manager
@@ -252,9 +253,10 @@ class Scanner:
 
         try:
             self._scan_cancelled = False
-            self._current_process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
+            with self._process_lock:
+                self._current_process = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
 
             try:
                 stdout, stderr, was_cancelled = communicate_with_cancel_check(
@@ -263,8 +265,11 @@ class Scanner:
                 exit_code = self._current_process.returncode
             finally:
                 # Ensure process is cleaned up even if communicate() raises
-                process = self._current_process
-                self._current_process = None  # Clear first to avoid race
+                # Acquire lock to safely clear process reference and get it for cleanup
+                with self._process_lock:
+                    process = self._current_process
+                    self._current_process = None
+                # Perform cleanup outside lock to avoid holding it during I/O
                 cleanup_process(process)
 
             # Check if cancelled during execution
@@ -332,7 +337,11 @@ class Scanner:
         the grace period. Cancels both clamscan and daemon scanner if active.
         """
         self._scan_cancelled = True
-        terminate_process_gracefully(self._current_process)
+        # Acquire lock to safely get process reference
+        with self._process_lock:
+            process = self._current_process
+        # Terminate outside lock to avoid holding it during I/O
+        terminate_process_gracefully(process)
 
         # Also cancel daemon scanner if it exists
         if self._daemon_scanner is not None:

@@ -815,3 +815,160 @@ class TestDaemonScannerCountTargets:
         assert filtered.infected_count == 1
         assert len(filtered.threat_details) == 1
         assert filtered.threat_details[0].file_path == str(threat3)
+
+
+class TestDaemonScannerProcessLockThreadSafety:
+    """Tests for DaemonScanner process lock and thread safety."""
+
+    def test_daemon_scanner_has_process_lock(self, daemon_scanner_class):
+        """Test that DaemonScanner has a _process_lock attribute."""
+        import threading
+
+        scanner = daemon_scanner_class()
+        assert hasattr(scanner, "_process_lock")
+        assert isinstance(scanner._process_lock, type(threading.Lock()))
+
+    def test_cancel_uses_lock_for_process_access(self, daemon_scanner_class):
+        """Test that cancel() acquires lock before accessing _current_process."""
+        scanner = daemon_scanner_class()
+        lock_acquired = []
+
+        original_lock = scanner._process_lock
+
+        class TrackingLock:
+            def __enter__(self):
+                lock_acquired.append("enter")
+                return original_lock.__enter__()
+
+            def __exit__(self, *args):
+                lock_acquired.append("exit")
+                return original_lock.__exit__(*args)
+
+        scanner._process_lock = TrackingLock()
+        scanner.cancel()
+
+        assert "enter" in lock_acquired
+        assert "exit" in lock_acquired
+
+    def test_scan_sync_uses_lock_for_process_assignment(self, tmp_path, daemon_scanner_class):
+        """Test that scan_sync() acquires lock when assigning _current_process."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = daemon_scanner_class()
+
+        # Verify the lock attribute exists (check for the fix)
+        assert hasattr(scanner, "_process_lock"), "Scanner should have _process_lock attribute"
+
+        # We can verify the lock is used by checking that _current_process operations
+        # don't raise errors during concurrent access. The actual lock usage is tested
+        # by the concurrent test below. Here we just verify the lock exists and
+        # scan completes successfully with proper cleanup.
+        with (
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
+            patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
+            patch("subprocess.Popen") as mock_popen,
+        ):
+            mock_installed.return_value = (True, "ClamAV 1.0.0")
+            mock_connection.return_value = (True, "PONG")
+
+            mock_process = MagicMock()
+            mock_process.communicate.return_value = ("", "")
+            mock_process.returncode = 0
+            mock_popen.return_value = mock_process
+
+            result = scanner.scan_sync(str(test_file), count_targets=False)
+
+        # Verify scan completed and process was cleared
+        assert result.status.value in ["clean", "infected", "error", "cancelled"]
+        assert scanner._current_process is None
+
+    def test_concurrent_cancel_and_scan_cleanup(self, tmp_path, daemon_scanner_class):
+        """Test that concurrent cancel and scan cleanup don't cause race conditions."""
+        import threading
+        import time
+
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = daemon_scanner_class()
+        errors = []
+
+        def scan_thread():
+            try:
+                with (
+                    patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
+                    patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
+                    patch("subprocess.Popen") as mock_popen,
+                ):
+                    mock_installed.return_value = (True, "ClamAV 1.0.0")
+                    mock_connection.return_value = (True, "PONG")
+
+                    mock_process = MagicMock()
+                    # Simulate slow scan
+                    mock_process.communicate.side_effect = lambda: (
+                        time.sleep(0.1),
+                        ("", ""),
+                    )[-1]
+                    mock_process.returncode = 0
+                    mock_popen.return_value = mock_process
+
+                    scanner.scan_sync(str(test_file), count_targets=False)
+            except Exception as e:
+                errors.append(e)
+
+        def cancel_thread():
+            try:
+                time.sleep(0.05)  # Wait for scan to start
+                scanner.cancel()
+            except Exception as e:
+                errors.append(e)
+
+        # Run multiple iterations to increase chance of hitting race condition
+        for _ in range(5):
+            scanner._scan_cancelled = False
+            t1 = threading.Thread(target=scan_thread)
+            t2 = threading.Thread(target=cancel_thread)
+
+            t1.start()
+            t2.start()
+
+            t1.join(timeout=2)
+            t2.join(timeout=2)
+
+        # No exceptions should have been raised due to race conditions
+        assert len(errors) == 0, f"Race condition errors: {errors}"
+
+    def test_process_cleared_after_scan_completes(self, tmp_path, daemon_scanner_class):
+        """Test that _current_process is None after scan completes."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = daemon_scanner_class()
+
+        with (
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
+            patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
+            patch("subprocess.Popen") as mock_popen,
+        ):
+            mock_installed.return_value = (True, "ClamAV 1.0.0")
+            mock_connection.return_value = (True, "PONG")
+
+            mock_process = MagicMock()
+            mock_process.communicate.return_value = ("", "")
+            mock_process.returncode = 0
+            mock_popen.return_value = mock_process
+
+            scanner.scan_sync(str(test_file), count_targets=False)
+
+        # After scan completes, _current_process should be None
+        assert scanner._current_process is None
+
+    def test_cancel_with_none_process_is_safe(self, daemon_scanner_class):
+        """Test that cancel() is safe when _current_process is None."""
+        scanner = daemon_scanner_class()
+        assert scanner._current_process is None
+
+        # Should not raise any exception
+        scanner.cancel()
+        assert scanner._scan_cancelled is True
