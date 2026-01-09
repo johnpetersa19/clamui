@@ -12,7 +12,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
-from .base import PreferencesPageMixin
+from .base import PreferencesPageMixin, populate_bool_field, populate_int_field, populate_text_field
 
 
 class DatabasePage(PreferencesPageMixin):
@@ -261,54 +261,25 @@ class DatabasePage(PreferencesPageMixin):
         if not config:
             return
 
-        # Populate DatabaseDirectory
-        if config.has_key("DatabaseDirectory"):
-            widgets_dict["DatabaseDirectory"].set_text(config.get_value("DatabaseDirectory"))
+        # Populate text entry fields
+        for key in (
+            "DatabaseDirectory",
+            "UpdateLogFile",
+            "NotifyClamd",
+            "DatabaseMirror",
+            "HTTPProxyServer",
+            "HTTPProxyUsername",
+            "HTTPProxyPassword",
+        ):
+            populate_text_field(config, widgets_dict, key)
 
-        # Populate UpdateLogFile
-        if config.has_key("UpdateLogFile"):
-            widgets_dict["UpdateLogFile"].set_text(config.get_value("UpdateLogFile"))
+        # Populate boolean switches
+        for key in ("LogVerbose", "LogSyslog"):
+            populate_bool_field(config, widgets_dict, key)
 
-        # Populate NotifyClamd
-        if config.has_key("NotifyClamd"):
-            widgets_dict["NotifyClamd"].set_text(config.get_value("NotifyClamd"))
-
-        # Populate LogVerbose
-        if config.has_key("LogVerbose"):
-            widgets_dict["LogVerbose"].set_active(config.get_value("LogVerbose").lower() == "yes")
-
-        # Populate LogSyslog
-        if config.has_key("LogSyslog"):
-            widgets_dict["LogSyslog"].set_active(config.get_value("LogSyslog").lower() == "yes")
-
-        # Populate Checks
-        if config.has_key("Checks"):
-            try:
-                checks_value = int(config.get_value("Checks"))
-                widgets_dict["Checks"].set_value(checks_value)
-            except (ValueError, TypeError):
-                pass
-
-        # Populate DatabaseMirror
-        if config.has_key("DatabaseMirror"):
-            widgets_dict["DatabaseMirror"].set_text(config.get_value("DatabaseMirror"))
-
-        # Populate proxy settings
-        if config.has_key("HTTPProxyServer"):
-            widgets_dict["HTTPProxyServer"].set_text(config.get_value("HTTPProxyServer"))
-
-        if config.has_key("HTTPProxyPort"):
-            try:
-                port_value = int(config.get_value("HTTPProxyPort"))
-                widgets_dict["HTTPProxyPort"].set_value(port_value)
-            except (ValueError, TypeError):
-                pass
-
-        if config.has_key("HTTPProxyUsername"):
-            widgets_dict["HTTPProxyUsername"].set_text(config.get_value("HTTPProxyUsername"))
-
-        if config.has_key("HTTPProxyPassword"):
-            widgets_dict["HTTPProxyPassword"].set_text(config.get_value("HTTPProxyPassword"))
+        # Populate integer spin rows
+        for key in ("Checks", "HTTPProxyPort"):
+            populate_int_field(config, widgets_dict, key)
 
     @staticmethod
     def collect_data(widgets_dict: dict) -> dict:

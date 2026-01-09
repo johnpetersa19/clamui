@@ -17,7 +17,7 @@ from gi.repository import Adw, Gtk
 from src.core.flatpak import is_flatpak
 from src.ui.utils import add_row_icon
 
-from .base import PreferencesPageMixin
+from .base import PreferencesPageMixin, populate_bool_field, populate_int_field, populate_text_field
 
 
 class ScannerPage(PreferencesPageMixin):
@@ -542,62 +542,17 @@ class ScannerPage(PreferencesPageMixin):
             return
 
         # Populate file type scanning switches
-        if config.has_key("ScanPE"):
-            widgets_dict["ScanPE"].set_active(config.get_value("ScanPE").lower() == "yes")
-
-        if config.has_key("ScanELF"):
-            widgets_dict["ScanELF"].set_active(config.get_value("ScanELF").lower() == "yes")
-
-        if config.has_key("ScanOLE2"):
-            widgets_dict["ScanOLE2"].set_active(config.get_value("ScanOLE2").lower() == "yes")
-
-        if config.has_key("ScanPDF"):
-            widgets_dict["ScanPDF"].set_active(config.get_value("ScanPDF").lower() == "yes")
-
-        if config.has_key("ScanHTML"):
-            widgets_dict["ScanHTML"].set_active(config.get_value("ScanHTML").lower() == "yes")
-
-        if config.has_key("ScanArchive"):
-            widgets_dict["ScanArchive"].set_active(config.get_value("ScanArchive").lower() == "yes")
+        for key in ("ScanPE", "ScanELF", "ScanOLE2", "ScanPDF", "ScanHTML", "ScanArchive"):
+            populate_bool_field(config, widgets_dict, key)
 
         # Populate performance settings
-        if config.has_key("MaxFileSize"):
-            try:
-                size_value = int(config.get_value("MaxFileSize"))
-                widgets_dict["MaxFileSize"].set_value(size_value)
-            except (ValueError, TypeError):
-                pass
-
-        if config.has_key("MaxScanSize"):
-            try:
-                scan_size_value = int(config.get_value("MaxScanSize"))
-                widgets_dict["MaxScanSize"].set_value(scan_size_value)
-            except (ValueError, TypeError):
-                pass
-
-        if config.has_key("MaxRecursion"):
-            try:
-                recursion_value = int(config.get_value("MaxRecursion"))
-                widgets_dict["MaxRecursion"].set_value(recursion_value)
-            except (ValueError, TypeError):
-                pass
-
-        if config.has_key("MaxFiles"):
-            try:
-                files_value = int(config.get_value("MaxFiles"))
-                widgets_dict["MaxFiles"].set_value(files_value)
-            except (ValueError, TypeError):
-                pass
+        for key in ("MaxFileSize", "MaxScanSize", "MaxRecursion", "MaxFiles"):
+            populate_int_field(config, widgets_dict, key)
 
         # Populate logging settings
-        if config.has_key("LogFile"):
-            widgets_dict["LogFile"].set_text(config.get_value("LogFile"))
-
-        if config.has_key("LogVerbose"):
-            widgets_dict["LogVerbose"].set_active(config.get_value("LogVerbose").lower() == "yes")
-
-        if config.has_key("LogSyslog"):
-            widgets_dict["LogSyslog"].set_active(config.get_value("LogSyslog").lower() == "yes")
+        populate_text_field(config, widgets_dict, "LogFile")
+        populate_bool_field(config, widgets_dict, "LogVerbose")
+        populate_bool_field(config, widgets_dict, "LogSyslog")
 
     @staticmethod
     def collect_data(widgets_dict: dict, clamd_available: bool) -> dict:

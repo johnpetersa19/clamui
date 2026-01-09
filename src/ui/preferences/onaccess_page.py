@@ -12,7 +12,13 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
-from .base import PreferencesPageMixin
+from .base import (
+    PreferencesPageMixin,
+    populate_bool_field,
+    populate_int_field,
+    populate_multivalue_field,
+    populate_text_field,
+)
 
 
 class OnAccessPage(PreferencesPageMixin):
@@ -36,7 +42,7 @@ class OnAccessPage(PreferencesPageMixin):
 
     @staticmethod
     def create_page(
-        config_path: str,
+        _config_path: str,
         widgets_dict: dict,
         clamd_available: bool,
         parent_window,
@@ -321,91 +327,32 @@ class OnAccessPage(PreferencesPageMixin):
         if not config:
             return
 
-        # Populate OnAccessIncludePath (comma-separated paths)
-        if config.has_key("OnAccessIncludePath"):
-            values = config.get_values("OnAccessIncludePath")
-            if values:
-                widgets_dict["OnAccessIncludePath"].set_text(", ".join(values))
+        # Populate path settings (comma-separated multi-value fields)
+        populate_multivalue_field(config, widgets_dict, "OnAccessIncludePath")
+        populate_multivalue_field(config, widgets_dict, "OnAccessExcludePath")
 
-        # Populate OnAccessExcludePath (comma-separated paths)
-        if config.has_key("OnAccessExcludePath"):
-            values = config.get_values("OnAccessExcludePath")
-            if values:
-                widgets_dict["OnAccessExcludePath"].set_text(", ".join(values))
+        # Populate behavior switches
+        for key in (
+            "OnAccessPrevention",
+            "OnAccessExtraScanning",
+            "OnAccessDenyOnError",
+            "OnAccessDisableDDD",
+            "OnAccessExcludeRootUID",
+        ):
+            populate_bool_field(config, widgets_dict, key)
 
-        # Populate OnAccessPrevention (switch)
-        if config.has_key("OnAccessPrevention"):
-            widgets_dict["OnAccessPrevention"].set_active(
-                config.get_value("OnAccessPrevention").lower() == "yes"
-            )
+        # Populate performance settings (spin rows)
+        for key in (
+            "OnAccessMaxThreads",
+            "OnAccessMaxFileSize",
+            "OnAccessCurlTimeout",
+            "OnAccessRetryAttempts",
+            "OnAccessExcludeUID",
+        ):
+            populate_int_field(config, widgets_dict, key)
 
-        # Populate OnAccessExtraScanning (switch)
-        if config.has_key("OnAccessExtraScanning"):
-            widgets_dict["OnAccessExtraScanning"].set_active(
-                config.get_value("OnAccessExtraScanning").lower() == "yes"
-            )
-
-        # Populate OnAccessDenyOnError (switch)
-        if config.has_key("OnAccessDenyOnError"):
-            widgets_dict["OnAccessDenyOnError"].set_active(
-                config.get_value("OnAccessDenyOnError").lower() == "yes"
-            )
-
-        # Populate OnAccessDisableDDD (switch)
-        if config.has_key("OnAccessDisableDDD"):
-            widgets_dict["OnAccessDisableDDD"].set_active(
-                config.get_value("OnAccessDisableDDD").lower() == "yes"
-            )
-
-        # Populate OnAccessMaxThreads (spin)
-        if config.has_key("OnAccessMaxThreads"):
-            try:
-                threads_value = int(config.get_value("OnAccessMaxThreads"))
-                widgets_dict["OnAccessMaxThreads"].set_value(threads_value)
-            except (ValueError, TypeError):
-                pass
-
-        # Populate OnAccessMaxFileSize (spin, in MB)
-        if config.has_key("OnAccessMaxFileSize"):
-            try:
-                size_value = int(config.get_value("OnAccessMaxFileSize"))
-                widgets_dict["OnAccessMaxFileSize"].set_value(size_value)
-            except (ValueError, TypeError):
-                pass
-
-        # Populate OnAccessCurlTimeout (spin, in seconds)
-        if config.has_key("OnAccessCurlTimeout"):
-            try:
-                timeout_value = int(config.get_value("OnAccessCurlTimeout"))
-                widgets_dict["OnAccessCurlTimeout"].set_value(timeout_value)
-            except (ValueError, TypeError):
-                pass
-
-        # Populate OnAccessRetryAttempts (spin)
-        if config.has_key("OnAccessRetryAttempts"):
-            try:
-                retry_value = int(config.get_value("OnAccessRetryAttempts"))
-                widgets_dict["OnAccessRetryAttempts"].set_value(retry_value)
-            except (ValueError, TypeError):
-                pass
-
-        # Populate OnAccessExcludeUname (entry)
-        if config.has_key("OnAccessExcludeUname"):
-            widgets_dict["OnAccessExcludeUname"].set_text(config.get_value("OnAccessExcludeUname"))
-
-        # Populate OnAccessExcludeUID (spin)
-        if config.has_key("OnAccessExcludeUID"):
-            try:
-                uid_value = int(config.get_value("OnAccessExcludeUID"))
-                widgets_dict["OnAccessExcludeUID"].set_value(uid_value)
-            except (ValueError, TypeError):
-                pass
-
-        # Populate OnAccessExcludeRootUID (switch)
-        if config.has_key("OnAccessExcludeRootUID"):
-            widgets_dict["OnAccessExcludeRootUID"].set_active(
-                config.get_value("OnAccessExcludeRootUID").lower() == "yes"
-            )
+        # Populate text entry
+        populate_text_field(config, widgets_dict, "OnAccessExcludeUname")
 
     @staticmethod
     def collect_data(widgets_dict: dict, clamd_available: bool) -> dict:

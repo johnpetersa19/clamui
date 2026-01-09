@@ -635,6 +635,46 @@ class LogManager:
             logger.debug("Index validation error, treating as invalid: %s", e)
             return False
 
+    def _rebuild_index_unlocked(self) -> dict:
+        """
+        Rebuild the log index without acquiring lock.
+
+        Internal method for use by callers that already hold the lock.
+        Scans all log files and builds index data structure.
+
+        Returns:
+            Index data dict with "version" and "entries" keys
+        """
+        entries = []
+
+        # Ensure log directory exists
+        if not self._log_dir.exists():
+            return {"version": 1, "entries": []}
+
+        # Scan all JSON log files (exclude the index file itself)
+        for log_file in self._log_dir.glob("*.json"):
+            # Skip the index file
+            if log_file.name == INDEX_FILENAME:
+                continue
+
+            try:
+                with open(log_file, encoding="utf-8") as f:
+                    data = json.load(f)
+
+                    # Extract only the required fields
+                    log_id = data.get("id")
+                    timestamp = data.get("timestamp")
+                    log_type = data.get("type")
+
+                    # Only add if all required fields are present
+                    if log_id and timestamp and log_type:
+                        entries.append({"id": log_id, "timestamp": timestamp, "type": log_type})
+            except (OSError, json.JSONDecodeError):
+                # Skip corrupted or unreadable files
+                continue
+
+        return {"version": 1, "entries": entries}
+
     def rebuild_index(self) -> bool:
         """
         Rebuild the log index from scratch by scanning all log files.
@@ -647,42 +687,8 @@ class LogManager:
         """
         with self._lock:
             try:
-                # Ensure log directory exists
-                if not self._log_dir.exists():
-                    # No logs to index - create empty index
-                    return self._save_index({"version": 1, "entries": []})
-
-                entries = []
-
-                # Scan all JSON log files (exclude the index file itself)
-                for log_file in self._log_dir.glob("*.json"):
-                    # Skip the index file
-                    if log_file.name == INDEX_FILENAME:
-                        continue
-
-                    try:
-                        with open(log_file, encoding="utf-8") as f:
-                            data = json.load(f)
-
-                            # Extract only the required fields
-                            log_id = data.get("id")
-                            timestamp = data.get("timestamp")
-                            log_type = data.get("type")
-
-                            # Only add if all required fields are present
-                            if log_id and timestamp and log_type:
-                                entries.append(
-                                    {"id": log_id, "timestamp": timestamp, "type": log_type}
-                                )
-                    except (OSError, json.JSONDecodeError):
-                        # Skip corrupted or unreadable files
-                        continue
-
-                # Build index structure and save
-                index_data = {"version": 1, "entries": entries}
-
+                index_data = self._rebuild_index_unlocked()
                 return self._save_index(index_data)
-
             except Exception as e:
                 logger.warning("Failed to rebuild log index: %s", e)
                 return False
@@ -746,36 +752,16 @@ class LogManager:
 
                 # Check if index exists
                 if not self._index_path.exists():
-                    # Check if any log files exist
+                    # Check if any log files exist - if so, rebuild index
                     try:
                         if self._log_dir.exists():
                             log_files = [
                                 f for f in self._log_dir.glob("*.json") if f.name != INDEX_FILENAME
                             ]
-                            # If logs exist but no index, rebuild it
                             if log_files:
-                                # Inline rebuild (don't call rebuild_index() to avoid re-locking)
-                                entries_list = []
-                                for log_file in log_files:
-                                    try:
-                                        with open(log_file, encoding="utf-8") as f:
-                                            data = json.load(f)
-                                            log_id = data.get("id")
-                                            timestamp = data.get("timestamp")
-                                            log_type_val = data.get("type")
-                                            if log_id and timestamp and log_type_val:
-                                                entries_list.append(
-                                                    {
-                                                        "id": log_id,
-                                                        "timestamp": timestamp,
-                                                        "type": log_type_val,
-                                                    }
-                                                )
-                                    except (OSError, json.JSONDecodeError):
-                                        # Skip corrupted files
-                                        continue
-                                # Save the rebuilt index
-                                self._save_index({"version": 1, "entries": entries_list})
+                                # Rebuild index using shared unlocked method
+                                index_data = self._rebuild_index_unlocked()
+                                self._save_index(index_data)
                     except Exception as e:
                         # If migration fails, continue normally - will fall back to full scan
                         logger.debug("Index migration failed: %s", e)
@@ -799,45 +785,14 @@ class LogManager:
                     valid = False
 
                 if not valid:
-                    # Index is stale/invalid - trigger automatic rebuild
-                    # Note: rebuild_index() already holds the lock, but we're already inside _lock
-                    # so we need to release and reacquire, or call the underlying logic
-                    # Actually, rebuild_index() tries to acquire _lock, but we already have it
-                    # We need to restructure this
-
-                    # For now, fall back to full scan and rebuild will happen later
-                    # A better approach would be to have an internal _rebuild_index_unsafe
-                    # that doesn't acquire the lock
-                    index_data = {"version": 1, "entries": []}
-                    # Attempt rebuild in best-effort mode (without re-locking)
+                    # Index is stale/invalid - rebuild using shared unlocked method
                     try:
-                        if self._log_dir.exists():
-                            entries_list = []
-                            for log_file in self._log_dir.glob("*.json"):
-                                if log_file.name == INDEX_FILENAME:
-                                    continue
-                                try:
-                                    with open(log_file, encoding="utf-8") as f:
-                                        data = json.load(f)
-                                        log_id = data.get("id")
-                                        timestamp = data.get("timestamp")
-                                        log_type_val = data.get("type")
-                                        if log_id and timestamp and log_type_val:
-                                            entries_list.append(
-                                                {
-                                                    "id": log_id,
-                                                    "timestamp": timestamp,
-                                                    "type": log_type_val,
-                                                }
-                                            )
-                                except (OSError, json.JSONDecodeError):
-                                    continue
-                            index_data = {"version": 1, "entries": entries_list}
-                            # Save the rebuilt index (best-effort)
-                            self._save_index(index_data)
+                        index_data = self._rebuild_index_unlocked()
+                        self._save_index(index_data)
                     except Exception as e:
-                        # If rebuild fails, continue with empty index (will fall back to full scan)
+                        # If rebuild fails, fall back to full scan
                         logger.debug("Index rebuild in get_logs failed: %s", e)
+                        index_data = {"version": 1, "entries": []}
 
                 # Now proceed with index-based retrieval if we have entries
                 if index_data.get("entries"):

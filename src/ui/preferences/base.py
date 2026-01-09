@@ -17,6 +17,64 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 
+def populate_bool_field(config, widgets_dict: dict, key: str) -> None:
+    """
+    Populate a boolean switch widget from config.
+
+    Args:
+        config: Parsed config object with has_key() and get_value() methods
+        widgets_dict: Dictionary containing widget references
+        key: Config key name (widget key must match)
+    """
+    if config.has_key(key):
+        widgets_dict[key].set_active(config.get_value(key).lower() == "yes")
+
+
+def populate_int_field(config, widgets_dict: dict, key: str) -> None:
+    """
+    Populate an integer spin row widget from config.
+
+    Args:
+        config: Parsed config object with has_key() and get_value() methods
+        widgets_dict: Dictionary containing widget references
+        key: Config key name (widget key must match)
+    """
+    if config.has_key(key):
+        try:
+            widgets_dict[key].set_value(int(config.get_value(key)))
+        except (ValueError, TypeError):
+            pass
+
+
+def populate_text_field(config, widgets_dict: dict, key: str) -> None:
+    """
+    Populate a text entry widget from config.
+
+    Args:
+        config: Parsed config object with has_key() and get_value() methods
+        widgets_dict: Dictionary containing widget references
+        key: Config key name (widget key must match)
+    """
+    if config.has_key(key):
+        widgets_dict[key].set_text(config.get_value(key))
+
+
+def populate_multivalue_field(config, widgets_dict: dict, key: str, separator: str = ", ") -> None:
+    """
+    Populate a text entry widget with comma-separated values from config.
+
+    Args:
+        config: Parsed config object with has_key() and get_values() methods
+        widgets_dict: Dictionary containing widget references
+        key: Config key name (widget key must match)
+        separator: Separator to join multiple values (default: ", ")
+    """
+    if config.has_key(key):
+        values = config.get_values(key)
+        if values:
+            widgets_dict[key].set_text(separator.join(values))
+
+
 class PreferencesPageMixin:
     """
     Mixin class providing shared utility methods for preference pages.
