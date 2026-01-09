@@ -608,48 +608,111 @@ class ScanView(Gtk.Box):
         self._start_scan()
 
     def _create_selection_section(self):
-        """Create the file/folder selection UI section."""
+        """Create the file/folder selection UI section with multi-path support."""
         # Container for selection UI
-        selection_group = Adw.PreferencesGroup()
-        selection_group.set_title("Scan Target")
+        self._selection_group = Adw.PreferencesGroup()
+        self._selection_group.set_title("Scan Targets")
+        self._selection_group.set_description("Drop files here or click Add")
 
-        # Path display row
-        self._path_row = Adw.ActionRow()
-        self._path_row.set_title("Selected Path")
-        self._path_row.set_subtitle("Drop files here or select on the right")
-        add_row_icon(self._path_row, "folder-symbolic")
-
-        # Path label for displaying selected path
-        self._path_label = Gtk.Label()
-        self._path_label.set_ellipsize(3)  # PANGO_ELLIPSIZE_END
-        self._path_label.add_css_class("monospace")
-
-        # Button box for file/folder selection
+        # Header suffix with Add buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        button_box.set_valign(Gtk.Align.CENTER)
+        button_box.set_halign(Gtk.Align.END)
 
-        # Select File button
-        self._select_file_button = Gtk.Button()
-        self._select_file_button.set_icon_name("document-open-symbolic")
-        self._select_file_button.set_tooltip_text("Select File")
-        self._select_file_button.add_css_class("flat")
-        self._select_file_button.connect("clicked", self._on_select_file_clicked)
-        button_box.append(self._select_file_button)
+        # Add Files button
+        self._add_files_button = Gtk.Button()
+        self._add_files_button.set_icon_name("document-new-symbolic")
+        self._add_files_button.set_tooltip_text("Add files")
+        self._add_files_button.add_css_class("flat")
+        self._add_files_button.connect("clicked", self._on_select_file_clicked)
+        button_box.append(self._add_files_button)
 
-        # Select Folder button
-        self._select_folder_button = Gtk.Button()
-        self._select_folder_button.set_icon_name("folder-open-symbolic")
-        self._select_folder_button.set_tooltip_text("Select Folder")
-        self._select_folder_button.add_css_class("flat")
-        self._select_folder_button.connect("clicked", self._on_select_folder_clicked)
-        button_box.append(self._select_folder_button)
+        # Add Folders button
+        self._add_folders_button = Gtk.Button()
+        self._add_folders_button.set_icon_name("folder-new-symbolic")
+        self._add_folders_button.set_tooltip_text("Add folders")
+        self._add_folders_button.add_css_class("flat")
+        self._add_folders_button.connect("clicked", self._on_select_folder_clicked)
+        button_box.append(self._add_folders_button)
 
-        self._path_row.add_suffix(self._path_label)
-        self._path_row.add_suffix(button_box)
+        # Clear All button (visible when multiple paths exist)
+        self._clear_all_button = Gtk.Button()
+        self._clear_all_button.set_icon_name("edit-clear-all-symbolic")
+        self._clear_all_button.set_tooltip_text("Clear all")
+        self._clear_all_button.add_css_class("flat")
+        self._clear_all_button.connect("clicked", self._on_clear_all_clicked)
+        self._clear_all_button.set_visible(False)
+        button_box.append(self._clear_all_button)
 
-        selection_group.add(self._path_row)
+        self._selection_group.set_header_suffix(button_box)
 
-        self.append(selection_group)
+        # Paths list box
+        self._paths_listbox = Gtk.ListBox()
+        self._paths_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._paths_listbox.add_css_class("boxed-list")
+
+        # Placeholder row for empty list
+        self._paths_placeholder = Adw.ActionRow()
+        self._paths_placeholder.set_title("No targets added")
+        self._paths_placeholder.set_subtitle("Drop files here or click Add Files/Folders")
+        add_row_icon(self._paths_placeholder, "folder-symbolic")
+        self._paths_placeholder.add_css_class("dim-label")
+        self._paths_listbox.append(self._paths_placeholder)
+
+        self._selection_group.add(self._paths_listbox)
+        self.append(self._selection_group)
+
+    def _create_path_row(self, path: str) -> Adw.ActionRow:
+        """
+        Create a row for displaying a scan target path.
+
+        Args:
+            path: The file or folder path to display
+
+        Returns:
+            Configured Adw.ActionRow with path and remove button
+        """
+        row = Adw.ActionRow()
+
+        # Format path for display
+        formatted_path = format_scan_path(path)
+        row.set_title(formatted_path)
+
+        # Set tooltip with full path
+        row.set_tooltip_text(path)
+
+        # Choose icon based on path type
+        icon_name = "folder-symbolic" if os.path.isdir(path) else "text-x-generic-symbolic"
+        add_row_icon(row, icon_name)
+
+        # Remove button
+        remove_btn = Gtk.Button()
+        remove_btn.set_icon_name("edit-delete-symbolic")
+        remove_btn.set_tooltip_text("Remove")
+        remove_btn.add_css_class("flat")
+        remove_btn.add_css_class("error")
+        remove_btn.set_valign(Gtk.Align.CENTER)
+        remove_btn.connect("clicked", lambda btn: self._on_remove_path_clicked(path, row))
+
+        row.add_suffix(remove_btn)
+
+        # Store the path as data on the row for later reference
+        row.path = path
+
+        return row
+
+    def _on_remove_path_clicked(self, path: str, row: Adw.ActionRow):
+        """
+        Handle remove button click for a path row.
+
+        Args:
+            path: The path to remove
+            row: The row widget to remove from the listbox
+        """
+        self._remove_path(path)
+
+    def _on_clear_all_clicked(self, button):
+        """Handle clear all button click."""
+        self._clear_paths()
 
     def _on_select_file_clicked(self, button):
         """
@@ -758,7 +821,13 @@ class ScanView(Gtk.Box):
             return False
 
         self._selected_paths.append(path)
-        self._update_path_display()
+
+        # Hide placeholder and add path row to listbox
+        self._paths_placeholder.set_visible(False)
+        row = self._create_path_row(path)
+        self._paths_listbox.append(row)
+
+        self._update_selection_header()
         return True
 
     def _remove_path(self, path: str) -> bool:
@@ -775,14 +844,41 @@ class ScanView(Gtk.Box):
         for i, existing in enumerate(self._selected_paths):
             if os.path.normpath(existing) == normalized:
                 self._selected_paths.pop(i)
-                self._update_path_display()
+
+                # Find and remove the corresponding row from listbox
+                child = self._paths_listbox.get_first_child()
+                while child:
+                    next_child = child.get_next_sibling()
+                    # Check if this is a path row (not the placeholder)
+                    if hasattr(child, "path") and os.path.normpath(child.path) == normalized:
+                        self._paths_listbox.remove(child)
+                        break
+                    child = next_child
+
+                # Show placeholder if no paths remain
+                if not self._selected_paths:
+                    self._paths_placeholder.set_visible(True)
+
+                self._update_selection_header()
                 return True
         return False
 
     def _clear_paths(self):
-        """Clear all selected paths."""
+        """Clear all selected paths and reset the listbox."""
         self._selected_paths.clear()
-        self._update_path_display()
+
+        # Remove all path rows from listbox (keep placeholder)
+        child = self._paths_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            # Remove only path rows, not the placeholder
+            if child != self._paths_placeholder:
+                self._paths_listbox.remove(child)
+            child = next_child
+
+        # Show placeholder
+        self._paths_placeholder.set_visible(True)
+        self._update_selection_header()
 
     def get_selected_paths(self) -> list[str]:
         """
@@ -793,44 +889,23 @@ class ScanView(Gtk.Box):
         """
         return self._selected_paths.copy()
 
-    def _update_path_display(self):
-        """Update the UI to reflect the current path selection."""
+    def _update_selection_header(self):
+        """Update the selection group header and Clear All button visibility."""
         path_count = len(self._selected_paths)
 
+        # Update group title with count
         if path_count == 0:
-            self._path_label.set_label("")
-            self._path_label.set_tooltip_text("")
-            self._path_row.set_subtitle("Drop files here or select on the right")
+            self._selection_group.set_title("Scan Targets")
+            self._selection_group.set_description("Drop files here or click Add")
         elif path_count == 1:
-            path = self._selected_paths[0]
-            formatted_path = format_scan_path(path)
-            self._path_label.set_label(formatted_path)
-
-            # Check if this is a portal path that couldn't be fully resolved
-            if formatted_path.startswith("[Portal]"):
-                self._path_label.set_tooltip_text(
-                    "The exact location cannot be displayed in Flatpak mode, "
-                    "but scanning will work normally."
-                )
-                # Update subtitle to indicate portal access
-                if os.path.isdir(path):
-                    self._path_row.set_subtitle("Folder selected (via Flatpak portal)")
-                else:
-                    self._path_row.set_subtitle("File selected (via Flatpak portal)")
-            else:
-                self._path_label.set_tooltip_text(path)
-                # Update subtitle to show path type
-                if os.path.isdir(path):
-                    self._path_row.set_subtitle("Folder selected")
-                else:
-                    self._path_row.set_subtitle("File selected")
+            self._selection_group.set_title("Scan Target (1)")
+            self._selection_group.set_description("")
         else:
-            # Multiple paths selected
-            self._path_label.set_label(f"{path_count} items selected")
-            # Build tooltip with all paths
-            tooltip_lines = [format_scan_path(p) for p in self._selected_paths]
-            self._path_label.set_tooltip_text("\n".join(tooltip_lines))
-            self._path_row.set_subtitle(f"{path_count} files/folders selected")
+            self._selection_group.set_title(f"Scan Targets ({path_count})")
+            self._selection_group.set_description("")
+
+        # Show/hide Clear All button
+        self._clear_all_button.set_visible(path_count > 1)
 
     def _create_scan_section(self):
         """Create the scan control section."""
@@ -1014,8 +1089,7 @@ class ScanView(Gtk.Box):
 
             # Set the EICAR file as scan target and start scan
             self._set_selected_path(self._eicar_temp_path)
-            self._path_label.set_label("EICAR Test File")
-            self._path_row.set_subtitle("Testing antivirus detection")
+            # The EICAR test path will be shown in the listbox via _set_selected_path
             self._start_scanning()
 
         except OSError as e:
@@ -1030,7 +1104,7 @@ class ScanView(Gtk.Box):
         self._cancel_all_requested = False
         self._scan_button.set_sensitive(False)
         self._eicar_button.set_sensitive(False)
-        self._path_row.set_sensitive(False)
+        self._selection_group.set_sensitive(False)
         self._cancel_button.set_visible(True)
 
         # Update cancel button text based on number of targets
@@ -1240,7 +1314,7 @@ class ScanView(Gtk.Box):
         self._is_scanning = False
         self._scan_button.set_sensitive(True)
         self._eicar_button.set_sensitive(True)
-        self._path_row.set_sensitive(True)
+        self._selection_group.set_sensitive(True)
         self._cancel_button.set_visible(False)
 
         # Notify external handlers
@@ -1296,7 +1370,7 @@ class ScanView(Gtk.Box):
         self._is_scanning = False
         self._scan_button.set_sensitive(True)
         self._eicar_button.set_sensitive(True)
-        self._path_row.set_sensitive(True)
+        self._selection_group.set_sensitive(True)
         self._cancel_button.set_visible(False)
 
         # Notify external handlers
