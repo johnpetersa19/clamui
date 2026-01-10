@@ -115,6 +115,10 @@ class DaemonScanner:
         """
         start_time = time.monotonic()
 
+        # Reset cancelled flag at the start of every scan
+        # This ensures a previous cancelled scan doesn't affect new scans
+        self._scan_cancelled = False
+
         # Validate the path first
         is_valid, error = validate_path(path)
         if not is_valid:
@@ -145,8 +149,6 @@ class DaemonScanner:
         cmd = self._build_command(path, recursive, profile_exclusions)
 
         try:
-            # Reset cancelled flag only if not already cancelled
-            self._scan_cancelled = False
             with self._process_lock:
                 self._current_process = subprocess.Popen(
                     cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True

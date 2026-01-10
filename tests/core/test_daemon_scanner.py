@@ -972,3 +972,133 @@ class TestDaemonScannerProcessLockThreadSafety:
         # Should not raise any exception
         scanner.cancel()
         assert scanner._scan_cancelled is True
+
+
+class TestDaemonScannerCancelFlagReset:
+    """Tests for cancel flag reset at start of new scans."""
+
+    def test_cancelled_flag_reset_at_scan_start(
+        self, tmp_path, daemon_scanner_class, scan_status_class
+    ):
+        """Test that _scan_cancelled flag is reset at start of scan_sync."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = daemon_scanner_class()
+
+        # Manually set cancelled flag to simulate previous cancelled scan
+        scanner._scan_cancelled = True
+
+        with (
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
+            patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
+            patch("subprocess.Popen") as mock_popen,
+        ):
+            mock_installed.return_value = (True, "ClamAV 1.0.0")
+            mock_connection.return_value = (True, "PONG")
+
+            mock_process = MagicMock()
+            mock_process.communicate.return_value = ("", "")
+            mock_process.returncode = 0
+            mock_popen.return_value = mock_process
+
+            result = scanner.scan_sync(str(test_file), count_targets=False)
+
+        # Scan should complete successfully (not be cancelled)
+        assert result.status == scan_status_class.CLEAN
+        # Flag should have been reset during scan
+        assert scanner._scan_cancelled is False
+
+    def test_scan_after_cancelled_during_counting_runs_normally(
+        self, tmp_path, daemon_scanner_class, scan_status_class
+    ):
+        """Test that a new scan runs normally after previous scan was cancelled during counting.
+
+        This is the specific bug scenario:
+        1. Start scan A
+        2. Cancel during counting phase (flag set to True, scan returns cancelled)
+        3. Start scan B - it should run normally, not return cancelled immediately
+        """
+        # Create test directory with files to trigger counting phase
+        test_dir = tmp_path / "scan_test"
+        test_dir.mkdir()
+        (test_dir / "file1.txt").write_text("content1")
+        (test_dir / "file2.txt").write_text("content2")
+
+        scanner = daemon_scanner_class()
+
+        # Simulate scan A being cancelled during counting phase
+        # This is what happens when user cancels during _count_scan_targets
+        def counting_that_gets_cancelled(*args, **kwargs):
+            # Simulate cancel during counting
+            scanner._scan_cancelled = True
+            return (0, 0)
+
+        with (
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
+            patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
+            patch.object(scanner, "_count_scan_targets", side_effect=counting_that_gets_cancelled),
+        ):
+            mock_installed.return_value = (True, "ClamAV 1.0.0")
+            mock_connection.return_value = (True, "PONG")
+
+            # Scan A - should be cancelled during counting
+            result_a = scanner.scan_sync(str(test_dir), count_targets=True)
+
+        assert result_a.status == scan_status_class.CANCELLED
+        # Flag should still be True after cancelled scan
+        assert scanner._scan_cancelled is True
+
+        # Now start scan B - this is where the bug manifested
+        # Without the fix, scan B would return CANCELLED immediately
+        # because the flag wasn't reset at scan start
+        with (
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
+            patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
+            patch("subprocess.Popen") as mock_popen,
+        ):
+            mock_installed.return_value = (True, "ClamAV 1.0.0")
+            mock_connection.return_value = (True, "PONG")
+
+            mock_process = MagicMock()
+            mock_process.communicate.return_value = ("", "")
+            mock_process.returncode = 0
+            mock_popen.return_value = mock_process
+
+            # Scan B - should run normally, not be cancelled
+            result_b = scanner.scan_sync(str(test_dir), count_targets=False)
+
+        # With the fix, scan B should complete successfully
+        assert result_b.status == scan_status_class.CLEAN
+        assert scanner._scan_cancelled is False
+
+    def test_multiple_cancelled_scans_followed_by_successful_scan(
+        self, tmp_path, daemon_scanner_class, scan_status_class
+    ):
+        """Test that multiple consecutive cancelled scans don't affect subsequent scans."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = daemon_scanner_class()
+
+        # Cancel several scans in a row
+        for _ in range(3):
+            scanner._scan_cancelled = True
+
+        # Now run a real scan
+        with (
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
+            patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
+            patch("subprocess.Popen") as mock_popen,
+        ):
+            mock_installed.return_value = (True, "ClamAV 1.0.0")
+            mock_connection.return_value = (True, "PONG")
+
+            mock_process = MagicMock()
+            mock_process.communicate.return_value = ("", "")
+            mock_process.returncode = 0
+            mock_popen.return_value = mock_process
+
+            result = scanner.scan_sync(str(test_file), count_targets=False)
+
+        assert result.status == scan_status_class.CLEAN

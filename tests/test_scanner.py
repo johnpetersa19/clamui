@@ -1858,3 +1858,94 @@ class TestScannerProcessLockThreadSafety:
         # Should not raise any exception
         scanner.cancel()
         assert scanner._scan_cancelled is True
+
+
+class TestScannerCancelFlagReset:
+    """Tests for cancel flag reset at start of new scans."""
+
+    def test_cancelled_flag_reset_at_scan_start(self, tmp_path):
+        """Test that _scan_cancelled flag is reset at start of scan_sync."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = Scanner()
+
+        # Manually set cancelled flag to simulate previous cancelled scan
+        scanner._scan_cancelled = True
+
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+                with mock.patch(
+                    "src.core.scanner.check_clamav_installed", return_value=(True, "1.0.0")
+                ):
+                    with mock.patch("subprocess.Popen") as mock_popen:
+                        mock_process = mock.MagicMock()
+                        mock_process.communicate.return_value = ("", "")
+                        mock_process.returncode = 0
+                        mock_popen.return_value = mock_process
+
+                        result = scanner.scan_sync(str(test_file))
+
+        # Scan should complete successfully (not be cancelled)
+        assert result.status == ScanStatus.CLEAN
+        # Flag should have been reset during scan
+        assert scanner._scan_cancelled is False
+
+    def test_scan_after_cancelled_scan_runs_normally(self, tmp_path):
+        """Test that a new scan runs normally after a previous scan was cancelled.
+
+        This verifies the fix for the bug where a cancelled scan's flag
+        would affect subsequent scans.
+        """
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = Scanner()
+
+        # Simulate a cancelled scan
+        scanner._scan_cancelled = True
+
+        # Now run a new scan
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+                with mock.patch(
+                    "src.core.scanner.check_clamav_installed", return_value=(True, "1.0.0")
+                ):
+                    with mock.patch("subprocess.Popen") as mock_popen:
+                        mock_process = mock.MagicMock()
+                        mock_process.communicate.return_value = ("", "")
+                        mock_process.returncode = 0
+                        mock_popen.return_value = mock_process
+
+                        result = scanner.scan_sync(str(test_file))
+
+        # With the fix, the new scan should complete successfully
+        assert result.status == ScanStatus.CLEAN
+        assert scanner._scan_cancelled is False
+
+    def test_multiple_cancelled_scans_followed_by_successful_scan(self, tmp_path):
+        """Test that multiple consecutive cancelled scans don't affect subsequent scans."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = Scanner()
+
+        # Cancel several scans in a row
+        for _ in range(3):
+            scanner._scan_cancelled = True
+
+        # Now run a real scan
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+                with mock.patch(
+                    "src.core.scanner.check_clamav_installed", return_value=(True, "1.0.0")
+                ):
+                    with mock.patch("subprocess.Popen") as mock_popen:
+                        mock_process = mock.MagicMock()
+                        mock_process.communicate.return_value = ("", "")
+                        mock_process.returncode = 0
+                        mock_popen.return_value = mock_process
+
+                        result = scanner.scan_sync(str(test_file))
+
+        assert result.status == ScanStatus.CLEAN
