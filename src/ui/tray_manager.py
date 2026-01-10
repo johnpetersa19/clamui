@@ -10,18 +10,34 @@ For detailed architecture documentation including process boundaries, IPC protoc
 threading model, and sequence diagrams, see: docs/architecture/tray-subprocess.md
 """
 
+import atexit
 import json
 import logging
 import os
 import subprocess
 import sys
 import threading
+import weakref
 from collections.abc import Callable
 from pathlib import Path
 
 from gi.repository import GLib
 
 logger = logging.getLogger(__name__)
+
+# Module-level registry of TrayManager instances for atexit cleanup
+# Uses weak references to avoid preventing garbage collection
+_active_managers: weakref.WeakSet["TrayManager"] = weakref.WeakSet()
+_atexit_registered = False
+
+
+def _cleanup_all_managers() -> None:
+    """Atexit handler to clean up all active TrayManager instances."""
+    for manager in list(_active_managers):
+        try:
+            manager._close_pipes()
+        except Exception:
+            pass
 
 
 class TrayManager:
@@ -54,6 +70,39 @@ class TrayManager:
 
         # Profile state
         self._current_profile_id: str | None = None
+
+        # Register for atexit cleanup
+        global _atexit_registered
+        _active_managers.add(self)
+        if not _atexit_registered:
+            atexit.register(_cleanup_all_managers)
+            _atexit_registered = True
+
+    def __del__(self) -> None:
+        """
+        Destructor to ensure pipes are closed on garbage collection.
+
+        This acts as a safety net for cleanup when stop() is not called
+        (e.g., during abnormal termination or when references are lost).
+        """
+        self._close_pipes()
+
+    def _close_pipes(self) -> None:
+        """
+        Close subprocess pipes to prevent resource leaks.
+
+        This method is safe to call multiple times and handles all exceptions
+        silently to avoid issues during garbage collection or atexit.
+        """
+        if self._process is None:
+            return
+
+        for pipe in (self._process.stdin, self._process.stdout, self._process.stderr):
+            if pipe is not None:
+                try:
+                    pipe.close()
+                except Exception:
+                    pass
 
     def start(self) -> bool:
         """
@@ -424,21 +473,7 @@ class TrayManager:
                 logger.error(f"Error stopping tray service: {e}")
             finally:
                 # Explicitly close pipes to prevent ResourceWarning
-                if self._process.stdin:
-                    try:
-                        self._process.stdin.close()
-                    except Exception:
-                        pass
-                if self._process.stdout:
-                    try:
-                        self._process.stdout.close()
-                    except Exception:
-                        pass
-                if self._process.stderr:
-                    try:
-                        self._process.stderr.close()
-                    except Exception:
-                        pass
+                self._close_pipes()
                 self._process = None
 
         with self._state_lock:

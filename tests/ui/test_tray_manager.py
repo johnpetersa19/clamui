@@ -558,3 +558,175 @@ class TestTrayManagerStart:
         result = manager.start()
 
         assert result is True
+
+
+class TestTrayManagerPipeCleanup:
+    """Tests for TrayManager pipe cleanup on abnormal termination."""
+
+    def test_close_pipes_closes_all_pipes(self, mock_gtk_modules):
+        """Test _close_pipes closes stdin, stdout, and stderr."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_stdin = mock.Mock()
+        mock_stdout = mock.Mock()
+        mock_stderr = mock.Mock()
+
+        mock_process = mock.Mock()
+        mock_process.stdin = mock_stdin
+        mock_process.stdout = mock_stdout
+        mock_process.stderr = mock_stderr
+        manager._process = mock_process
+
+        manager._close_pipes()
+
+        mock_stdin.close.assert_called_once()
+        mock_stdout.close.assert_called_once()
+        mock_stderr.close.assert_called_once()
+
+    def test_close_pipes_handles_none_process(self, mock_gtk_modules):
+        """Test _close_pipes handles None process gracefully."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._process = None
+
+        # Should not raise
+        manager._close_pipes()
+
+    def test_close_pipes_handles_none_pipes(self, mock_gtk_modules):
+        """Test _close_pipes handles None pipes gracefully."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_process = mock.Mock()
+        mock_process.stdin = None
+        mock_process.stdout = None
+        mock_process.stderr = None
+        manager._process = mock_process
+
+        # Should not raise
+        manager._close_pipes()
+
+    def test_close_pipes_handles_close_exception(self, mock_gtk_modules):
+        """Test _close_pipes handles exceptions during close."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_stdin = mock.Mock()
+        mock_stdin.close.side_effect = OSError("Pipe broken")
+        mock_stdout = mock.Mock()
+        mock_stderr = mock.Mock()
+
+        mock_process = mock.Mock()
+        mock_process.stdin = mock_stdin
+        mock_process.stdout = mock_stdout
+        mock_process.stderr = mock_stderr
+        manager._process = mock_process
+
+        # Should not raise
+        manager._close_pipes()
+
+        # Other pipes should still be closed
+        mock_stdout.close.assert_called_once()
+        mock_stderr.close.assert_called_once()
+
+    def test_close_pipes_can_be_called_multiple_times(self, mock_gtk_modules):
+        """Test _close_pipes can be called multiple times safely."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_stdin = mock.Mock()
+        mock_stdout = mock.Mock()
+        mock_stderr = mock.Mock()
+
+        mock_process = mock.Mock()
+        mock_process.stdin = mock_stdin
+        mock_process.stdout = mock_stdout
+        mock_process.stderr = mock_stderr
+        manager._process = mock_process
+
+        # First call
+        manager._close_pipes()
+
+        # Simulate pipes already closed on second call
+        mock_stdin.close.side_effect = OSError("Already closed")
+        mock_stdout.close.side_effect = OSError("Already closed")
+        mock_stderr.close.side_effect = OSError("Already closed")
+
+        # Should not raise
+        manager._close_pipes()
+
+    def test_del_calls_close_pipes(self, mock_gtk_modules):
+        """Test __del__ calls _close_pipes for cleanup."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        with mock.patch.object(manager, "_close_pipes") as mock_close:
+            manager.__del__()
+            mock_close.assert_called_once()
+
+    def test_stop_uses_close_pipes(self, mock_gtk_modules):
+        """Test stop method uses _close_pipes for cleanup."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_process = mock.Mock()
+        mock_process.wait = mock.Mock()
+        manager._process = mock_process
+        manager._running = True
+
+        with mock.patch.object(manager, "_send_command"):
+            with mock.patch.object(manager, "_close_pipes") as mock_close:
+                manager.stop()
+                mock_close.assert_called_once()
+
+    def test_manager_registered_in_active_managers(self, mock_gtk_modules):
+        """Test TrayManager is registered in _active_managers on creation."""
+        from src.ui.tray_manager import TrayManager, _active_managers
+
+        manager = TrayManager()
+
+        assert manager in _active_managers
+
+    def test_atexit_handler_registered(self, mock_gtk_modules):
+        """Test atexit handler is registered."""
+        # The atexit handler should be registered
+        # We verify by checking the module's _atexit_registered flag
+        from src.ui import tray_manager
+
+        assert tray_manager._atexit_registered is True
+
+    def test_cleanup_all_managers_closes_all_instances(self, mock_gtk_modules):
+        """Test _cleanup_all_managers closes all active manager instances."""
+        from src.ui.tray_manager import TrayManager, _cleanup_all_managers
+
+        # Create multiple managers
+        manager1 = TrayManager()
+        manager2 = TrayManager()
+
+        # Set up mock processes
+        mock_process1 = mock.Mock()
+        mock_process1.stdin = mock.Mock()
+        mock_process1.stdout = mock.Mock()
+        mock_process1.stderr = mock.Mock()
+        manager1._process = mock_process1
+
+        mock_process2 = mock.Mock()
+        mock_process2.stdin = mock.Mock()
+        mock_process2.stdout = mock.Mock()
+        mock_process2.stderr = mock.Mock()
+        manager2._process = mock_process2
+
+        # Run atexit cleanup
+        _cleanup_all_managers()
+
+        # Verify pipes were closed
+        mock_process1.stdin.close.assert_called()
+        mock_process2.stdin.close.assert_called()
