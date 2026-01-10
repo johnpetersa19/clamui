@@ -865,12 +865,8 @@ class ProfileListDialog(Adw.Dialog):
 
     def _refresh_profile_list(self):
         """Refresh the profile list from the profile manager."""
-        # Clear existing rows
-        while True:
-            row = self._profiles_listbox.get_row_at_index(0)
-            if row is None:
-                break
-            self._profiles_listbox.remove(row)
+        # Clear existing rows - use remove_all() for O(1) instead of O(n²) loop removal
+        self._profiles_listbox.remove_all()
 
         # Get profiles from manager
         if self._profile_manager is None:
