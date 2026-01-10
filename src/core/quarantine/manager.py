@@ -282,9 +282,15 @@ class QuarantineManager:
 
             # Remove entry from database
             if not self._database.remove_entry(entry_id):
-                # File restored but database entry remains
-                # This is not critical - entry can be cleaned up later
-                pass
+                # File restored but database entry remains - this creates an orphaned entry
+                # Log warning so it can be identified and cleaned up later
+                logger.warning(
+                    "Failed to remove database entry %d after successful file restore. "
+                    "Entry is now orphaned (file at %s no longer exists). "
+                    "Run cleanup_orphaned_entries() to resolve.",
+                    entry_id,
+                    entry.quarantine_path,
+                )
 
             return QuarantineResult(
                 status=QuarantineStatus.SUCCESS,
@@ -360,9 +366,15 @@ class QuarantineManager:
 
             # Remove entry from database
             if not self._database.remove_entry(entry_id):
-                # File deleted but database entry remains
-                # This is not critical - entry can be cleaned up later
-                pass
+                # File deleted but database entry remains - this creates an orphaned entry
+                # Log warning so it can be identified and cleaned up later
+                logger.warning(
+                    "Failed to remove database entry %d after successful file deletion. "
+                    "Entry is now orphaned (file at %s no longer exists). "
+                    "Run cleanup_orphaned_entries() to resolve.",
+                    entry_id,
+                    entry.quarantine_path,
+                )
 
             return QuarantineResult(
                 status=QuarantineStatus.SUCCESS,
@@ -482,6 +494,91 @@ class QuarantineManager:
             List of QuarantineEntry objects older than the specified days
         """
         return self._database.get_old_entries(days)
+
+    def verify_entry(self, entry_id: int) -> tuple[bool, str | None]:
+        """
+        Verify if a quarantine entry's file exists on disk.
+
+        Checks whether the quarantine file referenced by the database entry
+        actually exists in the quarantine directory.
+
+        Args:
+            entry_id: The ID of the quarantine entry to verify
+
+        Returns:
+            Tuple of (exists, error_message):
+            - (True, None) if the file exists
+            - (False, error_message) if the entry doesn't exist or file is missing
+        """
+        entry = self._database.get_entry(entry_id)
+        if entry is None:
+            return (False, f"Quarantine entry not found: {entry_id}")
+
+        quarantine_path = Path(entry.quarantine_path)
+        if not quarantine_path.exists():
+            return (False, f"Quarantine file missing: {entry.quarantine_path}")
+
+        return (True, None)
+
+    def cleanup_orphaned_entries(self) -> int:
+        """
+        Remove database entries whose quarantine files no longer exist.
+
+        Scans all quarantine entries and removes any whose corresponding file
+        has been deleted or is missing from disk. This can happen when:
+        - A file was restored/deleted but remove_entry() failed
+        - Files were manually deleted from the quarantine directory
+        - Filesystem corruption or external cleanup occurred
+
+        Returns:
+            Number of orphaned entries removed
+        """
+        with self._lock:
+            entries = self._database.get_all_entries()
+            removed_count = 0
+
+            for entry in entries:
+                quarantine_path = Path(entry.quarantine_path)
+                if not quarantine_path.exists():
+                    logger.warning(
+                        "Removing orphaned quarantine entry %d: file missing at %s",
+                        entry.id,
+                        entry.quarantine_path,
+                    )
+                    if self._database.remove_entry(entry.id):
+                        removed_count += 1
+                    else:
+                        logger.error(
+                            "Failed to remove orphaned entry %d from database",
+                            entry.id,
+                        )
+
+            if removed_count > 0:
+                logger.info("Cleaned up %d orphaned quarantine entries", removed_count)
+
+            return removed_count
+
+    def cleanup_orphaned_entries_async(
+        self,
+        callback: Callable[[int], None],
+    ) -> None:
+        """
+        Remove orphaned database entries asynchronously.
+
+        The operation runs in a background thread and the callback is invoked
+        on the main GTK thread via GLib.idle_add when complete.
+
+        Args:
+            callback: Function to call with removed count when complete
+        """
+
+        def _cleanup_thread():
+            removed_count = self.cleanup_orphaned_entries()
+            GLib.idle_add(callback, removed_count)
+
+        thread = threading.Thread(target=_cleanup_thread)
+        thread.daemon = True
+        thread.start()
 
     def cleanup_old_entries(self, days: int = 30) -> int:
         """

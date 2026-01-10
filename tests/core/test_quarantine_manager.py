@@ -788,3 +788,296 @@ class TestQuarantineManagerQueries:
         # Verify all entries are retrieved
         entries = manager.get_all_entries()
         assert len(entries) == 3
+
+
+class TestQuarantineManagerVerifyEntry:
+    """Tests for the QuarantineManager verify_entry method."""
+
+    @pytest.fixture
+    def temp_dir(self):
+        """Create a temporary directory for quarantine operations."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def manager(self, temp_dir):
+        """Create a QuarantineManager with temporary directories."""
+        quarantine_dir = os.path.join(temp_dir, "quarantine")
+        db_path = os.path.join(temp_dir, "quarantine.db")
+        mgr = QuarantineManager(
+            quarantine_directory=quarantine_dir,
+            database_path=db_path,
+        )
+        yield mgr
+        mgr._database.close()
+
+    @pytest.fixture
+    def quarantined_file(self, manager, temp_dir):
+        """Create and quarantine a test file."""
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content for verify testing")
+
+        result = manager.quarantine_file(file_path, "TestThreat")
+        assert result.is_success is True
+        return result.entry
+
+    def test_verify_entry_exists(self, manager, quarantined_file):
+        """Test verify_entry returns True when file exists."""
+        exists, error = manager.verify_entry(quarantined_file.id)
+
+        assert exists is True
+        assert error is None
+
+    def test_verify_entry_not_found(self, manager):
+        """Test verify_entry returns False for non-existent entry."""
+        exists, error = manager.verify_entry(999999)
+
+        assert exists is False
+        assert error is not None
+        assert "not found" in error.lower()
+
+    def test_verify_entry_file_missing(self, manager, quarantined_file):
+        """Test verify_entry returns False when file is missing from disk."""
+        # Remove the quarantine file manually
+        quarantine_path = Path(quarantined_file.quarantine_path)
+        quarantine_path.unlink()
+
+        exists, error = manager.verify_entry(quarantined_file.id)
+
+        assert exists is False
+        assert error is not None
+        assert "missing" in error.lower()
+
+
+class TestQuarantineManagerCleanupOrphaned:
+    """Tests for the QuarantineManager cleanup_orphaned_entries method."""
+
+    @pytest.fixture
+    def temp_dir(self):
+        """Create a temporary directory for quarantine operations."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def manager(self, temp_dir):
+        """Create a QuarantineManager with temporary directories."""
+        quarantine_dir = os.path.join(temp_dir, "quarantine")
+        db_path = os.path.join(temp_dir, "quarantine.db")
+        mgr = QuarantineManager(
+            quarantine_directory=quarantine_dir,
+            database_path=db_path,
+        )
+        yield mgr
+        mgr._database.close()
+
+    def test_cleanup_orphaned_entries_empty(self, manager):
+        """Test cleanup_orphaned_entries returns 0 when no entries exist."""
+        removed = manager.cleanup_orphaned_entries()
+        assert removed == 0
+
+    def test_cleanup_orphaned_entries_no_orphans(self, manager, temp_dir):
+        """Test cleanup_orphaned_entries returns 0 when all files exist."""
+        # Create and quarantine some files
+        for i in range(3):
+            file_path = os.path.join(temp_dir, f"test_{i}.exe")
+            with open(file_path, "wb") as f:
+                f.write(b"Test content")
+            manager.quarantine_file(file_path, f"Threat{i}")
+
+        removed = manager.cleanup_orphaned_entries()
+        assert removed == 0
+        assert len(manager.get_all_entries()) == 3
+
+    def test_cleanup_orphaned_entries_removes_orphans(self, manager, temp_dir):
+        """Test cleanup_orphaned_entries removes entries with missing files."""
+        # Create and quarantine some files
+        entries = []
+        for i in range(3):
+            file_path = os.path.join(temp_dir, f"test_{i}.exe")
+            with open(file_path, "wb") as f:
+                f.write(b"Test content")
+            result = manager.quarantine_file(file_path, f"Threat{i}")
+            entries.append(result.entry)
+
+        # Manually remove one quarantine file to create an orphan
+        Path(entries[1].quarantine_path).unlink()
+
+        removed = manager.cleanup_orphaned_entries()
+        assert removed == 1
+        assert len(manager.get_all_entries()) == 2
+
+        # Verify the correct entry was removed
+        assert manager.get_entry(entries[0].id) is not None
+        assert manager.get_entry(entries[1].id) is None  # Orphan removed
+        assert manager.get_entry(entries[2].id) is not None
+
+    def test_cleanup_orphaned_entries_removes_all_orphans(self, manager, temp_dir):
+        """Test cleanup_orphaned_entries removes all orphaned entries."""
+        # Create and quarantine some files
+        entries = []
+        for i in range(3):
+            file_path = os.path.join(temp_dir, f"test_{i}.exe")
+            with open(file_path, "wb") as f:
+                f.write(b"Test content")
+            result = manager.quarantine_file(file_path, f"Threat{i}")
+            entries.append(result.entry)
+
+        # Remove all quarantine files to create orphans
+        for entry in entries:
+            Path(entry.quarantine_path).unlink()
+
+        removed = manager.cleanup_orphaned_entries()
+        assert removed == 3
+        assert len(manager.get_all_entries()) == 0
+
+    def test_cleanup_orphaned_entries_logs_warning(self, manager, temp_dir, caplog):
+        """Test cleanup_orphaned_entries logs warnings for removed entries."""
+        import logging
+
+        # Create and quarantine a file
+        file_path = os.path.join(temp_dir, "test.exe")
+        with open(file_path, "wb") as f:
+            f.write(b"Test content")
+        result = manager.quarantine_file(file_path, "TestThreat")
+
+        # Remove the quarantine file
+        Path(result.entry.quarantine_path).unlink()
+
+        with caplog.at_level(logging.WARNING, logger="src.core.quarantine.manager"):
+            removed = manager.cleanup_orphaned_entries()
+
+        assert removed == 1
+        assert any("orphaned" in record.message.lower() for record in caplog.records)
+
+
+class TestQuarantineManagerDbFailureAfterRestore:
+    """Tests for handling database failures after file restore/delete operations."""
+
+    @pytest.fixture
+    def temp_dir(self):
+        """Create a temporary directory for quarantine operations."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def manager(self, temp_dir):
+        """Create a QuarantineManager with temporary directories."""
+        quarantine_dir = os.path.join(temp_dir, "quarantine")
+        db_path = os.path.join(temp_dir, "quarantine.db")
+        mgr = QuarantineManager(
+            quarantine_directory=quarantine_dir,
+            database_path=db_path,
+        )
+        yield mgr
+        mgr._database.close()
+
+    @pytest.fixture
+    def quarantined_file(self, manager, temp_dir):
+        """Create and quarantine a test file."""
+        file_path = os.path.join(temp_dir, "files", "test.exe")
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "wb") as f:
+            f.write(b"Test content for DB failure testing")
+
+        result = manager.quarantine_file(file_path, "TestThreat")
+        assert result.is_success is True
+        return result.entry
+
+    def test_restore_logs_warning_on_db_failure(self, manager, quarantined_file, caplog):
+        """Test that restore logs warning when remove_entry fails."""
+        import logging
+        from unittest.mock import patch
+
+        # Mock remove_entry to fail
+        with (
+            caplog.at_level(logging.WARNING, logger="src.core.quarantine.manager"),
+            patch.object(manager._database, "remove_entry", return_value=False),
+        ):
+            result = manager.restore_file(quarantined_file.id)
+
+        # Restore should still succeed
+        assert result.is_success is True
+
+        # File should be restored
+        assert Path(quarantined_file.original_path).exists()
+
+        # Warning should be logged
+        assert any(
+            "Failed to remove database entry" in record.message
+            and "restore" in record.message.lower()
+            for record in caplog.records
+        )
+
+    def test_delete_logs_warning_on_db_failure(self, manager, quarantined_file, caplog):
+        """Test that delete logs warning when remove_entry fails."""
+        import logging
+        from unittest.mock import patch
+
+        quarantine_path = Path(quarantined_file.quarantine_path)
+
+        # Mock remove_entry to fail
+        with (
+            caplog.at_level(logging.WARNING, logger="src.core.quarantine.manager"),
+            patch.object(manager._database, "remove_entry", return_value=False),
+        ):
+            result = manager.delete_file(quarantined_file.id)
+
+        # Delete should still succeed
+        assert result.is_success is True
+
+        # File should be deleted
+        assert not quarantine_path.exists()
+
+        # Warning should be logged
+        assert any(
+            "Failed to remove database entry" in record.message
+            and "deletion" in record.message.lower()
+            for record in caplog.records
+        )
+
+    def test_cleanup_fixes_orphaned_entry_after_restore_db_failure(self, manager, quarantined_file):
+        """Test that cleanup_orphaned_entries fixes state after restore DB failure."""
+        from unittest.mock import patch
+
+        # Simulate DB failure during restore
+        with patch.object(manager._database, "remove_entry", return_value=False):
+            result = manager.restore_file(quarantined_file.id)
+
+        assert result.is_success is True
+
+        # Entry still exists in DB (orphaned)
+        assert manager.get_entry(quarantined_file.id) is not None
+
+        # File was restored (no longer in quarantine)
+        assert not Path(quarantined_file.quarantine_path).exists()
+
+        # Cleanup should remove the orphaned entry
+        removed = manager.cleanup_orphaned_entries()
+        assert removed == 1
+
+        # Entry should now be gone
+        assert manager.get_entry(quarantined_file.id) is None
+
+    def test_cleanup_fixes_orphaned_entry_after_delete_db_failure(self, manager, quarantined_file):
+        """Test that cleanup_orphaned_entries fixes state after delete DB failure."""
+        from unittest.mock import patch
+
+        # Simulate DB failure during delete
+        with patch.object(manager._database, "remove_entry", return_value=False):
+            result = manager.delete_file(quarantined_file.id)
+
+        assert result.is_success is True
+
+        # Entry still exists in DB (orphaned)
+        assert manager.get_entry(quarantined_file.id) is not None
+
+        # File was deleted from quarantine
+        assert not Path(quarantined_file.quarantine_path).exists()
+
+        # Cleanup should remove the orphaned entry
+        removed = manager.cleanup_orphaned_entries()
+        assert removed == 1
+
+        # Entry should now be gone
+        assert manager.get_entry(quarantined_file.id) is None
