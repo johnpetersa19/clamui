@@ -366,3 +366,59 @@ The `scan_backend` setting determines how ClamUI communicates with ClamAV to per
 clamui = "src.main:main"
 clamui-scheduled-scan = "src.cli.scheduled_scan:main"
 ```
+
+## Flatpak Development
+
+### Flatpak Python Dependencies
+
+Python dependencies for the Flatpak build are managed using:
+- **Build dependencies**: `flatpak-pip-generator` from [flatpak-builder-tools](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip)
+- **Runtime dependencies**: `req2flatpak` (prefers binary wheels for faster builds)
+
+**Files:**
+- `flathub/requirements-build.txt` - Build dependencies (hatchling)
+- `flathub/requirements-runtime.txt` - Runtime dependencies with minimum versions
+- `flathub/requirements-runtime-pinned.txt` - Pinned versions for req2flatpak
+- `flathub/python3-build-deps.json` - Generated build dependencies (commit to git)
+- `flathub/python3-runtime-deps.json` - Generated runtime dependencies (commit to git)
+
+**Note:** PyGObject and pycairo are provided by the GNOME runtime and excluded from generation.
+
+### Regenerating Flatpak Dependencies
+
+When dependencies in `pyproject.toml` change:
+
+```bash
+# Install the generators
+pipx install flatpak-pip-generator
+pipx install req2flatpak
+
+# Ensure the GNOME SDK is installed
+flatpak install flathub org.gnome.Sdk//48
+
+cd flathub/
+
+# 1. Generate build dependencies (uses flatpak-pip-generator)
+flatpak_pip_generator \
+    --runtime='org.gnome.Sdk//48' \
+    --requirements-file='requirements-build.txt' \
+    --output='python3-build-deps' \
+    --checker-data
+
+# 2. Update requirements-runtime-pinned.txt with new versions
+#    Then generate runtime dependencies (uses req2flatpak for binary wheels)
+req2flatpak \
+    -r requirements-runtime-pinned.txt \
+    -t 312-x86_64 \
+    -o python3-runtime-deps.json
+```
+
+### Testing Flatpak Build
+
+```bash
+# Build the Flatpak
+flatpak-builder --force-clean build-dir flathub/io.github.linx_systems.ClamUI.yml
+
+# Run the built application
+flatpak-builder --run build-dir flathub/io.github.linx_systems.ClamUI.yml clamui
+```
