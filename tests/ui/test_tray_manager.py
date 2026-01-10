@@ -730,3 +730,765 @@ class TestTrayManagerPipeCleanup:
         # Verify pipes were closed
         mock_process1.stdin.close.assert_called()
         mock_process2.stdin.close.assert_called()
+
+
+class TestTrayManagerReadStdout:
+    """Tests for TrayManager._read_stdout method (reader thread)."""
+
+    def test_read_stdout_exits_when_process_none(self, mock_gtk_modules):
+        """Test _read_stdout exits early when process is None."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._process = None
+
+        # Should return without error
+        manager._read_stdout()
+
+    def test_read_stdout_exits_when_stdout_none(self, mock_gtk_modules):
+        """Test _read_stdout exits early when stdout is None."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        mock_process = mock.Mock()
+        mock_process.stdout = None
+        manager._process = mock_process
+
+        # Should return without error
+        manager._read_stdout()
+
+    def test_read_stdout_processes_valid_json_messages(self, mock_gtk_modules):
+        """Test _read_stdout correctly parses and handles valid JSON messages."""
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Simulate stdout with JSON messages
+        messages = ['{"event": "ready"}\n', '{"event": "pong"}\n']
+        mock_stdout = StringIO("".join(messages))
+
+        mock_process = mock.Mock()
+        mock_process.stdout = mock_stdout
+        manager._process = mock_process
+
+        # Run _read_stdout
+        manager._read_stdout()
+
+        # Check that ready event was handled
+        assert manager._ready is True
+
+    def test_read_stdout_handles_empty_lines(self, mock_gtk_modules):
+        """Test _read_stdout skips empty lines."""
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Simulate stdout with empty lines
+        messages = ["\n", "   \n", '{"event": "ready"}\n', "\n"]
+        mock_stdout = StringIO("".join(messages))
+
+        mock_process = mock.Mock()
+        mock_process.stdout = mock_stdout
+        manager._process = mock_process
+
+        # Should not crash
+        manager._read_stdout()
+        assert manager._ready is True
+
+    def test_read_stdout_handles_invalid_json(self, mock_gtk_modules, caplog):
+        """Test _read_stdout handles invalid JSON gracefully."""
+        import logging
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Simulate stdout with invalid JSON
+        messages = ["not valid json\n", "{invalid}\n", '{"event": "ready"}\n']
+        mock_stdout = StringIO("".join(messages))
+
+        mock_process = mock.Mock()
+        mock_process.stdout = mock_stdout
+        manager._process = mock_process
+
+        with caplog.at_level(logging.ERROR):
+            manager._read_stdout()
+
+        # Should log errors for invalid JSON but continue processing
+        assert "Invalid JSON from tray service" in caplog.text
+        # Valid message should still be processed
+        assert manager._ready is True
+
+    def test_read_stdout_rejects_oversized_messages(self, mock_gtk_modules, caplog):
+        """Test _read_stdout rejects messages exceeding MAX_MESSAGE_SIZE."""
+        import logging
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Create oversized message (> 1MB)
+        oversized_data = "x" * (TrayManager.MAX_MESSAGE_SIZE + 1)
+        messages = [oversized_data + "\n", '{"event": "ready"}\n']
+        mock_stdout = StringIO("".join(messages))
+
+        mock_process = mock.Mock()
+        mock_process.stdout = mock_stdout
+        manager._process = mock_process
+
+        with caplog.at_level(logging.ERROR):
+            manager._read_stdout()
+
+        # Should log error about size limit
+        assert "exceeds size limit" in caplog.text
+        # Valid message after oversized should still be processed
+        assert manager._ready is True
+
+    def test_read_stdout_stops_when_running_false(self, mock_gtk_modules):
+        """Test _read_stdout stops when _running becomes False."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Create an iterator that sets _running to False after first message
+        def message_generator():
+            yield '{"event": "pong"}\n'
+            manager._running = False
+            yield '{"event": "ready"}\n'  # Should not be processed
+
+        mock_stdout = mock.Mock()
+        mock_stdout.__iter__ = lambda self: iter(message_generator())
+
+        mock_process = mock.Mock()
+        mock_process.stdout = mock_stdout
+        manager._process = mock_process
+
+        manager._read_stdout()
+
+        # ready should NOT be set because we stopped before that message
+        assert manager._ready is False
+
+    def test_read_stdout_handles_exception_gracefully(self, mock_gtk_modules, caplog):
+        """Test _read_stdout handles exceptions without crashing."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Simulate stdout that raises an exception
+        mock_stdout = mock.Mock()
+        mock_stdout.__iter__ = mock.Mock(side_effect=OSError("Pipe broken"))
+
+        mock_process = mock.Mock()
+        mock_process.stdout = mock_stdout
+        manager._process = mock_process
+
+        with caplog.at_level(logging.ERROR):
+            manager._read_stdout()
+
+        assert "Error reading tray service stdout" in caplog.text
+
+
+class TestTrayManagerValidateMessageStructure:
+    """Tests for TrayManager._validate_message_structure method."""
+
+    def test_valid_simple_message(self, mock_gtk_modules):
+        """Test validation of simple valid message."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        message = {"event": "ready"}
+        assert manager._validate_message_structure(message) is True
+
+    def test_valid_message_with_nested_data(self, mock_gtk_modules):
+        """Test validation of message with nested data."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        message = {
+            "event": "menu_action",
+            "action": "select_profile",
+            "profile_id": "test-123",
+            "data": {"nested": {"key": "value"}},
+        }
+        assert manager._validate_message_structure(message) is True
+
+    def test_rejects_message_without_event_field(self, mock_gtk_modules):
+        """Test rejection of message without 'event' field."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        message = {"action": "something", "data": "value"}
+        assert manager._validate_message_structure(message) is False
+
+    def test_rejects_deeply_nested_message(self, mock_gtk_modules):
+        """Test rejection of excessively nested message."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        # Build deeply nested structure
+        deep_message = {"event": "test"}
+        current = deep_message
+        for _ in range(TrayManager.MAX_NESTING_DEPTH + 5):
+            current["nested"] = {}
+            current = current["nested"]
+
+        assert manager._validate_message_structure(deep_message) is False
+
+    def test_accepts_message_at_max_depth(self, mock_gtk_modules):
+        """Test acceptance of message exactly at max nesting depth."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        # Build nested structure at exactly max depth
+        deep_message = {"event": "test"}
+        current = deep_message
+        for _ in range(TrayManager.MAX_NESTING_DEPTH - 1):
+            current["nested"] = {}
+            current = current["nested"]
+
+        assert manager._validate_message_structure(deep_message) is True
+
+    def test_validates_list_items(self, mock_gtk_modules):
+        """Test validation recurses into list items."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        message = {
+            "event": "update_profiles",
+            "profiles": [
+                {"id": "1", "name": "Profile 1"},
+                {"id": "2", "name": "Profile 2"},
+            ],
+        }
+        assert manager._validate_message_structure(message) is True
+
+    def test_rejects_deeply_nested_list(self, mock_gtk_modules):
+        """Test rejection of deeply nested list structure."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        # Build deeply nested list structure
+        deep_list = [[[[[[[[[[[[["too deep"]]]]]]]]]]]]]
+        message = {"event": "test", "data": deep_list}
+
+        assert manager._validate_message_structure(message) is False
+
+    def test_accepts_primitive_values(self, mock_gtk_modules):
+        """Test validation accepts primitive values."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        message = {
+            "event": "test",
+            "string": "hello",
+            "number": 42,
+            "float": 3.14,
+            "boolean": True,
+            "null": None,
+        }
+        assert manager._validate_message_structure(message) is True
+
+
+class TestTrayManagerReadStderr:
+    """Tests for TrayManager._read_stderr method."""
+
+    def test_read_stderr_exits_when_process_none(self, mock_gtk_modules):
+        """Test _read_stderr exits early when process is None."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._process = None
+
+        # Should return without error
+        manager._read_stderr()
+
+    def test_read_stderr_exits_when_stderr_none(self, mock_gtk_modules):
+        """Test _read_stderr exits early when stderr is None."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        mock_process = mock.Mock()
+        mock_process.stderr = None
+        manager._process = mock_process
+
+        # Should return without error
+        manager._read_stderr()
+
+    def test_read_stderr_logs_messages(self, mock_gtk_modules, caplog):
+        """Test _read_stderr logs messages from subprocess."""
+        import logging
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Simulate stderr with messages
+        stderr_messages = ["Debug message\n", "Another message\n"]
+        mock_stderr = StringIO("".join(stderr_messages))
+
+        mock_process = mock.Mock()
+        mock_process.stderr = mock_stderr
+        manager._process = mock_process
+
+        with caplog.at_level(logging.DEBUG):
+            manager._read_stderr()
+
+        assert "[TrayService] Debug message" in caplog.text
+        assert "[TrayService] Another message" in caplog.text
+
+    def test_read_stderr_skips_empty_lines(self, mock_gtk_modules, caplog):
+        """Test _read_stderr skips empty lines."""
+        import logging
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Simulate stderr with empty lines
+        stderr_messages = ["\n", "   \n", "Actual message\n"]
+        mock_stderr = StringIO("".join(stderr_messages))
+
+        mock_process = mock.Mock()
+        mock_process.stderr = mock_stderr
+        manager._process = mock_process
+
+        with caplog.at_level(logging.DEBUG):
+            manager._read_stderr()
+
+        # Should only log the non-empty message
+        assert "[TrayService] Actual message" in caplog.text
+
+    def test_read_stderr_stops_when_running_false(self, mock_gtk_modules, caplog):
+        """Test _read_stderr stops when _running becomes False."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Create an iterator that sets _running to False after first message
+        def message_generator():
+            yield "First message\n"
+            manager._running = False
+            yield "Second message\n"  # Should not be logged
+
+        mock_stderr = mock.Mock()
+        mock_stderr.__iter__ = lambda self: iter(message_generator())
+
+        mock_process = mock.Mock()
+        mock_process.stderr = mock_stderr
+        manager._process = mock_process
+
+        with caplog.at_level(logging.DEBUG):
+            manager._read_stderr()
+
+        assert "[TrayService] First message" in caplog.text
+        assert "Second message" not in caplog.text
+
+    def test_read_stderr_handles_exception_gracefully(self, mock_gtk_modules, caplog):
+        """Test _read_stderr handles exceptions without crashing."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Simulate stderr that raises an exception
+        mock_stderr = mock.Mock()
+        mock_stderr.__iter__ = mock.Mock(side_effect=OSError("Pipe broken"))
+
+        mock_process = mock.Mock()
+        mock_process.stderr = mock_stderr
+        manager._process = mock_process
+
+        with caplog.at_level(logging.ERROR):
+            manager._read_stderr()
+
+        assert "Error reading tray service stderr" in caplog.text
+
+
+class TestTrayManagerHandleMessageEvents:
+    """Tests for TrayManager._handle_message with various event types."""
+
+    def test_handle_unknown_event(self, mock_gtk_modules, caplog):
+        """Test handling unknown event logs warning."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        with caplog.at_level(logging.WARNING):
+            manager._handle_message({"event": "unknown_event"})
+
+        assert "Unknown event from tray service: unknown_event" in caplog.text
+
+    def test_handle_error_event_with_message(self, mock_gtk_modules, caplog):
+        """Test handling error event logs the error message."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        with caplog.at_level(logging.ERROR):
+            manager._handle_message({"event": "error", "message": "Test error message"})
+
+        assert "Tray service error: Test error message" in caplog.text
+
+    def test_handle_error_event_without_message(self, mock_gtk_modules, caplog):
+        """Test handling error event without message field."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        with caplog.at_level(logging.ERROR):
+            manager._handle_message({"event": "error"})
+
+        assert "Tray service error: Unknown error" in caplog.text
+
+
+class TestTrayManagerThreadSafety:
+    """Tests for TrayManager thread safety."""
+
+    def test_concurrent_status_updates(self, mock_gtk_modules):
+        """Test concurrent status updates are thread-safe."""
+        import threading
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        statuses = ["protected", "warning", "scanning", "threat"]
+        results = []
+
+        def update_status(status):
+            with mock.patch.object(manager, "_send_command"):
+                manager.update_status(status)
+                results.append(manager._current_status)
+
+        threads = []
+        for status in statuses * 10:  # Run multiple times
+            t = threading.Thread(target=update_status, args=(status,))
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        # All updates should have completed without error
+        assert len(results) == 40
+
+    def test_state_lock_protects_ready_flag(self, mock_gtk_modules):
+        """Test _state_lock protects _ready flag during concurrent access."""
+        import threading
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        def set_ready():
+            for _ in range(100):
+                manager._handle_message({"event": "ready"})
+
+        def check_ready():
+            results = []
+            for _ in range(100):
+                # This should be thread-safe
+                with manager._state_lock:
+                    results.append(manager._ready)
+            return results
+
+        t1 = threading.Thread(target=set_ready)
+        t2 = threading.Thread(target=check_ready)
+
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        # Final state should be ready
+        assert manager._ready is True
+
+    def test_profile_id_update_is_thread_safe(self, mock_gtk_modules):
+        """Test _current_profile_id updates are thread-safe."""
+        import threading
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._on_profile_select = mock.Mock()
+
+        profile_ids = [f"profile-{i}" for i in range(10)]
+
+        def select_profile(profile_id):
+            manager._handle_menu_action(
+                "select_profile", {"action": "select_profile", "profile_id": profile_id}
+            )
+
+        threads = []
+        for profile_id in profile_ids * 5:
+            t = threading.Thread(target=select_profile, args=(profile_id,))
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        # All updates should have completed without error
+        assert manager._on_profile_select.call_count == 50
+
+
+class TestTrayManagerEdgeCases:
+    """Tests for TrayManager edge cases and error recovery."""
+
+    def test_send_command_handles_write_exception(self, mock_gtk_modules, caplog):
+        """Test _send_command handles write exceptions gracefully."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_stdin = mock.Mock()
+        mock_stdin.write.side_effect = BrokenPipeError("Pipe closed")
+        mock_process = mock.Mock()
+        mock_process.stdin = mock_stdin
+        manager._process = mock_process
+
+        with caplog.at_level(logging.ERROR):
+            result = manager._send_command({"action": "test"})
+
+        assert result is False
+        assert "Failed to send command to tray service" in caplog.text
+
+    def test_send_command_handles_flush_exception(self, mock_gtk_modules, caplog):
+        """Test _send_command handles flush exceptions gracefully."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_stdin = mock.Mock()
+        mock_stdin.write = mock.Mock()
+        mock_stdin.flush.side_effect = BrokenPipeError("Pipe closed")
+        mock_process = mock.Mock()
+        mock_process.stdin = mock_stdin
+        manager._process = mock_process
+
+        with caplog.at_level(logging.ERROR):
+            result = manager._send_command({"action": "test"})
+
+        assert result is False
+        assert "Failed to send command to tray service" in caplog.text
+
+    def test_send_command_returns_false_when_stdin_none(self, mock_gtk_modules):
+        """Test _send_command returns False when stdin is None."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_process = mock.Mock()
+        mock_process.stdin = None
+        manager._process = mock_process
+
+        result = manager._send_command({"action": "test"})
+
+        assert result is False
+
+    def test_stop_handles_timeout_expired(self, mock_gtk_modules, caplog):
+        """Test stop handles subprocess not stopping gracefully."""
+        import logging
+        import subprocess
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_process = mock.Mock()
+        mock_process.wait.side_effect = [
+            subprocess.TimeoutExpired("cmd", 2.0),  # First wait (graceful)
+            subprocess.TimeoutExpired("cmd", 1.0),  # Second wait (after terminate)
+        ]
+        mock_process.stdin = mock.Mock()
+        mock_process.stdout = mock.Mock()
+        mock_process.stderr = mock.Mock()
+        manager._process = mock_process
+        manager._running = True
+
+        with caplog.at_level(logging.WARNING):
+            manager.stop()
+
+        # Should have called terminate and kill
+        mock_process.terminate.assert_called_once()
+        mock_process.kill.assert_called_once()
+        assert "Tray service didn't stop gracefully" in caplog.text
+        assert "Tray service didn't terminate" in caplog.text
+
+    def test_stop_handles_exception(self, mock_gtk_modules, caplog):
+        """Test stop handles exceptions during shutdown."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        mock_process = mock.Mock()
+        mock_process.wait.side_effect = Exception("Unexpected error")
+        mock_process.stdin = mock.Mock()
+        mock_process.stdout = mock.Mock()
+        mock_process.stderr = mock.Mock()
+        manager._process = mock_process
+        manager._running = True
+
+        with caplog.at_level(logging.ERROR):
+            manager.stop()
+
+        assert "Error stopping tray service" in caplog.text
+        # Process should be cleared
+        assert manager._process is None
+
+    def test_menu_action_without_callback_logs_warning(self, mock_gtk_modules, caplog):
+        """Test handling menu action without callback logs warning."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        # No callbacks set
+
+        with caplog.at_level(logging.WARNING):
+            manager._handle_menu_action("quick_scan", {})
+
+        assert "No handler for action: quick_scan" in caplog.text
+
+    def test_get_service_path_module_import(self, mock_gtk_modules):
+        """Test _get_service_path falls back to module import."""
+        from pathlib import Path
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        # Create a proper mock module with __file__ attribute
+        mock_module = mock.MagicMock()
+        mock_module.__file__ = "/fake/path/to/tray_service.py"
+
+        # Mock Path.exists to return False for first path, True for second
+        with mock.patch.object(Path, "exists", side_effect=[False, True]):
+            with mock.patch.dict("sys.modules", {"src.ui.tray_service": mock_module}):
+                # This should try the module import path
+                result = manager._get_service_path()
+
+        # Should return the module path
+        assert result == Path("/fake/path/to/tray_service.py")
+
+    def test_start_exception_handling(self, mock_gtk_modules, caplog):
+        """Test start handles exceptions during subprocess creation."""
+        import logging
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+
+        with mock.patch.object(manager, "_get_service_path", return_value="/fake/path"):
+            with mock.patch("subprocess.Popen", side_effect=OSError("Cannot create process")):
+                with caplog.at_level(logging.ERROR):
+                    result = manager.start()
+
+        assert result is False
+        assert "Failed to start tray service" in caplog.text
+        assert manager._process is None
+
+
+class TestTrayManagerReaderThreadIntegration:
+    """Integration tests for reader thread behavior."""
+
+    def test_reader_processes_multiple_events_in_sequence(self, mock_gtk_modules):
+        """Test reader thread processes multiple events correctly."""
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        # Set up callbacks to track calls
+        quick_scan_called = []
+        manager._on_quick_scan = lambda: quick_scan_called.append(True)
+
+        # Simulate a sequence of events
+        messages = [
+            '{"event": "ready"}\n',
+            '{"event": "pong"}\n',
+            '{"event": "menu_action", "action": "quick_scan"}\n',
+        ]
+        mock_stdout = StringIO("".join(messages))
+
+        mock_process = mock.Mock()
+        mock_process.stdout = mock_stdout
+        manager._process = mock_process
+
+        manager._read_stdout()
+
+        assert manager._ready is True
+        assert len(quick_scan_called) == 1
+
+    def test_reader_handles_mixed_valid_and_invalid_messages(self, mock_gtk_modules):
+        """Test reader handles mix of valid and invalid messages."""
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        messages = [
+            "invalid json\n",  # Invalid
+            '{"no_event": "field"}\n',  # Invalid structure
+            '{"event": "ready"}\n',  # Valid
+            '{"incomplete": \n',  # Invalid
+            '{"event": "pong"}\n',  # Valid
+        ]
+        mock_stdout = StringIO("".join(messages))
+
+        mock_process = mock.Mock()
+        mock_process.stdout = mock_stdout
+        manager._process = mock_process
+
+        # Should not crash
+        manager._read_stdout()
+
+        # Valid messages should have been processed
+        assert manager._ready is True
