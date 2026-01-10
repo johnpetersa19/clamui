@@ -394,13 +394,13 @@ pipx install flatpak-pip-generator
 pipx install req2flatpak
 
 # Ensure the GNOME SDK is installed
-flatpak install flathub org.gnome.Sdk//48
+flatpak install flathub org.gnome.Sdk//49
 
 cd flathub/
 
 # 1. Generate build dependencies (uses flatpak-pip-generator)
 flatpak_pip_generator \
-    --runtime='org.gnome.Sdk//48' \
+    --runtime='org.gnome.Sdk//49' \
     --requirements-file='requirements-build.txt' \
     --output='python3-build-deps' \
     --checker-data
@@ -409,11 +409,11 @@ flatpak_pip_generator \
 #    Then generate runtime dependencies for BOTH architectures (x86_64 and aarch64)
 req2flatpak \
     -r requirements-runtime-pinned.txt \
-    -t 312-x86_64 312-aarch64 \
+    -t 313-x86_64 313-aarch64 \
     -o python3-runtime-deps.json
 ```
 
-**Note:** The `-t` flag accepts multiple space-separated targets. Using `312-x86_64 312-aarch64` generates a single JSON file with architecture-specific entries for binary wheels and shared entries for pure Python wheels.
+**Note:** The `-t` flag accepts multiple space-separated targets. Using `313-x86_64 313-aarch64` generates a single JSON file with architecture-specific entries for binary wheels and shared entries for pure Python wheels.
 
 ### Testing Flatpak Build
 
