@@ -802,6 +802,192 @@ class LogManager:
                 logger.warning("Failed to save log entry %s: %s", entry.id, e)
                 return False
 
+    def _check_and_run_migration_unlocked(self) -> None:
+        """
+        Check and perform index migration on first access (without lock).
+
+        Internal method for use by callers that already hold the lock.
+        If no index exists but log files do, rebuilds the index to migrate
+        existing installations to the indexed retrieval system.
+        """
+        if self._migration_checked:
+            return
+
+        self._migration_checked = True
+
+        # Check if index exists
+        if self._index_path.exists():
+            return
+
+        # Check if any log files exist - if so, rebuild index
+        try:
+            if self._log_dir.exists():
+                log_files = [f for f in self._log_dir.glob("*.json") if f.name != INDEX_FILENAME]
+                if log_files:
+                    # Rebuild index using shared unlocked method
+                    index_data = self._rebuild_index_unlocked()
+                    self._save_index(index_data)
+        except Exception as e:
+            # If migration fails, continue normally - will fall back to full scan
+            logger.debug("Index migration failed: %s", e)
+
+    def _get_valid_index_unlocked(self) -> dict:
+        """
+        Load and validate the index, rebuilding if necessary (without lock).
+
+        Internal method for use by callers that already hold the lock.
+        Returns a valid index data structure, or an empty one if loading/validation fails.
+
+        Returns:
+            Dictionary with structure: {"version": 1, "entries": [...]}
+        """
+        # Try to load index
+        try:
+            index_data = self._load_index()
+        except Exception as e:
+            logger.debug("Index loading failed: %s", e)
+            return {"version": 1, "entries": []}
+
+        # If index is empty, return as-is
+        if not index_data.get("entries"):
+            return index_data
+
+        # Validate index
+        try:
+            valid = self._validate_index(index_data)
+        except Exception as e:
+            logger.debug("Index validation raised exception: %s", e)
+            valid = False
+
+        if not valid:
+            # Index is stale/invalid - rebuild
+            try:
+                index_data = self._rebuild_index_unlocked()
+                self._save_index(index_data)
+            except Exception as e:
+                logger.debug("Index rebuild in get_logs failed: %s", e)
+                return {"version": 1, "entries": []}
+
+        return index_data
+
+    def _filter_and_sort_index_entries(
+        self, entries: list[dict], log_type: str | None, limit: int
+    ) -> list[dict]:
+        """
+        Filter, sort, and limit index entries.
+
+        Args:
+            entries: List of index entry dicts with 'id', 'timestamp', 'type' keys
+            log_type: Optional filter by type ("scan" or "update")
+            limit: Maximum number of entries to return
+
+        Returns:
+            Filtered, sorted, and limited list of index entries
+        """
+        # Filter by type if specified
+        if log_type is not None:
+            entries = [entry for entry in entries if entry.get("type") == log_type]
+
+        # Sort by timestamp descending (newest first)
+        entries.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+
+        # Apply limit
+        return entries[:limit]
+
+    def _load_log_entries_by_ids(self, index_entries: list[dict]) -> list[LogEntry]:
+        """
+        Load LogEntry objects for the given index entries.
+
+        Args:
+            index_entries: List of index entry dicts with 'id' keys
+
+        Returns:
+            List of LogEntry objects (skips corrupted/missing files)
+        """
+        entries = []
+        for index_entry in index_entries:
+            log_id = index_entry.get("id")
+            if not log_id:
+                continue
+            try:
+                log_file = self._log_dir / f"{log_id}.json"
+                if log_file.exists():
+                    with open(log_file, encoding="utf-8") as f:
+                        data = json.load(f)
+                        entries.append(LogEntry.from_dict(data))
+            except (OSError, json.JSONDecodeError):
+                # Skip corrupted or missing files
+                continue
+        return entries
+
+    def _retrieve_logs_from_index(
+        self, index_data: dict, log_type: str | None, limit: int
+    ) -> list[LogEntry] | None:
+        """
+        Retrieve logs using index-based approach.
+
+        Args:
+            index_data: Valid index data structure
+            log_type: Optional filter by type ("scan" or "update")
+            limit: Maximum number of entries to return
+
+        Returns:
+            List of LogEntry objects, or None if retrieval fails
+        """
+        if not index_data.get("entries"):
+            return None
+
+        try:
+            filtered_entries = self._filter_and_sort_index_entries(
+                index_data["entries"], log_type, limit
+            )
+            return self._load_log_entries_by_ids(filtered_entries)
+        except Exception as e:
+            logger.debug("Index-based retrieval failed, falling back: %s", e)
+            return None
+
+    def _retrieve_logs_full_scan(self, log_type: str | None, limit: int) -> list[LogEntry]:
+        """
+        Retrieve logs using full directory scan (fallback method).
+
+        Scans all log files in the directory, applies filtering and sorting.
+
+        Args:
+            log_type: Optional filter by type ("scan" or "update")
+            limit: Maximum number of entries to return
+
+        Returns:
+            List of LogEntry objects
+        """
+        entries = []
+        try:
+            if not self._log_dir.exists():
+                return entries
+
+            for log_file in self._log_dir.glob("*.json"):
+                # Skip the index file
+                if log_file.name == INDEX_FILENAME:
+                    continue
+
+                try:
+                    with open(log_file, encoding="utf-8") as f:
+                        data = json.load(f)
+                        entry = LogEntry.from_dict(data)
+
+                        # Apply type filter if specified
+                        if log_type is None or entry.type == log_type:
+                            entries.append(entry)
+                except (OSError, json.JSONDecodeError):
+                    # Skip corrupted files
+                    continue
+
+        except OSError:
+            return entries
+
+        # Sort by timestamp (newest first) and apply limit
+        entries.sort(key=lambda e: e.timestamp, reverse=True)
+        return entries[:limit]
+
     def get_logs(self, limit: int = 100, log_type: str | None = None) -> list[LogEntry]:
         """
         Retrieve stored log entries, sorted by timestamp (newest first).
@@ -822,121 +1008,18 @@ class LogManager:
         """
         with self._lock:
             # Perform auto-migration check on first access
-            if not self._migration_checked:
-                self._migration_checked = True
+            self._check_and_run_migration_unlocked()
 
-                # Check if index exists
-                if not self._index_path.exists():
-                    # Check if any log files exist - if so, rebuild index
-                    try:
-                        if self._log_dir.exists():
-                            log_files = [
-                                f for f in self._log_dir.glob("*.json") if f.name != INDEX_FILENAME
-                            ]
-                            if log_files:
-                                # Rebuild index using shared unlocked method
-                                index_data = self._rebuild_index_unlocked()
-                                self._save_index(index_data)
-                    except Exception as e:
-                        # If migration fails, continue normally - will fall back to full scan
-                        logger.debug("Index migration failed: %s", e)
+            # Get valid index (loads, validates, rebuilds if needed)
+            index_data = self._get_valid_index_unlocked()
 
-            # Try optimized index-based approach first
-            try:
-                index_data = self._load_index()
-            except Exception as e:
-                # Index loading failed - treat as if index doesn't exist
-                logger.debug("Index loading failed: %s", e)
-                index_data = {"version": 1, "entries": []}
-
-            # Check if index has entries (not empty/corrupted)
-            if index_data.get("entries"):
-                # Validate index before using it
-                try:
-                    valid = self._validate_index(index_data)
-                except Exception as e:
-                    # Validation raised exception - treat as invalid
-                    logger.debug("Index validation raised exception: %s", e)
-                    valid = False
-
-                if not valid:
-                    # Index is stale/invalid - rebuild using shared unlocked method
-                    try:
-                        index_data = self._rebuild_index_unlocked()
-                        self._save_index(index_data)
-                    except Exception as e:
-                        # If rebuild fails, fall back to full scan
-                        logger.debug("Index rebuild in get_logs failed: %s", e)
-                        index_data = {"version": 1, "entries": []}
-
-                # Now proceed with index-based retrieval if we have entries
-                if index_data.get("entries"):
-                    try:
-                        # Start with all index entries
-                        filtered_entries = index_data["entries"]
-
-                        # Filter by type if specified
-                        if log_type is not None:
-                            filtered_entries = [
-                                entry for entry in filtered_entries if entry.get("type") == log_type
-                            ]
-
-                        # Sort by timestamp descending (newest first)
-                        filtered_entries.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
-
-                        # Apply limit
-                        filtered_entries = filtered_entries[:limit]
-
-                        # Load only the needed log files by id
-                        entries = []
-                        for index_entry in filtered_entries:
-                            log_id = index_entry.get("id")
-                            if log_id:
-                                try:
-                                    log_file = self._log_dir / f"{log_id}.json"
-                                    if log_file.exists():
-                                        with open(log_file, encoding="utf-8") as f:
-                                            data = json.load(f)
-                                            entries.append(LogEntry.from_dict(data))
-                                except (OSError, json.JSONDecodeError):
-                                    # Skip corrupted or missing files
-                                    continue
-
-                        return entries
-
-                    except Exception as e:
-                        # Index-based approach failed, fall back to full scan
-                        logger.debug("Index-based retrieval failed, falling back: %s", e)
-
-            # Fallback: full directory scan (original implementation)
-            entries = []
-            try:
-                if not self._log_dir.exists():
-                    return entries
-
-                for log_file in self._log_dir.glob("*.json"):
-                    # Skip the index file
-                    if log_file.name == INDEX_FILENAME:
-                        continue
-
-                    try:
-                        with open(log_file, encoding="utf-8") as f:
-                            data = json.load(f)
-                            entry = LogEntry.from_dict(data)
-
-                            # Apply type filter if specified
-                            if log_type is None or entry.type == log_type:
-                                entries.append(entry)
-                    except (OSError, json.JSONDecodeError):
-                        # Skip corrupted files
-                        continue
-
-            except OSError:
+            # Try index-based retrieval first
+            entries = self._retrieve_logs_from_index(index_data, log_type, limit)
+            if entries is not None:
                 return entries
 
-            # Sort by timestamp (newest first) and apply limit
-            entries.sort(key=lambda e: e.timestamp, reverse=True)
-            return entries[:limit]
+            # Fallback: full directory scan
+            return self._retrieve_logs_full_scan(log_type, limit)
 
     def get_logs_async(
         self,
