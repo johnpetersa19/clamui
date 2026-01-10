@@ -440,22 +440,23 @@ class TestClamUIAppQuickScanProfile:
         mock_scan_view.refresh_profiles.assert_not_called()
         mock_scan_view.set_selected_profile.assert_not_called()
 
-    def test_on_statistics_quick_scan_no_action_without_scan_view(self, app, mock_gtk_modules):
-        """Test that _on_statistics_quick_scan does nothing without scan view."""
+    def test_on_statistics_quick_scan_lazy_loads_scan_view(self, app, mock_gtk_modules):
+        """Test that _on_statistics_quick_scan lazily loads scan view if not created."""
         mock_window = mock.MagicMock()
         app.props = mock.MagicMock()
         app.props.active_window = mock_window
+        # With lazy loading, even if _scan_view is None, accessing the property creates it
         app._scan_view = None
 
-        # Mock profile manager to detect any calls
+        # Mock profile manager to return no quick scan profile
         app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
 
-        # Call the handler - should not crash
+        # Call the handler - should create scan view via lazy loading
         app._on_statistics_quick_scan()
 
-        # Profile manager should not be queried without scan view
-        # (the method exits early when scan_view is None)
-        mock_window.set_content_view.assert_not_called()
+        # set_content_view should be called since lazy loading creates the view
+        mock_window.set_content_view.assert_called_once()
 
 
 class TestClamUIAppTrayQuickScan:
@@ -650,21 +651,29 @@ class TestClamUIAppTrayQuickScan:
         mock_scan_view.set_selected_profile.assert_not_called()
         mock_scan_view._start_scan.assert_not_called()
 
-    def test_do_tray_quick_scan_no_action_without_scan_view(self, app, mock_gtk_modules):
-        """Test that _do_tray_quick_scan does nothing without scan view."""
+    def test_do_tray_quick_scan_lazy_loads_scan_view(self, app, mock_gtk_modules):
+        """Test that _do_tray_quick_scan lazily loads scan view if not created."""
         mock_window = mock.MagicMock()
         app.props = mock.MagicMock()
         app.props.active_window = mock_window
+        # With lazy loading, even if _scan_view is None, accessing the property creates it
         app._scan_view = None
 
         # Mock activate
         app.activate = mock.MagicMock()
 
-        # Call the handler - should not crash and not do anything
+        # Mock profile manager to return no quick scan profile
+        app._profile_manager = mock.MagicMock()
+        app._profile_manager.get_profile_by_name.return_value = None
+
+        # Call the handler - should create scan view via lazy loading
         result = app._do_tray_quick_scan()
 
         # Verify returns False (don't repeat)
         assert result is False
+
+        # set_content_view should be called since lazy loading creates the view
+        mock_window.set_content_view.assert_called_once()
 
     def test_do_tray_quick_scan_returns_false(self, app, mock_gtk_modules):
         """Test that _do_tray_quick_scan returns False (to prevent GLib.idle_add repeat)."""

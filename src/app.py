@@ -136,6 +136,99 @@ class ClamUIApp(Adw.Application):
         """Get the tray indicator instance (may be None if not available)."""
         return self._tray_indicator
 
+    # Lazy-loaded view properties
+    # Views are only instantiated when first accessed, reducing startup time
+    # and memory usage for unused views.
+
+    @property
+    def scan_view(self) -> ScanView:
+        """
+        Get the scan view instance, creating it lazily if needed.
+
+        The scan view is the primary view for running virus scans.
+        It requires the settings manager for configuration.
+
+        Returns:
+            The ScanView instance.
+        """
+        if self._scan_view is None:
+            self._scan_view = ScanView(settings_manager=self._settings_manager)
+            # Connect scan state callback for tray integration
+            self._scan_view.set_scan_state_changed_callback(self._on_scan_state_changed)
+        return self._scan_view
+
+    @property
+    def update_view(self) -> UpdateView:
+        """
+        Get the update view instance, creating it lazily if needed.
+
+        The update view handles ClamAV database updates via freshclam.
+
+        Returns:
+            The UpdateView instance.
+        """
+        if self._update_view is None:
+            self._update_view = UpdateView()
+        return self._update_view
+
+    @property
+    def logs_view(self) -> LogsView:
+        """
+        Get the logs view instance, creating it lazily if needed.
+
+        The logs view displays scan history and log entries.
+
+        Returns:
+            The LogsView instance.
+        """
+        if self._logs_view is None:
+            self._logs_view = LogsView()
+        return self._logs_view
+
+    @property
+    def components_view(self) -> ComponentsView:
+        """
+        Get the components view instance, creating it lazily if needed.
+
+        The components view shows the status of ClamAV components.
+
+        Returns:
+            The ComponentsView instance.
+        """
+        if self._components_view is None:
+            self._components_view = ComponentsView()
+        return self._components_view
+
+    @property
+    def statistics_view(self) -> StatisticsView:
+        """
+        Get the statistics view instance, creating it lazily if needed.
+
+        The statistics view displays scan statistics and charts.
+
+        Returns:
+            The StatisticsView instance.
+        """
+        if self._statistics_view is None:
+            self._statistics_view = StatisticsView()
+            # Connect statistics view quick scan callback
+            self._statistics_view.set_quick_scan_callback(self._on_statistics_quick_scan)
+        return self._statistics_view
+
+    @property
+    def quarantine_view(self) -> QuarantineView:
+        """
+        Get the quarantine view instance, creating it lazily if needed.
+
+        The quarantine view manages quarantined files.
+
+        Returns:
+            The QuarantineView instance.
+        """
+        if self._quarantine_view is None:
+            self._quarantine_view = QuarantineView()
+        return self._quarantine_view
+
     def do_activate(self):
         """
         Handle application activation.
@@ -155,22 +248,10 @@ class ClamUIApp(Adw.Application):
             # Create the main window
             win = MainWindow(application=self)
 
-            # Create all views (kept in memory for state preservation)
-            self._scan_view = ScanView(settings_manager=self._settings_manager)
-            self._update_view = UpdateView()
-            self._logs_view = LogsView()
-            self._components_view = ComponentsView()
-            self._statistics_view = StatisticsView()
-
-            # Connect statistics view quick scan callback
-            self._statistics_view.set_quick_scan_callback(self._on_statistics_quick_scan)
-            self._quarantine_view = QuarantineView()
-
-            # Connect scan state callback for tray integration
-            self._scan_view.set_scan_state_changed_callback(self._on_scan_state_changed)
-
-            # Set the scan view as the default content
-            win.set_content_view(self._scan_view)
+            # Set the scan view as the default content (lazy-loaded via property)
+            # Other views are only instantiated when accessed, reducing startup
+            # time and memory usage for unused views.
+            win.set_content_view(self.scan_view)
             win.set_active_view("scan")
             self._current_view = "scan"
 
@@ -440,8 +521,8 @@ class ClamUIApp(Adw.Application):
             return
 
         win = self.props.active_window
-        if win and self._scan_view:
-            win.set_content_view(self._scan_view)
+        if win:
+            win.set_content_view(self.scan_view)
             win.set_active_view("scan")
             self._current_view = "scan"
 
@@ -451,8 +532,8 @@ class ClamUIApp(Adw.Application):
             return
 
         win = self.props.active_window
-        if win and self._update_view:
-            win.set_content_view(self._update_view)
+        if win:
+            win.set_content_view(self.update_view)
             win.set_active_view("update")
             self._current_view = "update"
 
@@ -462,8 +543,8 @@ class ClamUIApp(Adw.Application):
             return
 
         win = self.props.active_window
-        if win and self._logs_view:
-            win.set_content_view(self._logs_view)
+        if win:
+            win.set_content_view(self.logs_view)
             win.set_active_view("logs")
             self._current_view = "logs"
 
@@ -473,8 +554,8 @@ class ClamUIApp(Adw.Application):
             return
 
         win = self.props.active_window
-        if win and self._components_view:
-            win.set_content_view(self._components_view)
+        if win:
+            win.set_content_view(self.components_view)
             win.set_active_view("components")
             self._current_view = "components"
 
@@ -484,8 +565,8 @@ class ClamUIApp(Adw.Application):
             return
 
         win = self.props.active_window
-        if win and self._statistics_view:
-            win.set_content_view(self._statistics_view)
+        if win:
+            win.set_content_view(self.statistics_view)
             win.set_active_view("statistics")
             self._current_view = "statistics"
 
@@ -496,15 +577,15 @@ class ClamUIApp(Adw.Application):
         If not on scan view, switches to it first, then triggers the scan.
         """
         win = self.props.active_window
-        if win and self._scan_view:
+        if win:
             # Switch to scan view if not already there
             if self._current_view != "scan":
-                win.set_content_view(self._scan_view)
+                win.set_content_view(self.scan_view)
                 win.set_active_view("scan")
                 self._current_view = "scan"
 
             # Trigger the scan
-            self._scan_view._start_scan()
+            self.scan_view._start_scan()
 
     def _on_start_update(self, action, param):
         """
@@ -514,16 +595,16 @@ class ClamUIApp(Adw.Application):
         if freshclam is available and not already updating.
         """
         win = self.props.active_window
-        if win and self._update_view:
+        if win:
             # Switch to update view if not already there
             if self._current_view != "update":
-                win.set_content_view(self._update_view)
+                win.set_content_view(self.update_view)
                 win.set_active_view("update")
                 self._current_view = "update"
 
             # Trigger the update if freshclam is available and not already updating
-            if self._update_view._freshclam_available and not self._update_view._is_updating:
-                self._update_view._start_update()
+            if self.update_view._freshclam_available and not self.update_view._is_updating:
+                self.update_view._start_update()
 
     def _on_statistics_quick_scan(self):
         """
@@ -534,9 +615,9 @@ class ClamUIApp(Adw.Application):
         Does not automatically start the scan - user must click Start Scan.
         """
         win = self.props.active_window
-        if win and self._scan_view:
+        if win:
             # Switch to scan view
-            win.set_content_view(self._scan_view)
+            win.set_content_view(self.scan_view)
             win.set_active_view("scan")
             self._current_view = "scan"
 
@@ -544,9 +625,9 @@ class ClamUIApp(Adw.Application):
             quick_scan_profile = self._get_quick_scan_profile()
             if quick_scan_profile:
                 # Refresh profiles to ensure list is up to date
-                self._scan_view.refresh_profiles()
+                self.scan_view.refresh_profiles()
                 # Apply the Quick Scan profile
-                self._scan_view.set_selected_profile(quick_scan_profile.id)
+                self.scan_view.set_selected_profile(quick_scan_profile.id)
                 logger.info(
                     f"Quick scan configured with Quick Scan profile from statistics view "
                     f"(profile_id={quick_scan_profile.id})"
@@ -554,7 +635,7 @@ class ClamUIApp(Adw.Application):
             else:
                 # Fallback to home directory if profile not found
                 home_dir = os.path.expanduser("~")
-                self._scan_view._set_selected_path(home_dir)
+                self.scan_view._set_selected_path(home_dir)
                 logger.warning(
                     f"Quick Scan profile not found, falling back to home directory "
                     f"scan from statistics view (path={home_dir})"
@@ -566,8 +647,8 @@ class ClamUIApp(Adw.Application):
             return
 
         win = self.props.active_window
-        if win and self._quarantine_view:
-            win.set_content_view(self._quarantine_view)
+        if win:
+            win.set_content_view(self.quarantine_view)
             win.set_active_view("quarantine")
             self._current_view = "quarantine"
 
@@ -603,9 +684,9 @@ class ClamUIApp(Adw.Application):
         self.activate()
 
         win = self.props.active_window
-        if win and self._scan_view:
-            # Switch to scan view
-            win.set_content_view(self._scan_view)
+        if win:
+            # Switch to scan view (lazy-loaded)
+            win.set_content_view(self.scan_view)
             win.set_active_view("scan")
             self._current_view = "scan"
 
@@ -613,11 +694,11 @@ class ClamUIApp(Adw.Application):
             quick_scan_profile = self._get_quick_scan_profile()
             if quick_scan_profile:
                 # Refresh profiles to ensure list is up to date
-                self._scan_view.refresh_profiles()
+                self.scan_view.refresh_profiles()
                 # Apply the Quick Scan profile
-                self._scan_view.set_selected_profile(quick_scan_profile.id)
+                self.scan_view.set_selected_profile(quick_scan_profile.id)
                 # Start the scan
-                self._scan_view._start_scan()
+                self.scan_view._start_scan()
                 logger.info(
                     f"Quick scan started with Quick Scan profile from tray menu "
                     f"(profile_id={quick_scan_profile.id})"
@@ -625,8 +706,8 @@ class ClamUIApp(Adw.Application):
             else:
                 # Fallback to home directory if profile not found
                 home_dir = os.path.expanduser("~")
-                self._scan_view._set_selected_path(home_dir)
-                self._scan_view._start_scan()
+                self.scan_view._set_selected_path(home_dir)
+                self.scan_view._start_scan()
                 logger.warning(
                     f"Quick Scan profile not found, falling back to home directory "
                     f"scan from tray menu (path={home_dir})"
@@ -650,14 +731,14 @@ class ClamUIApp(Adw.Application):
         self.activate()
 
         win = self.props.active_window
-        if win and self._scan_view:
-            # Switch to scan view
-            win.set_content_view(self._scan_view)
+        if win:
+            # Switch to scan view (lazy-loaded)
+            win.set_content_view(self.scan_view)
             win.set_active_view("scan")
             self._current_view = "scan"
 
             # Open folder selection dialog
-            self._scan_view._on_select_folder_clicked(None)
+            self.scan_view._on_select_folder_clicked(None)
 
             logger.info("Full scan folder selection opened from tray menu")
 
@@ -679,15 +760,15 @@ class ClamUIApp(Adw.Application):
         self.activate()
 
         win = self.props.active_window
-        if win and self._update_view:
-            # Switch to update view
-            win.set_content_view(self._update_view)
+        if win:
+            # Switch to update view (lazy-loaded)
+            win.set_content_view(self.update_view)
             win.set_active_view("update")
             self._current_view = "update"
 
             # Start the update if freshclam is available
-            if self._update_view._freshclam_available and not self._update_view._is_updating:
-                self._update_view._start_update()
+            if self.update_view._freshclam_available and not self.update_view._is_updating:
+                self.update_view._start_update()
                 logger.info("Database update started from tray menu")
             else:
                 logger.info("Database update view opened from tray menu (update not started)")
@@ -748,17 +829,17 @@ class ClamUIApp(Adw.Application):
         self.activate()
 
         win = self.props.active_window
-        if win and self._scan_view:
-            # Switch to scan view
-            win.set_content_view(self._scan_view)
+        if win:
+            # Switch to scan view (lazy-loaded)
+            win.set_content_view(self.scan_view)
             win.set_active_view("scan")
             self._current_view = "scan"
 
             # Refresh profiles to ensure list is up to date
-            self._scan_view.refresh_profiles()
+            self.scan_view.refresh_profiles()
 
             # Select the profile by ID
-            if self._scan_view.set_selected_profile(profile_id):
+            if self.scan_view.set_selected_profile(profile_id):
                 logger.info(f"Profile selected from tray menu: {profile_id}")
             else:
                 logger.warning(f"Failed to select profile from tray: {profile_id}")
@@ -920,11 +1001,11 @@ class ClamUIApp(Adw.Application):
             if paths:
                 self._handle_virustotal_scan_request(paths[0])
         else:
-            # ClamAV scan - handled by scan view
-            if self._scan_view and paths:
-                self._scan_view._set_selected_path(paths[0])
+            # ClamAV scan - handled by scan view (lazy-loaded)
+            if paths:
+                self.scan_view._set_selected_path(paths[0])
                 # Start scan automatically for context menu invocation
-                self._scan_view._start_scan()
+                self.scan_view._start_scan()
 
     # VirusTotal integration methods
 
