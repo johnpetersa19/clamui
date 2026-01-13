@@ -31,35 +31,35 @@
   <screenshots>
     <screenshot type="default">
       <caption>Main application window</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.0/screenshots/main_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/main_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Scan results display</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.0/screenshots/main_view_with_scan_result.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/main_view_with_scan_result.png</image>
     </screenshot>
     <screenshot>
       <caption>Analysis view</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.0/screenshots/analysis_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/analysis_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Components view</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.0/screenshots/components_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/components_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Configuration settings</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.0/screenshots/config_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/config_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Scan history</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.0/screenshots/history_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/history_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Profile management</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.0/screenshots/profile_management.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/profile_management.png</image>
     </screenshot>
     <screenshot>
       <caption>Quarantine management</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.0/screenshots/quarantine_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/quarantine_view.png</image>
     </screenshot>
   </screenshots>
 
@@ -96,6 +96,14 @@
   </keywords>
 
   <releases>
+    <release version="0.1.1" date="2026-01-13">
+      <description>
+        <p>Bug fix release</p>
+        <ul>
+          <li>Fix screenshot URLs in AppStream metadata for Flathub compliance</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-01-07">
       <description>
         <p>Initial release of ClamUI</p>
