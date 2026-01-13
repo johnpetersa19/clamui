@@ -32,49 +32,49 @@
     <screenshot type="default">
       <caption>Main application window</caption>
       <image>
-        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/main_view.png
+        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/main_view.png?raw=true
       </image>
     </screenshot>
     <screenshot>
       <caption>Scan results display</caption>
       <image>
-        https://github.com/linx-systems/clamui/blob/27e455f423808c940d9311c20557dbe21a648d4d/screenshots/main_view_with_scan_result.png
+        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/main_view_with_scan_result.png?raw=true
       </image>
     </screenshot>
     <screenshot>
       <caption>Analysis view</caption>
       <image>
-        https://github.com/linx-systems/clamui/blob/27e455f423808c940d9311c20557dbe21a648d4d/screenshots/analysis_view.png
+        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/analysis_view.png?raw=true
       </image>
     </screenshot>
     <screenshot>
       <caption>Components view</caption>
       <image>
-        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/components_view.png
+        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/components_view.png?raw=true
       </image>
     </screenshot>
     <screenshot>
       <caption>Configuration settings</caption>
       <image>
-        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/config_view.png
+        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/config_view.png?raw=true
       </image>
     </screenshot>
     <screenshot>
       <caption>Scan history</caption>
       <image>
-        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/history_view.png
+        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/history_view.png?raw=true
       </image>
     </screenshot>
     <screenshot>
       <caption>Profile management</caption>
       <image>
-        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/profile_management.png
+        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/profile_management.png?raw=true
       </image>
     </screenshot>
     <screenshot>
       <caption>Quarantine management</caption>
       <image>
-        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/quarantine_view.png
+        https://github.com/linx-systems/clamui/blob/2864236f08110e64a29efbf2bed7efdef75470bb/screenshots/quarantine_view.png?raw=true
       </image>
     </screenshot>
   </screenshots>
