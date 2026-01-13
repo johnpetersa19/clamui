@@ -15,6 +15,7 @@ A modern Linux desktop application that provides a graphical user interface for 
 - **Scan Profiles**: Create custom scan configurations for different use cases
 - **Scan History**: Track and review past scan results
 - **Statistics Dashboard**: Monitor your scanning activity and threat detection
+- **VirusTotal Integration**: Optional enhanced threat analysis via VirusTotal API
 - **File Manager Integration**: Right-click "Scan with ClamUI" in Nautilus, Dolphin, and Nemo
 - **System Tray**: Optional tray icon with quick actions and scan progress
 - **Modern UI**: Native Adwaita styling with proper GNOME integration
@@ -53,8 +54,8 @@ A modern Linux desktop application that provides a graphical user interface for 
 ### Flatpak (Recommended)
 
 ```bash
-flatpak install flathub com.github.clamui
-flatpak run com.github.clamui
+flatpak install flathub io.github.linx_systems.ClamUI
+flatpak run io.github.linx_systems.ClamUI
 ```
 
 ### From Source

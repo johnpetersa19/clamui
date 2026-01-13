@@ -202,7 +202,7 @@ sudo pacman -S clamav    # Arch
 **Verify it works**:
 ```bash
 # Test that ClamAV is accessible from the host
-flatpak run --command=sh com.github.rooki.ClamUI -c "flatpak-spawn --host clamscan --version"
+flatpak run --command=sh io.github.linx_systems.ClamUI -c "flatpak-spawn --host clamscan --version"
 ```
 
 ### Permission denied when scanning files
@@ -219,26 +219,26 @@ flatpak run --command=sh com.github.rooki.ClamUI -c "flatpak-spawn --host clamsc
 
 ```bash
 # Grant read-only access to a specific directory
-flatpak override --user --filesystem=/path/to/directory:ro com.github.rooki.ClamUI
+flatpak override --user --filesystem=/path/to/directory:ro io.github.linx_systems.ClamUI
 
 # Grant full access (needed for quarantine operations)
-flatpak override --user --filesystem=/path/to/directory com.github.rooki.ClamUI
+flatpak override --user --filesystem=/path/to/directory io.github.linx_systems.ClamUI
 ```
 
 **Common directories to grant access**:
 
 ```bash
 # Home directory (usually already granted)
-flatpak override --user --filesystem=home com.github.rooki.ClamUI
+flatpak override --user --filesystem=home io.github.linx_systems.ClamUI
 
 # External drives and USB devices
-flatpak override --user --filesystem=/media com.github.rooki.ClamUI
-flatpak override --user --filesystem=/mnt com.github.rooki.ClamUI
-flatpak override --user --filesystem=/run/media com.github.rooki.ClamUI
+flatpak override --user --filesystem=/media io.github.linx_systems.ClamUI
+flatpak override --user --filesystem=/mnt io.github.linx_systems.ClamUI
+flatpak override --user --filesystem=/run/media io.github.linx_systems.ClamUI
 
 # Additional common locations
-flatpak override --user --filesystem=/var com.github.rooki.ClamUI  # For system scans
-flatpak override --user --filesystem=/opt com.github.rooki.ClamUI  # For installed apps
+flatpak override --user --filesystem=/var io.github.linx_systems.ClamUI  # For system scans
+flatpak override --user --filesystem=/opt io.github.linx_systems.ClamUI  # For installed apps
 ```
 
 **Note**: Read-only access (`:ro`) is sufficient for scanning, but quarantine operations require full write access.
@@ -253,19 +253,19 @@ flatpak override --user --filesystem=/opt com.github.rooki.ClamUI  # For install
 
 ```bash
 # View current permissions
-flatpak info --show-permissions com.github.rooki.ClamUI
+flatpak info --show-permissions io.github.linx_systems.ClamUI
 
 # Grant access to a specific directory
-flatpak override --user --filesystem=/path/to/directory com.github.rooki.ClamUI
+flatpak override --user --filesystem=/path/to/directory io.github.linx_systems.ClamUI
 
 # Grant access to all files (use with caution - reduces sandbox security)
-flatpak override --user --filesystem=host com.github.rooki.ClamUI
+flatpak override --user --filesystem=host io.github.linx_systems.ClamUI
 
 # Remove a specific permission
-flatpak override --user --nofilesystem=/path/to/directory com.github.rooki.ClamUI
+flatpak override --user --nofilesystem=/path/to/directory io.github.linx_systems.ClamUI
 
 # Reset permissions to default
-flatpak override --user --reset com.github.rooki.ClamUI
+flatpak override --user --reset io.github.linx_systems.ClamUI
 ```
 
 **GUI method (Flatseal)**:
@@ -296,7 +296,7 @@ Then use Flatseal to:
 
 ```bash
 # Verify D-Bus access
-flatpak info --show-permissions com.github.rooki.ClamUI | grep -E 'talk-name|system-talk-name'
+flatpak info --show-permissions io.github.linx_systems.ClamUI | grep -E 'talk-name|system-talk-name'
 
 # Expected permissions should include:
 # - org.freedesktop.Notifications (for notifications)
@@ -308,17 +308,17 @@ flatpak info --show-permissions com.github.rooki.ClamUI | grep -E 'talk-name|sys
 If D-Bus permissions are missing, reinstall the Flatpak:
 
 ```bash
-flatpak uninstall com.github.rooki.ClamUI
-flatpak install flathub com.github.rooki.ClamUI
+flatpak uninstall io.github.linx_systems.ClamUI
+flatpak install flathub io.github.linx_systems.ClamUI
 ```
 
 **Solution 3**: Grant portal access manually (if needed)
 
 ```bash
 # Grant portal access
-flatpak override --user --talk-name=org.freedesktop.Notifications com.github.rooki.ClamUI
-flatpak override --user --talk-name=org.freedesktop.portal.Desktop com.github.rooki.ClamUI
-flatpak override --user --talk-name=org.freedesktop.portal.FileChooser com.github.rooki.ClamUI
+flatpak override --user --talk-name=org.freedesktop.Notifications io.github.linx_systems.ClamUI
+flatpak override --user --talk-name=org.freedesktop.portal.Desktop io.github.linx_systems.ClamUI
+flatpak override --user --talk-name=org.freedesktop.portal.FileChooser io.github.linx_systems.ClamUI
 ```
 
 **Troubleshooting notifications**:
@@ -332,7 +332,7 @@ If notifications still don't work:
    ```
 3. Test notifications from the Flatpak:
    ```bash
-   flatpak run --command=sh com.github.rooki.ClamUI -c \
+   flatpak run --command=sh io.github.linx_systems.ClamUI -c \
      "notify-send 'Test' 'This is a test notification'"
    ```
 
@@ -360,7 +360,7 @@ dpkg -l | grep ayatana  # Ubuntu/Debian
 rpm -qa | grep ayatana  # Fedora
 
 # Run ClamUI from terminal to see error messages
-clamui  # or: flatpak run com.github.rooki.ClamUI
+clamui  # or: flatpak run io.github.linx_systems.ClamUI
 ```
 
 Look for error messages like:
@@ -506,10 +506,10 @@ Ensure the Flatpak has tray icon permissions:
 
 ```bash
 # View current permissions
-flatpak info --show-permissions com.github.rooki.ClamUI
+flatpak info --show-permissions io.github.linx_systems.ClamUI
 
 # Grant StatusNotifier permissions (if missing)
-flatpak override --user --talk-name=org.kde.StatusNotifierWatcher com.github.rooki.ClamUI
+flatpak override --user --talk-name=org.kde.StatusNotifierWatcher io.github.linx_systems.ClamUI
 ```
 
 **Solution 3: Enable XDG Desktop Portal**
@@ -560,7 +560,7 @@ journalctl --user -u clamui --since today | grep -i tray
 CLAMUI_DEBUG=1 clamui
 
 # Or for Flatpak:
-flatpak run --env=CLAMUI_DEBUG=1 com.github.rooki.ClamUI
+flatpak run --env=CLAMUI_DEBUG=1 io.github.linx_systems.ClamUI
 ```
 
 **Solution**: Try these steps in order:
@@ -837,22 +837,22 @@ ls -la ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 ```bash
 # Export desktop file from Flatpak
 mkdir -p ~/.local/share/applications
-flatpak run --command=sh com.github.rooki.ClamUI -c \
+flatpak run --command=sh io.github.linx_systems.ClamUI -c \
   "cat /app/share/applications/io.github.linx_systems.ClamUI.desktop" \
   > ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 
 # For Nemo users, export Nemo action
 mkdir -p ~/.local/share/nemo/actions
-flatpak run --command=sh com.github.rooki.ClamUI -c \
+flatpak run --command=sh io.github.linx_systems.ClamUI -c \
   "cat /app/share/nemo/actions/io.github.linx_systems.ClamUI.nemo_action" \
   > ~/.local/share/nemo/actions/io.github.linx_systems.ClamUI.nemo_action
 
 # Update desktop file to use Flatpak command
-sed -i 's|Exec=clamui|Exec=flatpak run com.github.rooki.ClamUI|g' \
+sed -i 's|Exec=clamui|Exec=flatpak run io.github.linx_systems.ClamUI|g' \
   ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 
 # Also update the Desktop Action
-sed -i 's|Exec=clamui %F|Exec=flatpak run com.github.rooki.ClamUI %F|g' \
+sed -i 's|Exec=clamui %F|Exec=flatpak run io.github.linx_systems.ClamUI %F|g' \
   ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 
 # Update desktop database
@@ -868,12 +868,12 @@ grep "^Exec=" ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 # Test launching ClamUI from command line
 clamui  # Native installation
 # or
-flatpak run com.github.rooki.ClamUI  # Flatpak
+flatpak run io.github.linx_systems.ClamUI  # Flatpak
 
 # Test with a file argument (simulates context menu click)
 clamui ~/Documents  # Native
 # or
-flatpak run com.github.rooki.ClamUI ~/Documents  # Flatpak
+flatpak run io.github.linx_systems.ClamUI ~/Documents  # Flatpak
 ```
 
 ### File manager refresh requirements
@@ -1012,11 +1012,11 @@ journalctl --user -u clamui --since "1 minute ago"
 grep "Exec=" ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 
 # Should contain:
-# Exec=flatpak run com.github.rooki.ClamUI
-# Exec=flatpak run com.github.rooki.ClamUI %F  (in Desktop Action section)
+# Exec=flatpak run io.github.linx_systems.ClamUI
+# Exec=flatpak run io.github.linx_systems.ClamUI %F  (in Desktop Action section)
 
 # If not, update it
-sed -i 's|Exec=clamui|Exec=flatpak run com.github.rooki.ClamUI|g' \
+sed -i 's|Exec=clamui|Exec=flatpak run io.github.linx_systems.ClamUI|g' \
   ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 update-desktop-database ~/.local/share/applications
 ```
@@ -1078,18 +1078,18 @@ If you're using the Flatpak version, the sandbox restricts file access by defaul
 
 ```bash
 # Grant read-only access to a specific directory
-flatpak override --user --filesystem=/path/to/directory:ro com.github.rooki.ClamUI
+flatpak override --user --filesystem=/path/to/directory:ro io.github.linx_systems.ClamUI
 
 # Grant full access (needed for quarantine operations)
-flatpak override --user --filesystem=/path/to/directory com.github.rooki.ClamUI
+flatpak override --user --filesystem=/path/to/directory io.github.linx_systems.ClamUI
 
 # Common directories that may need access
-flatpak override --user --filesystem=/media com.github.rooki.ClamUI  # External drives
-flatpak override --user --filesystem=/mnt com.github.rooki.ClamUI    # Mount points
-flatpak override --user --filesystem=/var com.github.rooki.ClamUI    # System files
+flatpak override --user --filesystem=/media io.github.linx_systems.ClamUI  # External drives
+flatpak override --user --filesystem=/mnt io.github.linx_systems.ClamUI    # Mount points
+flatpak override --user --filesystem=/var io.github.linx_systems.ClamUI    # System files
 
 # Verify permissions were granted
-flatpak info --show-permissions com.github.rooki.ClamUI | grep filesystem
+flatpak info --show-permissions io.github.linx_systems.ClamUI | grep filesystem
 ```
 
 **Solution 3: Check SELinux/AppArmor restrictions** (advanced)
@@ -1127,7 +1127,7 @@ flock /path/to/file echo "Testing lock"
 clamscan /path/to/file
 
 # For Flatpak:
-flatpak run com.github.rooki.ClamUI /path/to/file
+flatpak run io.github.linx_systems.ClamUI /path/to/file
 
 # Check ClamUI logs for permission errors
 journalctl --user -u clamui --since "5 minutes ago" | grep -i "permission denied"
@@ -1348,7 +1348,7 @@ If you see: `"Symlink escapes to protected directory"`
 sudo clamui /etc
 
 # 2. Or grant explicit permission (Flatpak)
-flatpak override --user --filesystem=/etc:ro com.github.rooki.ClamUI
+flatpak override --user --filesystem=/etc:ro io.github.linx_systems.ClamUI
 ```
 
 **Solution 4: Scan with follow-symlinks disabled**
@@ -1557,7 +1557,7 @@ sudo dnf install clamd          # Fedora
 sudo systemctl start clamav-daemon
 
 # Test from Flatpak
-flatpak run --command=sh com.github.rooki.ClamUI -c \
+flatpak run --command=sh io.github.linx_systems.ClamUI -c \
   "flatpak-spawn --host clamdscan --ping 3"
 
 # Expected output: "PONG"
@@ -1928,7 +1928,7 @@ If authentication fails despite correct password:
 pkaction --action-id org.freedesktop.policykit.exec --verbose
 
 # For Flatpak installations, ensure host PolicyKit is accessible
-flatpak override --user --talk-name=org.freedesktop.PolicyKit1 com.github.rooki.ClamUI
+flatpak override --user --talk-name=org.freedesktop.PolicyKit1 io.github.linx_systems.ClamUI
 ```
 
 **Solution 3: Configure manual freshclam with sudo (fallback)**
@@ -1947,7 +1947,7 @@ Then configure automatic updates (see [Outdated database warnings](#outdated-dat
 clamui
 
 # Flatpak installation
-flatpak run com.github.rooki.ClamUI
+flatpak run io.github.linx_systems.ClamUI
 
 # Watch for error messages in terminal output like:
 # "pkexec error: [details]"
@@ -2501,16 +2501,16 @@ timedatectl status
 
 ```bash
 # Verify Flatpak has network access
-flatpak info --show-permissions com.github.rooki.ClamUI | grep network
+flatpak info --show-permissions io.github.linx_systems.ClamUI | grep network
 
 # Should show:
 # network
 
 # If missing, grant network permission
-flatpak override --user --share=network com.github.rooki.ClamUI
+flatpak override --user --share=network io.github.linx_systems.ClamUI
 
 # Test network from within Flatpak
-flatpak run --command=sh com.github.rooki.ClamUI
+flatpak run --command=sh io.github.linx_systems.ClamUI
 # Inside Flatpak shell:
 ping -c 4 database.clamav.net
 ```
@@ -4222,7 +4222,7 @@ sudo dnf install gtk4 libadwaita  # Fedora
 clamui
 
 # For Flatpak
-flatpak run com.github.rooki.ClamUI
+flatpak run io.github.linx_systems.ClamUI
 ```
 
 ### UI appears frozen
@@ -4441,7 +4441,7 @@ pkg-config --modversion gtk4
 journalctl --user -u clamui --since today
 
 # For Flatpak
-flatpak run com.github.rooki.ClamUI --verbose
+flatpak run io.github.linx_systems.ClamUI --verbose
 ```
 
 ---

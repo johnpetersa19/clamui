@@ -532,13 +532,13 @@ To see which backend ClamUI is currently using:
    - Check that ClamUI has host-spawn permission
 
 2. **Directory access issues**:
-   - Grant filesystem permissions: `flatpak override --user --filesystem=/path com.github.rooki.ClamUI`
+   - Grant filesystem permissions: `flatpak override --user --filesystem=/path io.github.linx_systems.ClamUI`
    - Or use Flatseal GUI application to manage permissions
-   - Check current permissions: `flatpak info --show-permissions com.github.rooki.ClamUI`
+   - Check current permissions: `flatpak info --show-permissions io.github.linx_systems.ClamUI`
 
 3. **Network shares**:
    - Flatpak may not have access to network mounts by default
-   - Grant network access if needed: `flatpak override --user --share=network com.github.rooki.ClamUI`
+   - Grant network access if needed: `flatpak override --user --share=network io.github.linx_systems.ClamUI`
 
 #### Scan results show false positives
 

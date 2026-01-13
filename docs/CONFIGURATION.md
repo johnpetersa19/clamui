@@ -126,19 +126,19 @@ XDG_DATA_HOME=$HOME/app-data
 
 When running ClamUI as a Flatpak package, file paths are sandboxed for security:
 
-**Sandboxed Base Path:** `~/.var/app/org.clamui.ClamUI/`
+**Sandboxed Base Path:** `~/.var/app/io.github.linx_systems.ClamUI/`
 
 All XDG paths are relative to this sandbox directory:
 
 | File/Directory | Flatpak Location |
 |----------------|------------------|
-| **Config directory** | `~/.var/app/org.clamui.ClamUI/config/clamui/` |
-| `settings.json` | `~/.var/app/org.clamui.ClamUI/config/clamui/settings.json` |
-| `profiles.json` | `~/.var/app/org.clamui.ClamUI/config/clamui/profiles.json` |
-| **Data directory** | `~/.var/app/org.clamui.ClamUI/data/clamui/` |
-| `quarantine.db` | `~/.var/app/org.clamui.ClamUI/data/clamui/quarantine.db` |
-| Quarantine files | `~/.var/app/org.clamui.ClamUI/data/clamui/quarantine/` |
-| Scan logs | `~/.var/app/org.clamui.ClamUI/data/clamui/logs/` |
+| **Config directory** | `~/.var/app/io.github.linx_systems.ClamUI/config/clamui/` |
+| `settings.json` | `~/.var/app/io.github.linx_systems.ClamUI/config/clamui/settings.json` |
+| `profiles.json` | `~/.var/app/io.github.linx_systems.ClamUI/config/clamui/profiles.json` |
+| **Data directory** | `~/.var/app/io.github.linx_systems.ClamUI/data/clamui/` |
+| `quarantine.db` | `~/.var/app/io.github.linx_systems.ClamUI/data/clamui/quarantine.db` |
+| Quarantine files | `~/.var/app/io.github.linx_systems.ClamUI/data/clamui/quarantine/` |
+| Scan logs | `~/.var/app/io.github.linx_systems.ClamUI/data/clamui/logs/` |
 
 **Important Notes for Flatpak:**
 - XDG environment variables still work but are interpreted within the sandbox
@@ -150,13 +150,13 @@ All XDG paths are relative to this sandbox directory:
 To access ClamUI configuration or logs when using Flatpak:
 ```bash
 # View settings
-cat ~/.var/app/org.clamui.ClamUI/config/clamui/settings.json
+cat ~/.var/app/io.github.linx_systems.ClamUI/config/clamui/settings.json
 
 # View quarantine database
-sqlite3 ~/.var/app/org.clamui.ClamUI/data/clamui/quarantine.db
+sqlite3 ~/.var/app/io.github.linx_systems.ClamUI/data/clamui/quarantine.db
 
 # List scan logs
-ls -lh ~/.var/app/org.clamui.ClamUI/data/clamui/logs/
+ls -lh ~/.var/app/io.github.linx_systems.ClamUI/data/clamui/logs/
 ```
 
 ### Verifying Your File Locations

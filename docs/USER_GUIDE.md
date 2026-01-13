@@ -136,7 +136,7 @@ After installing ClamUI using your preferred method, you can launch it in severa
 
 If you installed via Flatpak:
 ```bash
-flatpak run com.github.rooki.ClamUI
+flatpak run io.github.linx_systems.ClamUI
 ```
 
 If you installed via .deb package or from source:
@@ -150,7 +150,7 @@ You can also launch ClamUI with files or folders to scan immediately:
 
 ```bash
 # Flatpak
-flatpak run com.github.rooki.ClamUI /path/to/file /path/to/folder
+flatpak run io.github.linx_systems.ClamUI /path/to/file /path/to/folder
 
 # Native installation
 clamui /path/to/file /path/to/folder
@@ -325,7 +325,7 @@ If you're comfortable with the terminal, you can launch ClamUI with a path alrea
 
 ```bash
 # Flatpak
-flatpak run com.github.rooki.ClamUI ~/Downloads
+flatpak run io.github.linx_systems.ClamUI ~/Downloads
 
 # Native installation
 clamui ~/Downloads
@@ -6453,7 +6453,7 @@ flatpak-spawn --host clamscan --version
 
 **Check Flatpak permissions:**
 ```bash
-flatpak info --show-permissions com.github.rooki.ClamUI
+flatpak info --show-permissions io.github.linx_systems.ClamUI
 ```
 
 Should include:
@@ -6940,8 +6940,8 @@ chown $USER:$USER ~/.local/share/clamui/quarantine/
 
 **For Flatpak:**
 ```bash
-ls -la ~/.var/app/com.github.rooki.ClamUI/data/clamui/quarantine/
-chmod 700 ~/.var/app/com.github.rooki.ClamUI/data/clamui/quarantine/
+ls -la ~/.var/app/io.github.linx_systems.ClamUI/data/clamui/quarantine/
+chmod 700 ~/.var/app/io.github.linx_systems.ClamUI/data/clamui/quarantine/
 ```
 
 ##### Error: "Disk full" or "No space left on device"
@@ -9058,7 +9058,7 @@ du -sh ~/.local/share/clamui/quarantine/
 
 **For Flatpak installation:**
 ```bash
-ls -lh ~/.var/app/com.github.rooki.ClamUI/data/clamui/quarantine/
+ls -lh ~/.var/app/io.github.linx_systems.ClamUI/data/clamui/quarantine/
 ```
 
 ⚠️ **Warning:** Manual operations bypass safety checks. Use the UI whenever possible.
@@ -9216,7 +9216,7 @@ Status messages:
 sudo freshclam
 
 # Flatpak installation:
-flatpak run --command=freshclam com.github.rooki.ClamUI
+flatpak run --command=freshclam io.github.linx_systems.ClamUI
 
 # Or for Flatpak with host ClamAV:
 flatpak-spawn --host sudo freshclam

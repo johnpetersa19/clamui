@@ -76,6 +76,7 @@ clamui/
 │       │   ├── scanner_page.py     # Clamd configuration
 │       │   ├── scheduled_page.py   # Scheduled scan configuration
 │       │   └── virustotal_page.py  # VirusTotal API configuration
+│       ├── preferences_dialog.py   # Legacy preferences dialog
 │       ├── profile_dialogs.py  # Profile create/edit dialogs
 │       ├── scan_results_dialog.py  # Scan results with quarantine actions
 │       ├── virustotal_results_dialog.py # VirusTotal detection details
@@ -84,8 +85,11 @@ clamui/
 │       ├── file_export.py      # Reusable file export dialog helper
 │       ├── pagination.py       # PaginatedListController for large lists
 │       ├── view_helpers.py     # Shared UI utilities (status, empty states)
+│       ├── utils.py            # UI utility functions
 │       ├── tray_manager.py     # System tray subprocess manager
-│       ├── tray_indicator.py   # GTK3 tray subprocess
+│       ├── tray_service.py     # System tray D-Bus service
+│       ├── tray_icons.py       # Tray icon resource management
+│       ├── tray_indicator.py   # GTK3 tray indicator (legacy)
 │       └── fullscreen_dialog.py
 ├── tests/                      # Test suite (mirrors src structure)
 │   ├── conftest.py             # Shared fixtures, GTK mocking

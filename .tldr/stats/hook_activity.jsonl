@@ -1,0 +1,10 @@
+{"hook_name": "session-start-tldr-cache", "invocations": 1, "successes": 1, "failures": 0, "metrics": {"sessions_started": 1, "cache_warmed": 1}, "timestamp": "2026-01-13T13:22:24.520808+00:00"}
+{"hook_name": "post-edit-notify", "invocations": 3, "successes": 3, "failures": 0, "metrics": {"edits_notified": 3, "reindexes_triggered": 0}, "timestamp": "2026-01-13T13:22:24.520808+00:00"}
+{"hook_name": "edit-context-inject", "invocations": 1, "successes": 1, "failures": 0, "metrics": {"edits_processed": 1, "symbols_shown": 24}, "timestamp": "2026-01-13T13:22:24.520808+00:00"}
+{"hook_name": "post-edit-notify", "invocations": 5, "successes": 5, "failures": 0, "metrics": {"edits_notified": 5, "reindexes_triggered": 0}, "timestamp": "2026-01-13T13:22:56.695167+00:00"}
+{"hook_name": "post-edit-notify", "invocations": 2, "successes": 2, "failures": 0, "metrics": {"edits_notified": 2, "reindexes_triggered": 0}, "timestamp": "2026-01-13T13:23:21.087526+00:00"}
+{"hook_name": "edit-context-inject", "invocations": 2, "successes": 2, "failures": 0, "metrics": {"edits_processed": 2, "symbols_shown": 6}, "timestamp": "2026-01-13T13:23:21.087526+00:00"}
+{"hook_name": "smart-search-router", "invocations": 1, "successes": 1, "failures": 0, "metrics": {"queries_routed": 1, "literal_queries": 1}, "timestamp": "2026-01-13T13:23:21.087526+00:00"}
+{"hook_name": "post-edit-notify", "invocations": 2, "successes": 2, "failures": 0, "metrics": {"edits_notified": 2, "reindexes_triggered": 0}, "timestamp": "2026-01-13T13:23:41.559671+00:00"}
+{"hook_name": "edit-context-inject", "invocations": 3, "successes": 3, "failures": 0, "metrics": {"edits_processed": 3, "symbols_shown": 9}, "timestamp": "2026-01-13T13:23:41.559671+00:00"}
+{"hook_name": "post-edit-notify", "invocations": 5, "successes": 5, "failures": 0, "metrics": {"edits_notified": 5, "reindexes_triggered": 0}, "timestamp": "2026-01-13T13:24:40.500739+00:00"}

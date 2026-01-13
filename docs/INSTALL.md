@@ -54,7 +54,7 @@ flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.f
 ### Install ClamUI
 
 ```bash
-flatpak install flathub com.github.rooki.ClamUI
+flatpak install flathub io.github.linx_systems.ClamUI
 ```
 
 ### Install Host ClamAV (Required)
@@ -81,7 +81,7 @@ sudo freshclam
 ### Run ClamUI
 
 ```bash
-flatpak run com.github.rooki.ClamUI
+flatpak run io.github.linx_systems.ClamUI
 ```
 
 Or find "ClamUI" in your application menu.
@@ -105,14 +105,14 @@ ClamUI requests the following permissions:
 View current permissions:
 
 ```bash
-flatpak info --show-permissions com.github.rooki.ClamUI
+flatpak info --show-permissions io.github.linx_systems.ClamUI
 ```
 
 Override permissions if needed:
 
 ```bash
 # Grant access to additional directories
-flatpak override --user --filesystem=/path/to/directory com.github.rooki.ClamUI
+flatpak override --user --filesystem=/path/to/directory io.github.linx_systems.ClamUI
 ```
 
 ---
@@ -157,8 +157,8 @@ sudo apt install ./clamui_*.deb
 |------|-------------|
 | `/usr/bin/clamui` | Launcher script |
 | `/usr/lib/python3/dist-packages/clamui/` | Python application modules |
-| `/usr/share/applications/com.github.rooki.ClamUI.desktop` | Desktop entry file |
-| `/usr/share/icons/hicolor/scalable/apps/com.github.rooki.ClamUI.svg` | Application icon |
+| `/usr/share/applications/io.github.linx_systems.ClamUI.desktop` | Desktop entry file |
+| `/usr/share/icons/hicolor/scalable/apps/io.github.linx_systems.ClamUI.svg` | Application icon |
 
 ### Run ClamUI
 
@@ -200,7 +200,7 @@ For native (non-Flatpak) installations, set up context menu integration manually
 
 1. **Copy the desktop file**:
    ```bash
-   cp com.github.clamui.desktop ~/.local/share/applications/
+   cp io.github.linx_systems.ClamUI.desktop ~/.local/share/applications/
    ```
 
 2. **Update the desktop database**:
@@ -228,7 +228,7 @@ Nemo uses its own action format for context menu extensions:
 
 2. **Copy the Nemo action file**:
    ```bash
-   cp com.github.clamui.nemo_action ~/.local/share/nemo/actions/
+   cp io.github.linx_systems.ClamUI.nemo_action ~/.local/share/nemo/actions/
    ```
 
 3. **Restart Nemo**:
@@ -250,10 +250,10 @@ Check that the integration files are installed:
 
 ```bash
 # Desktop entry
-ls ~/.local/share/applications/com.github.clamui.desktop
+ls ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 
 # Nemo action (if using Nemo)
-ls ~/.local/share/nemo/actions/com.github.clamui.nemo_action
+ls ~/.local/share/nemo/actions/io.github.linx_systems.ClamUI.nemo_action
 ```
 
 If the context menu doesn't appear:
@@ -325,7 +325,7 @@ which clamui
 clamui --version
 
 # For Flatpak
-flatpak info com.github.rooki.ClamUI
+flatpak info io.github.linx_systems.ClamUI
 ```
 
 ### Check ClamAV
@@ -351,7 +351,7 @@ Launch ClamUI and perform a test scan on a small directory to verify everything 
 ### Flatpak
 
 ```bash
-flatpak uninstall com.github.rooki.ClamUI
+flatpak uninstall io.github.linx_systems.ClamUI
 ```
 
 ### Debian Package
@@ -370,10 +370,10 @@ If you manually installed context menu integration:
 
 ```bash
 # Remove desktop entry
-rm ~/.local/share/applications/com.github.clamui.desktop
+rm ~/.local/share/applications/io.github.linx_systems.ClamUI.desktop
 
 # Remove Nemo action
-rm ~/.local/share/nemo/actions/com.github.clamui.nemo_action
+rm ~/.local/share/nemo/actions/io.github.linx_systems.ClamUI.nemo_action
 
 # Refresh desktop database
 update-desktop-database ~/.local/share/applications
