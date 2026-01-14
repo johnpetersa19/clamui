@@ -3,6 +3,9 @@ name: Build All Packages
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-deb:
     uses: ./.github/workflows/build-deb.yml

@@ -11,6 +11,8 @@ on:
 
 jobs:
   build-flatpak:
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:
