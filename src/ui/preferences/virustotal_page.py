@@ -381,4 +381,4 @@ class VirusTotalPage:
             toast = Adw.Toast.new(message)
             parent._toast_overlay.add_toast(toast)
         else:
-            logger.info(f"Toast message: {message}")
+            logger.debug("Toast notification fallback (overlay not available)")
