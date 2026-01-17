@@ -37,42 +37,48 @@
 
 ## Features
 
+ClamUI provides a comprehensive set of features designed to make antivirus protection on Linux both powerful and user-friendly.
+
 <table>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### Scanning & Protection
-- **Easy File Scanning** - Native GTK4 file dialogs
-- **Async Scanning** - Background processing keeps UI responsive
-- **Quarantine Management** - Safely isolate detected threats
-- **Scan Profiles** - Custom configurations for different scenarios
+
+- **Easy File Scanning** — Native GTK4 file dialogs for intuitive file selection
+- **Async Scanning** — Background processing keeps the UI responsive during scans
+- **Quarantine Management** — Safely isolate and manage detected threats
+- **Scan Profiles** — Create custom configurations for different use cases
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### Management & Integration
-- **Scan History** - Track and review past results
-- **Statistics Dashboard** - Monitor activity and detections
-- **VirusTotal Integration** - Optional enhanced threat analysis
-- **File Manager Integration** - Right-click scanning in Nautilus, Dolphin, Nemo
+
+- **Scan History** — Track and review all past scan results
+- **Statistics Dashboard** — Monitor scanning activity and threat detections
+- **VirusTotal Integration** — Optional enhanced threat analysis via API
+- **File Manager Integration** — Right-click "Scan with ClamUI" in Nautilus, Dolphin, and Nemo
 
 </td>
 </tr>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### User Experience
-- **Modern UI** - Native Adwaita styling with GNOME integration
-- **System Tray** - Quick actions and scan progress
-- **Desktop Notifications** - Stay informed of scan results
+
+- **Modern UI** — Native Adwaita styling with proper GNOME integration
+- **System Tray** — Quick access with actions and real-time scan progress
+- **Desktop Notifications** — Stay informed of scan results and updates
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### Flexibility
-- **Multiple Scan Backends** - Daemon (clamd) or direct (clamscan)
-- **Scheduled Scans** - Automatic scanning with systemd/cron
-- **Customizable Settings** - Extensive configuration options
+
+- **Multiple Scan Backends** — Choose between daemon (clamd) or direct (clamscan)
+- **Scheduled Scans** — Configure automatic scanning with systemd or cron
+- **Customizable Settings** — Extensive configuration options for your workflow
 
 </td>
 </tr>
@@ -147,45 +153,112 @@ clamui /path/to/file1 /path/to/folder
 
 ## Configuration
 
+ClamUI stores user preferences and can be configured through the Preferences dialog or by editing the configuration file directly.
+
 **Configuration Location:** `~/.config/clamui/settings.json`
 
 ### Key Configuration Options
 
-| Category | Options |
-|----------|---------|
-| **Scan Backend** | Automatic detection, daemon (clamd), or direct clamscan |
-| **Notifications** | Desktop notifications for scan results and updates |
-| **Auto-Quarantine** | Automatically quarantine detected threats |
-| **Scheduled Scans** | Configure automatic scanning with systemd or cron |
-| **System Tray** | Enable start minimized and minimize to tray options |
-| **Scan Profiles** | Create custom scan configurations with exclusion patterns |
+<table>
+<tr>
+<th width="25%">Category</th>
+<th width="75%">Description</th>
+</tr>
+<tr>
+<td><strong>Scan Backend</strong></td>
+<td>Choose between automatic detection, daemon (clamd), or direct clamscan</td>
+</tr>
+<tr>
+<td><strong>Notifications</strong></td>
+<td>Control desktop notifications for scan results and updates</td>
+</tr>
+<tr>
+<td><strong>Auto-Quarantine</strong></td>
+<td>Automatically quarantine detected threats</td>
+</tr>
+<tr>
+<td><strong>Scheduled Scans</strong></td>
+<td>Configure automatic scanning with systemd or cron</td>
+</tr>
+<tr>
+<td><strong>System Tray</strong></td>
+<td>Enable start minimized and minimize to tray options</td>
+</tr>
+<tr>
+<td><strong>Scan Profiles</strong></td>
+<td>Create custom scan configurations with exclusion patterns</td>
+</tr>
+</table>
 
-> **Full Reference:** See the [Configuration Reference](./docs/CONFIGURATION.md) for all 15 settings and examples
+<br>
+
+> **For complete configuration reference:** See the [Configuration Reference](./docs/CONFIGURATION.md) for all 15 settings and examples
 
 ---
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| **[User Guide](./docs/USER_GUIDE.md)** | Complete guide to using ClamUI features |
-| **[Installation Guide](./docs/INSTALL.md)** | Flatpak, .deb, context menu, and tray setup |
-| **[Troubleshooting Guide](./docs/TROUBLESHOOTING.md)** | Common issues and solutions |
-| **[Development Guide](./docs/DEVELOPMENT.md)** | Dev environment, testing, and contributing |
-| **[Scan Backend Guide](./docs/SCAN_BACKENDS.md)** | Backend options, performance comparison, and selection guide |
-| **[Security Policy](./SECURITY.txt)** | Security contact and reporting |
+Comprehensive guides to help you get the most out of ClamUI:
+
+<table>
+<tr>
+<th width="30%">Document</th>
+<th width="70%">Description</th>
+</tr>
+<tr>
+<td><a href="./docs/USER_GUIDE.md"><strong>User Guide</strong></a></td>
+<td>Complete guide to using ClamUI features</td>
+</tr>
+<tr>
+<td><a href="./docs/INSTALL.md"><strong>Installation Guide</strong></a></td>
+<td>Flatpak, .deb, context menu, and tray setup</td>
+</tr>
+<tr>
+<td><a href="./docs/TROUBLESHOOTING.md"><strong>Troubleshooting Guide</strong></a></td>
+<td>Common issues and solutions</td>
+</tr>
+<tr>
+<td><a href="./docs/DEVELOPMENT.md"><strong>Development Guide</strong></a></td>
+<td>Dev environment, testing, and contributing</td>
+</tr>
+<tr>
+<td><a href="./docs/SCAN_BACKENDS.md"><strong>Scan Backend Guide</strong></a></td>
+<td>Backend options, performance comparison, and selection guide</td>
+</tr>
+<tr>
+<td><a href="./SECURITY.txt"><strong>Security Policy</strong></a></td>
+<td>Security contact and reporting</td>
+</tr>
+</table>
 
 ---
 
 ## Requirements
 
-| Component | Description |
-|-----------|-------------|
-| **ClamAV** | The `clamscan` command-line tool must be installed |
-| **GTK4 + libadwaita** | For the graphical interface |
-| **Python 3.x** | With PyGObject bindings |
+ClamUI requires the following components to be installed on your system:
 
-> **Platform-Specific Instructions:** See the [Installation Guide](./docs/INSTALL.md) for dependency installation
+<table>
+<tr>
+<th width="30%">Component</th>
+<th width="70%">Description</th>
+</tr>
+<tr>
+<td><strong>ClamAV</strong></td>
+<td>The <code>clamscan</code> command-line tool must be installed</td>
+</tr>
+<tr>
+<td><strong>GTK4 + libadwaita</strong></td>
+<td>For the graphical interface</td>
+</tr>
+<tr>
+<td><strong>Python 3.x</strong></td>
+<td>With PyGObject bindings</td>
+</tr>
+</table>
+
+<br>
+
+> **Platform-specific installation:** See the [Installation Guide](./docs/INSTALL.md) for dependency installation instructions
 
 ---
 
