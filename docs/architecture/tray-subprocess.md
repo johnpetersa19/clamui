@@ -2,15 +2,17 @@
 
 ## Overview
 
-ClamUI uses a unique subprocess architecture for system tray integration to solve GTK3/GTK4 version conflicts. The main application runs with GTK4 (for modern Adwaita UI), while the system tray indicator runs in a separate subprocess with GTK3 (required by AppIndicator library).
+ClamUI uses a subprocess architecture for system tray integration. The main application runs with GTK4 (for modern Adwaita UI), while the system tray indicator runs in a separate subprocess using pure GIO D-Bus (GTK-agnostic).
 
 This document explains the architecture, IPC protocol, and threading model.
 
 ## Why a Subprocess?
 
-**Problem**: The AppIndicator library (used for native Linux system tray support) requires GTK3. However, the main ClamUI application uses GTK4 for Adwaita/GNOME integration. GTK3 and GTK4 cannot coexist in the same Python process due to GObject type system conflicts.
+**Reason**: Process isolation keeps the tray service independent from the main application lifecycle. If the tray service crashes, the main application continues running. The subprocess can also be started/stopped independently.
 
-**Solution**: Run the tray indicator in a separate Python subprocess with its own GTK3 instance, communicating with the main GTK4 application via JSON messages over stdin/stdout pipes.
+**Technology**: The tray service implements the **StatusNotifierItem (SNI)** D-Bus protocol directly using GIO's D-Bus API. This is GTK-agnostic and works with GTK4. Context menus are exported via the **DBusMenu** protocol using `libdbusmenu-glib`.
+
+**Solution**: Run the tray indicator in a separate Python subprocess, communicating with the main GTK4 application via JSON messages over stdin/stdout pipes.
 
 ## Component Relationships
 
@@ -25,8 +27,8 @@ graph LR
         App -->|imports & creates| TrayMgr
     end
 
-    subgraph Subprocess["Subprocess - GTK3 Context"]
-        TrayService["tray_service.py (TrayService - GTK3/AppIndicator)"]
+    subgraph Subprocess["Subprocess - GIO D-Bus Context"]
+        TrayService["tray_service.py (TrayService - GIO D-Bus/DBusMenu)"]
         TrayIcons["tray_icons.py (Icon Generator - PIL/Python stdlib, No GTK dependency)"]
 
         TrayService -->|imports & uses| TrayIcons
@@ -43,16 +45,16 @@ graph LR
 
 **Component Descriptions:**
 
-| Component | GTK Version | Role |
-|-----------|-------------|------|
-| **app.py** | GTK4 | Main application class (`Adw.Application`). Creates and manages the `TrayManager` instance. |
-| **tray_manager.py** | GTK4 | Spawns the tray subprocess, sends JSON commands via stdin, receives events via stdout. Thread-safe with `GLib.idle_add()` for callbacks. |
-| **tray_service.py** | GTK3 | Subprocess entry point. Loads GTK3 and AppIndicator3, creates system tray indicator, processes commands from stdin, sends events to stdout. |
-| **tray_icons.py** | None | Utility module for generating composite tray icons with status badges using PIL. No GTK dependency. |
+| Component           | GTK Version | Role                                                                                                                                           |
+| ------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **app.py**          | GTK4        | Main application class (`Adw.Application`). Creates and manages the `TrayManager` instance.                                                    |
+| **tray_manager.py** | GTK4        | Spawns the tray subprocess, sends JSON commands via stdin, receives events via stdout. Thread-safe with `GLib.idle_add()` for callbacks.       |
+| **tray_service.py** | None (GIO)  | Subprocess entry point. Uses GIO D-Bus for SNI protocol, libdbusmenu for context menus, processes commands from stdin, sends events to stdout. |
+| **tray_icons.py**   | None        | Utility module for generating composite tray icons with status badges using PIL. No GTK dependency.                                            |
 
 **Why This Split?**
 
-- **GTK3/GTK4 Isolation**: AppIndicator3 requires GTK3, but ClamUI uses GTK4. These versions cannot coexist in one Python process.
+- **Process Isolation**: Keeps tray service independent from main application lifecycle (crash isolation, independent restart).
 - **Process Boundary**: `tray_manager.py` and `tray_service.py` communicate across a subprocess boundary via JSON over pipes.
 - **Icon Generation**: `tray_icons.py` is GTK-agnostic and can be imported by either context.
 
@@ -76,19 +78,19 @@ graph TB
         MainLoop -->|executes callbacks| App
     end
 
-    subgraph SubProc["Subprocess (GTK3)"]
+    subgraph SubProc["Subprocess (GIO D-Bus)"]
         TrayService["TrayService"]
-        Indicator["AppIndicator3.Indicator"]
-        Menu["GTK3.Menu"]
+        SNI["StatusNotifierItem (D-Bus)"]
+        DBusMenu["Dbusmenu.Server"]
         StdinReader["Stdin Reader Thread"]
-        GTK3Loop["GTK3 Main Loop (GLib)"]
+        GLibLoop["GLib Main Loop"]
 
-        TrayService -->|creates| Indicator
-        TrayService -->|creates| Menu
-        Indicator -->|shows| Menu
+        TrayService -->|registers| SNI
+        TrayService -->|creates| DBusMenu
+        SNI -->|exports| DBusMenu
         StdinReader -->|reads JSON commands| StdinPipe
-        StdinReader -->|GLib.idle_add| GTK3Loop
-        GTK3Loop -->|updates UI| TrayService
+        StdinReader -->|GLib.idle_add| GLibLoop
+        GLibLoop -->|updates state| TrayService
         TrayService -->|writes JSON events| StdoutPipe
     end
 
@@ -103,7 +105,8 @@ graph TB
     style App fill:#e1f5ff
     style TrayMgr fill:#e1f5ff
     style TrayService fill:#fff4e1
-    style Indicator fill:#fff4e1
+    style SNI fill:#fff4e1
+    style DBusMenu fill:#fff4e1
     style StdinPipe fill:#e8f5e9
     style StdoutPipe fill:#e8f5e9
     style StderrPipe fill:#f3e5f5
@@ -114,12 +117,14 @@ graph TB
 ### Main Process Components
 
 #### ClamUIApp (`src/app.py`)
+
 - Main GTK4 application class inheriting from `Adw.Application`
 - Manages application lifecycle and views
 - Creates and owns the `TrayManager` instance
 - Registers callbacks for tray menu actions
 
 #### TrayManager (`src/ui/tray_manager.py`)
+
 - Spawns the `tray_service.py` subprocess using `subprocess.Popen`
 - Sends JSON commands to subprocess via stdin pipe
 - Runs background threads to read stdout (events) and stderr (logs)
@@ -130,18 +135,20 @@ graph TB
 ### Subprocess Components
 
 #### TrayService (`src/ui/tray_service.py`)
+
 - Standalone Python script that runs in separate process
-- Loads GTK3 and AppIndicator3 libraries
-- Creates the system tray indicator and menu
+- Implements StatusNotifierItem (SNI) D-Bus protocol using GIO's D-Bus API
+- Creates context menu using `Dbusmenu.Server` (libdbusmenu-glib)
 - Runs background thread to read stdin for commands
-- Uses `GLib.idle_add()` to schedule UI updates on GTK3 main thread
+- Uses `GLib.idle_add()` to schedule updates on GLib main loop
 - Sends JSON events to stdout
 
-#### AppIndicator Integration
-- Uses `AyatanaAppIndicator3` (or legacy `AppIndicator3`)
-- Provides native Linux system tray icon
-- Manages GTK3 context menu with scan actions
-- Updates icon based on protection status
+#### D-Bus Integration
+
+- **StatusNotifierItem**: Registers as `org.kde.StatusNotifierItem` on session bus
+- **DBusMenu**: Exports context menu via `com.canonical.dbusmenu` protocol
+- **Supported DEs**: KDE Plasma, Cinnamon, XFCE (with SNI plugin), MATE, Budgie
+- Updates icon based on protection status via D-Bus property changes
 
 ## Threading Model
 
@@ -152,10 +159,10 @@ sequenceDiagram
     participant StdoutThread as Stdout Reader (Background)
     participant Subprocess as tray_service.py
     participant StdinThread as Stdin Reader (Background)
-    participant TrayService as TrayService (GTK3 Main)
+    participant TrayService as TrayService (GLib Main)
 
     Note over App,TrayMgr: Main Process (GTK4)
-    Note over Subprocess,TrayService: Subprocess (GTK3)
+    Note over Subprocess,TrayService: Subprocess (GIO D-Bus)
 
     App->>TrayMgr: start()
     TrayMgr->>Subprocess: subprocess.Popen([python, tray_service.py])
@@ -179,7 +186,7 @@ sequenceDiagram
     StdinThread->>StdinThread: for line in stdin
     StdinThread->>StdinThread: parse JSON
     StdinThread->>TrayService: GLib.idle_add(update_status, "scanning")
-    Note over StdinThread,TrayService: Thread-safe callback on GTK3 main loop
+    Note over StdinThread,TrayService: Thread-safe callback on GLib main loop
 
     TrayService->>TrayService: update icon
 
@@ -210,7 +217,7 @@ sequenceDiagram
     App->>TrayMgr: start()
     TrayMgr->>TrayService: spawn subprocess.Popen()
     activate TrayService
-    TrayService->>TrayService: Initialize GTK3, Create AppIndicator, Build menu
+    TrayService->>TrayService: Initialize GLib, Register SNI on D-Bus, Create DBusMenu
     TrayService-->>Pipe: {"event": "ready"}
     Pipe-->>TrayMgr: ready event
     TrayMgr->>TrayMgr: _ready = True
@@ -294,16 +301,17 @@ sequenceDiagram
 
 ### Thread Safety
 
-Both processes use **GLib.idle_add()** to ensure GTK operations happen on the correct main thread:
+Both processes use **GLib.idle_add()** to ensure operations happen on the correct main thread:
 
 - **TrayManager**: Stdout reader thread schedules callbacks on GTK4 main loop
-- **TrayService**: Stdin reader thread schedules UI updates on GTK3 main loop
+- **TrayService**: Stdin reader thread schedules D-Bus/state updates on GLib main loop
 
-This prevents race conditions and GTK thread-safety violations.
+This prevents race conditions and thread-safety violations.
 
 ### Shared State Protection
 
 **TrayManager** uses `threading.Lock()` to protect shared state:
+
 ```python
 with self._state_lock:
     self._running = True
@@ -318,6 +326,7 @@ Communication uses JSON messages over stdin/stdout pipes.
 ### Message Format
 
 All messages are single-line JSON objects followed by a newline:
+
 ```json
 {"event": "ready"}\n
 {"action": "update_status", "status": "scanning"}\n
@@ -327,16 +336,17 @@ All messages are single-line JSON objects followed by a newline:
 
 Sent via **stdin** to the subprocess:
 
-| Action | Parameters | Description |
-|--------|-----------|-------------|
-| `update_status` | `status: str` | Update icon to reflect protection status<br/>Values: `"protected"`, `"warning"`, `"scanning"`, `"threat"` |
-| `update_progress` | `percentage: int` | Show scan progress percentage (0-100)<br/>Use 0 to clear |
-| `update_window_visible` | `visible: bool` | Update Show/Hide Window menu label |
-| `update_profiles` | `profiles: List[dict]`<br/>`current_profile_id: str` | Update profiles submenu |
-| `quit` | - | Gracefully stop the subprocess |
-| `ping` | - | Health check (expects `pong` response) |
+| Action                  | Parameters                                           | Description                                                                                               |
+| ----------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `update_status`         | `status: str`                                        | Update icon to reflect protection status<br/>Values: `"protected"`, `"warning"`, `"scanning"`, `"threat"` |
+| `update_progress`       | `percentage: int`                                    | Show scan progress percentage (0-100)<br/>Use 0 to clear                                                  |
+| `update_window_visible` | `visible: bool`                                      | Update Show/Hide Window menu label                                                                        |
+| `update_profiles`       | `profiles: List[dict]`<br/>`current_profile_id: str` | Update profiles submenu                                                                                   |
+| `quit`                  | -                                                    | Gracefully stop the subprocess                                                                            |
+| `ping`                  | -                                                    | Health check (expects `pong` response)                                                                    |
 
 **Example**:
+
 ```json
 {"action": "update_status", "status": "scanning"}
 {"action": "update_progress", "percentage": 45}
@@ -346,14 +356,15 @@ Sent via **stdin** to the subprocess:
 
 Sent via **stdout** from the subprocess:
 
-| Event | Parameters | Description |
-|-------|-----------|-------------|
-| `ready` | - | Subprocess initialized and ready |
+| Event         | Parameters                                     | Description                                                                                                                        |
+| ------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`       | -                                              | Subprocess initialized and ready                                                                                                   |
 | `menu_action` | `action: str`<br/>`profile_id: str` (optional) | User triggered menu action<br/>Actions: `"quick_scan"`, `"full_scan"`, `"update"`, `"quit"`, `"toggle_window"`, `"select_profile"` |
-| `pong` | - | Response to `ping` command |
-| `error` | `message: str` | Error occurred in subprocess |
+| `pong`        | -                                              | Response to `ping` command                                                                                                         |
+| `error`       | `message: str`                                 | Error occurred in subprocess                                                                                                       |
 
 **Example**:
+
 ```json
 {"event": "ready"}
 {"event": "menu_action", "action": "quick_scan"}
@@ -365,11 +376,13 @@ Sent via **stdout** from the subprocess:
 **TrayManager** implements security validations:
 
 1. **Message Size Limit**: Max 1MB per message to prevent memory exhaustion
+
    ```python
    MAX_MESSAGE_SIZE = 1024 * 1024  # 1MB
    ```
 
 2. **Nesting Depth Limit**: Max 10 levels to prevent stack overflow
+
    ```python
    MAX_NESTING_DEPTH = 10
    ```
@@ -389,7 +402,7 @@ Sent via **stdout** from the subprocess:
    )
    ```
 3. **TrayManager** starts stdout/stderr reader threads
-4. **TrayService** creates AppIndicator and menu
+4. **TrayService** registers SNI on D-Bus and creates DBusMenu
 5. **TrayService** sends `{"event": "ready"}` to stdout
 6. **TrayManager** receives ready event and sets `_ready = True`
 
@@ -397,23 +410,24 @@ Sent via **stdout** from the subprocess:
 
 1. **ClamUIApp.do_shutdown()** calls **TrayManager.stop()**
 2. **TrayManager** sends `{"action": "quit"}` command
-3. **TrayService** receives command, calls `Gtk3.main_quit()`
+3. **TrayService** receives command, calls `GLib.MainLoop.quit()`
 4. **TrayManager** waits up to 2 seconds for graceful exit
 5. If timeout expires, **TrayManager** terminates/kills subprocess
 6. Reader threads exit when pipes close
 
 ## File Locations
 
-| File | Description | GTK Version |
-|------|-------------|-------------|
-| `src/app.py` | Main application class | GTK4 |
-| `src/ui/tray_manager.py` | Subprocess manager (main process) | GTK4 |
-| `src/ui/tray_service.py` | Tray indicator service (subprocess) | GTK3 |
-| `src/ui/tray_icons.py` | Icon generation utilities | None (PIL) |
+| File                     | Description                         | GTK Version |
+| ------------------------ | ----------------------------------- | ----------- |
+| `src/app.py`             | Main application class              | GTK4        |
+| `src/ui/tray_manager.py` | Subprocess manager (main process)   | GTK4        |
+| `src/ui/tray_service.py` | Tray indicator service (subprocess) | None (GIO)  |
+| `src/ui/tray_icons.py`   | Icon generation utilities           | None (PIL)  |
 
 ## Common Patterns
 
 ### Sending a Command
+
 ```python
 # In TrayManager (main process)
 def update_status(self, status: str) -> None:
@@ -421,6 +435,7 @@ def update_status(self, status: str) -> None:
 ```
 
 ### Handling an Event
+
 ```python
 # In TrayManager (main process)
 def _handle_menu_action(self, action: str, message: dict) -> None:
@@ -429,25 +444,31 @@ def _handle_menu_action(self, action: str, message: dict) -> None:
 ```
 
 ### Processing a Command in Subprocess
+
 ```python
 # In TrayService (subprocess)
 def handle_command(self, command: dict) -> None:
     action = command.get("action")
     if action == "update_status":
         status = command.get("status", "protected")
-        GLib.idle_add(self.update_status, status)  # Thread-safe UI update
+        GLib.idle_add(self.update_status, status)  # Thread-safe D-Bus update
 ```
 
 ## Troubleshooting
 
 ### Tray Icon Not Appearing
 
-1. Check if AppIndicator library is installed:
+1. Check if libdbusmenu is installed:
    ```bash
-   dpkg -l | grep appindicator
+   dpkg -l | grep libdbusmenu
    ```
-2. Check subprocess logs in application output
-3. Verify desktop environment supports system tray
+2. Check if desktop environment supports StatusNotifierItem (SNI):
+   - KDE Plasma: Built-in support
+   - Cinnamon: Built-in support (xapp-sn-watcher)
+   - XFCE: Requires `xfce4-statusnotifier-plugin`
+   - GNOME: Requires extension (e.g., AppIndicator support)
+3. Check subprocess logs in application output with `CLAMUI_DEBUG=1`
+4. Verify D-Bus session bus is running
 
 ### Commands Not Working
 
@@ -458,13 +479,14 @@ def handle_command(self, command: dict) -> None:
 
 ### Thread Safety Issues
 
-1. Always use `GLib.idle_add()` for GTK operations from threads
+1. Always use `GLib.idle_add()` for D-Bus/state operations from threads
 2. Use `threading.Lock()` for shared state
-3. Never call GTK methods directly from reader threads
+3. Never call GLib/D-Bus methods directly from reader threads
 
 ## References
 
-- **AppIndicator Documentation**: https://lazka.github.io/pgi-docs/AyatanaAppIndicator3-0.1/
-- **GTK3 Documentation**: https://docs.gtk.org/gtk3/
+- **StatusNotifierItem Specification**: https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/
+- **DBusMenu Specification**: https://github.com/AyatanaIndicators/libdbusmenu
+- **GIO D-Bus Documentation**: https://docs.gtk.org/gio/class.DBusConnection.html
 - **GTK4 Documentation**: https://docs.gtk.org/gtk4/
 - **Python subprocess**: https://docs.python.org/3/library/subprocess.html

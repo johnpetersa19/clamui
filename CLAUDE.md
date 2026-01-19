@@ -7,6 +7,7 @@ This document provides comprehensive guidance for AI assistants working with the
 ClamUI is a modern Linux desktop application providing a graphical user interface for ClamAV antivirus. Built with **PyGObject**, **GTK4**, and **libadwaita** for native GNOME integration.
 
 **Key Facts:**
+
 - Python 3.10+ required
 - GTK4/Adwaita UI framework
 - ClamAV integration via subprocess (clamscan, clamdscan, freshclam)
@@ -122,25 +123,28 @@ clamui/
 
 For detailed technical documentation on specific architectural patterns, see the `docs/` directory:
 
-| Document | Description |
-|----------|-------------|
-| [`docs/architecture/tray-subprocess.md`](docs/architecture/tray-subprocess.md) | System tray subprocess architecture (GTK3/GTK4 split) |
-| [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Comprehensive configuration reference |
-| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Development environment setup |
-| [`docs/INSTALL.md`](docs/INSTALL.md) | Installation guide |
-| [`docs/SCAN_BACKENDS.md`](docs/SCAN_BACKENDS.md) | Scan backend options and performance |
-| [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common issues and solutions |
-| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | End-user documentation |
+| Document                                                                       | Description                                         |
+| ------------------------------------------------------------------------------ | --------------------------------------------------- |
+| [`docs/architecture/tray-subprocess.md`](docs/architecture/tray-subprocess.md) | System tray subprocess architecture (GIO D-Bus/SNI) |
+| [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)                               | Comprehensive configuration reference               |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)                                   | Development environment setup                       |
+| [`docs/INSTALL.md`](docs/INSTALL.md)                                           | Installation guide                                  |
+| [`docs/SCAN_BACKENDS.md`](docs/SCAN_BACKENDS.md)                               | Scan backend options and performance                |
+| [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)                           | Common issues and solutions                         |
+| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)                                     | End-user documentation                              |
 
 ### System Tray Subprocess Architecture
+
 **Location**: [`docs/architecture/tray-subprocess.md`](docs/architecture/tray-subprocess.md)
 
-ClamUI uses a unique subprocess architecture for system tray integration:
+ClamUI uses a subprocess architecture for system tray integration:
+
 - **Main process** (GTK4): `ClamUIApp` and `TrayManager`
-- **Subprocess** (GTK3): `TrayService` running AppIndicator
+- **Subprocess** (GIO D-Bus): `TrayService` using StatusNotifierItem protocol + libdbusmenu
 - **IPC**: JSON messages over stdin/stdout pipes
 
-This split is necessary because GTK3 and GTK4 cannot coexist in the same process. The documentation includes:
+The subprocess uses pure GIO D-Bus (GTK-agnostic) to implement the SNI protocol, with `Dbusmenu` (GLib API) for context menus. The documentation includes:
+
 - Runtime architecture diagrams showing process boundaries and threading models
 - Complete IPC protocol specification (commands, events, message formats)
 - Sequence diagrams for startup, status updates, and menu actions
@@ -148,6 +152,7 @@ This split is necessary because GTK3 and GTK4 cannot coexist in the same process
 - Security considerations and troubleshooting guides
 
 **When to reference this:**
+
 - Implementing features that update the system tray (status, progress, icons)
 - Debugging IPC communication issues between main app and tray
 - Understanding why certain operations require thread-safe callbacks
@@ -156,6 +161,7 @@ This split is necessary because GTK3 and GTK4 cannot coexist in the same process
 ## Development Commands
 
 ### Setup
+
 ```bash
 # Install system dependencies (Ubuntu/Debian)
 sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
@@ -169,6 +175,7 @@ uv run clamui
 ```
 
 ### Testing
+
 ```bash
 # Run full test suite with coverage
 pytest
@@ -187,6 +194,7 @@ pytest --ignore=tests/e2e
 ```
 
 ### Linting
+
 ```bash
 # Check code style
 uv run ruff check src/ tests/
@@ -204,6 +212,7 @@ Important: Always run `uv run ruff format src/ tests/` and `uv run ruff check --
 ## Code Patterns & Conventions
 
 ### Async Operations (GTK Thread Safety)
+
 All long-running operations use background threads with `GLib.idle_add()` for UI updates:
 
 ```python
@@ -217,6 +226,7 @@ def scan_async(self, path: str, callback: Callable[[ScanResult], None]) -> None:
 ```
 
 ### Scanner Type System
+
 Scanner results use a shared type system defined in `scanner_types.py`:
 
 ```python
@@ -228,6 +238,7 @@ from src.core.scanner_types import ScanStatus, ThreatDetail, ScanResult
 ```
 
 ### Threat Classification
+
 Threats are classified by severity and category using `threat_classifier.py`:
 
 ```python
@@ -238,6 +249,7 @@ severity = classify_threat("Trojan.GenericKD")  # Returns ThreatSeverity.HIGH
 ```
 
 ### Input Sanitization
+
 Always sanitize user input before logging to prevent log injection attacks:
 
 ```python
@@ -249,6 +261,7 @@ safe_path = sanitize_path_for_display(user_provided_path)
 ```
 
 ### Path Validation
+
 Validate paths before file operations, especially with user input:
 
 ```python
@@ -259,6 +272,7 @@ is_safe, target = check_symlink_safety(symlink_path)
 ```
 
 ### Dataclasses for Results
+
 Use `@dataclass` for structured data with properties for computed values:
 
 ```python
@@ -274,6 +288,7 @@ class ScanResult:
 ```
 
 ### Error Handling Pattern
+
 Return tuples of `(success: bool, error_or_value: Optional[str])`:
 
 ```python
@@ -282,6 +297,7 @@ def check_clamav_installed() -> Tuple[bool, Optional[str]]:
 ```
 
 ### Flatpak Support
+
 Commands that execute on the host system must be wrapped:
 
 ```python
@@ -293,17 +309,20 @@ cmd = wrap_host_command(["clamscan", "--version"])
 ```
 
 Additional Flatpak utilities in `flatpak.py`:
+
 - `get_clamav_database_dir()` - Get ClamAV database directory for Flatpak
 - `ensure_clamav_database_dir()` - Create database directory if needed
 - `ensure_freshclam_config()` - Generate freshclam.conf with correct paths
 - `format_flatpak_portal_path()` - Format paths from Flatpak portal
 
 ### GTK4 Widget Patterns
+
 - Inherit from appropriate base class (`Gtk.Box`, `Adw.PreferencesWindow`, etc.)
 - Use `gi.require_version()` before importing
 - Set CSS classes via `add_css_class()`
 
 ### Thread Locks
+
 Use `threading.Lock()` for shared state in managers:
 
 ```python
@@ -317,6 +336,7 @@ class QuarantineManager:
 ```
 
 ### Modular Preferences Pattern
+
 Preferences pages inherit from `PreferencesPageMixin`:
 
 ```python
@@ -329,6 +349,7 @@ class DatabasePage(PreferencesPageMixin):
 ```
 
 ### Reusable Export Dialog Pattern
+
 Use `FileExportHelper` for file export dialogs:
 
 ```python
@@ -343,6 +364,7 @@ FileExportHelper.show_export_dialog(
 ```
 
 ### Pagination Pattern
+
 Use `PaginatedListController` for large lists:
 
 ```python
@@ -357,6 +379,7 @@ controller.set_items(items, create_row_func)
 ```
 
 ### VirusTotal Integration Pattern
+
 Use `VirusTotalClient` for threat analysis:
 
 ```python
@@ -370,6 +393,7 @@ if result.status == VTScanStatus.FOUND:
 ```
 
 ### Secure API Key Storage
+
 Use `KeyringManager` for secure credential storage:
 
 ```python
@@ -383,6 +407,7 @@ key = manager.get_api_key("virustotal")
 ## Testing Guidelines
 
 ### GTK Mocking (conftest.py)
+
 Tests use centralized GTK mocking from `tests/conftest.py`:
 
 ```python
@@ -393,24 +418,28 @@ def test_something(mock_gi_modules):
 ```
 
 ### Fixtures
+
 - `tmp_path`: Pytest's temporary directory (use for file I/O tests)
 - `eicar_file`: EICAR test file for antivirus testing
 - `eicar_directory`: Directory with EICAR + clean files
 - `mock_scanner`: Pre-configured Scanner mock
 
 ### Test File Naming
+
 - Tests mirror source structure: `src/core/scanner.py` -> `tests/core/test_scanner.py`
 - Preferences tests: `src/ui/preferences/scanner_page.py` -> `tests/ui/preferences/test_scanner_page.py`
 - Prefix test methods with `test_`
 - Use descriptive docstrings
 
 ### Coverage Requirements
+
 - **Overall minimum**: 50% (fail_under in pyproject.toml)
 - **Target coverage**: 80%+ for src/core, 70%+ for src/ui
 
 ## Key Modules Reference
 
 ### Scanner (`src/core/scanner.py`)
+
 - Supports three backends: `"auto"`, `"daemon"`, `"clamscan"`
 - Parses ClamAV exit codes: 0=clean, 1=infected, 2=error
 - Uses `scanner_types.py` for result types
@@ -418,17 +447,20 @@ def test_something(mock_gi_modules):
 - Saves scan logs via `LogManager`
 
 ### Scanner Types (`src/core/scanner_types.py`)
+
 - `ScanStatus` enum: CLEAN, INFECTED, ERROR, CANCELLED
 - `ThreatDetail` dataclass: file_path, threat_name, severity, category
 - `ScanResult` dataclass: status, threats, scanned_count, with computed properties
 
 ### Threat Classifier (`src/core/threat_classifier.py`)
+
 - `ThreatSeverity` enum: CRITICAL, HIGH, MEDIUM, LOW
 - Pattern-based classification for 70+ threat types
 - Category mapping (Trojan, Ransomware, Adware, etc.)
 - `classify_threat()` and `get_threat_category()` functions
 
 ### VirusTotal Client (`src/core/virustotal.py`)
+
 - `VirusTotalClient` class with API v3 support
 - SHA256 hash lookups for known files
 - File upload for unknown files (up to 32MB)
@@ -438,51 +470,60 @@ def test_something(mock_gi_modules):
 - `VTScanResult` dataclass with detection details
 
 ### Sanitization (`src/core/sanitize.py`)
+
 - `sanitize_log_line()` - Removes ANSI, control chars, null bytes
 - `sanitize_path_for_display()` - Safe path display
 - Prevents log injection attacks
 - Removes Unicode bidirectional overrides
 
 ### Path Validation (`src/core/path_validation.py`)
+
 - `validate_path()` - Validates path existence and permissions
 - `check_symlink_safety()` - Checks symlink targets
 - `validate_drag_drop_paths()` - Validates file manager drops
 - `get_path_metadata()` - Extracts file metadata
 
 ### ClamAV Detection (`src/core/clamav_detection.py`)
+
 - `check_clamav_installed()` - Check installation and version
 - `find_clamav_binary()` - Locate ClamAV executables
 - `check_clamd_connection()` - Test daemon connectivity
 
 ### Keyring Manager (`src/core/keyring_manager.py`)
+
 - Secure storage using system keyring (GNOME Keyring, KWallet)
 - Fallback to settings.json when keyring unavailable
 - `get_api_key()`, `set_api_key()`, `delete_api_key()`
 
 ### Scheduler (`src/core/scheduler.py`)
+
 - Detects systemd vs cron availability
 - Creates systemd user timers or crontab entries
 - Validates paths for injection attacks
 - Uses `shlex.quote()` for safe command building
 
 ### QuarantineManager (`src/core/quarantine/manager.py`)
+
 - Orchestrates `QuarantineDatabase` + `SecureFileHandler`
 - Uses `ConnectionPool` for efficient database access
 - Verifies file integrity via SHA-256 hashing
 - Supports async operations with callbacks
 
 ### ProfileManager (`src/profiles/profile_manager.py`)
+
 - Creates default profiles on first run (Quick Scan, Full Scan, Home Folder)
 - Validates names, paths, and exclusion patterns
 - Supports import/export with duplicate name handling
 
 ### ClamUIApp (`src/app.py`)
+
 - Main `Adw.Application` class
 - Manages view lifecycle and navigation
-- Handles tray integration via subprocess (GTK3/GTK4 cannot coexist)
+- Handles tray integration via subprocess (GIO D-Bus for SNI protocol)
 - Implements start-minimized functionality
 
 ### Preferences System (`src/ui/preferences/`)
+
 - `PreferencesWindow` - Main window orchestrating all pages
 - `PreferencesPageMixin` - Base class with shared utilities
 - Individual page classes for each settings category:
@@ -496,18 +537,21 @@ def test_something(mock_gi_modules):
   - `SavePage` - Save & apply with permission elevation
 
 ### UI Helpers (`src/ui/view_helpers.py`)
+
 - `StatusLevel` enum for consistent styling
 - `set_status_class()` for status banners
 - `create_empty_state()` for empty list states
 - Loading indicator helpers
 
 ### Pagination (`src/ui/pagination.py`)
+
 - `PaginatedListController` class
 - Configurable batch sizes and initial limits
 - "Show More"/"Show All" controls
 - Used by logs_view.py and quarantine_view.py
 
 ### File Export (`src/ui/file_export.py`)
+
 - `FileExportHelper` class
 - `FileFilter` dataclass for file type filters
 - Async file selection with cancellation
@@ -516,6 +560,7 @@ def test_something(mock_gi_modules):
 ## Configuration & Settings
 
 ### Settings Location
+
 - XDG compliant: `~/.config/clamui/settings.json`
 - Profiles: `~/.config/clamui/profiles.json`
 - Quarantine DB: `~/.local/share/clamui/quarantine.db`
@@ -523,22 +568,25 @@ def test_something(mock_gi_modules):
 - Logs: `~/.local/share/clamui/logs/`
 
 ### Key Settings
+
 ```json
 {
-  "scan_backend": "auto",       // "auto", "daemon", "clamscan"
+  "scan_backend": "auto", // "auto", "daemon", "clamscan"
   "start_minimized": false,
   "minimize_to_tray": false,
   "show_notifications": true,
-  "exclusion_patterns": [],     // Global exclusions
-  "virustotal_enabled": false,  // VirusTotal integration
+  "exclusion_patterns": [], // Global exclusions
+  "virustotal_enabled": false, // VirusTotal integration
   "virustotal_auto_submit": false
 }
 ```
 
 #### Scan Backend Options
+
 The `scan_backend` setting determines how ClamUI communicates with ClamAV to perform virus scans. This affects scan performance, memory usage, and system requirements.
 
 **Available Options:**
+
 - **`"auto"`** (default, recommended): Intelligently selects daemon backend if available, falls back to clamscan otherwise. Runs daemon availability check at the start of each scan (adds ~50-100ms overhead). Provides best experience for most users with zero configuration.
 
 - **`"daemon"`**: Uses ClamAV daemon (clamd) for fast scanning with in-memory virus database. Provides instant scan startup and parallel scanning capabilities via `--multiscan` and `--fdpass`. Requires clamd service to be running and configured. Best for frequent scanning, servers, and performance-critical environments.
@@ -546,11 +594,13 @@ The `scan_backend` setting determines how ClamUI communicates with ClamAV to per
 - **`"clamscan"`**: Uses standalone clamscan command-line tool. Loads virus database for each scan (3-10 second startup overhead). No daemon required - always available on any ClamAV installation. Best for occasional scanning, troubleshooting, or when daemon setup is impractical.
 
 **Performance Characteristics:**
+
 - **Daemon**: Instant startup, ~100-500 MB persistent memory, parallel scanning support
 - **Clamscan**: 3-10 sec startup, ~200-400 MB per scan (released after scan), single-threaded
 - **Auto**: Variable performance based on daemon availability
 
 **For detailed information**, see [docs/SCAN_BACKENDS.md](docs/SCAN_BACKENDS.md) which includes:
+
 - Comprehensive pros/cons for each backend
 - Performance comparison tables and real-world examples
 - Setup instructions for daemon backend
@@ -560,11 +610,13 @@ The `scan_backend` setting determines how ClamUI communicates with ClamAV to per
 ## CI/CD Workflows
 
 ### test.yml
+
 - Runs on Python 3.10, 3.11, 3.12
 - Uses xvfb for headless GTK testing
 - Uploads coverage report on Python 3.12
 
 ### lint.yml
+
 - Runs Ruff linting and format checking
 - Configured rules in pyproject.toml
 
@@ -582,6 +634,7 @@ The `scan_backend` setting determines how ClamUI communicates with ClamAV to per
 ## Common Tasks
 
 ### Adding a New View
+
 1. Create `src/ui/new_view.py` inheriting from `Gtk.Box` or similar
 2. Add view instance in `app.py:do_activate()`
 3. Add action in `app.py:_setup_actions()`
@@ -589,6 +642,7 @@ The `scan_backend` setting determines how ClamUI communicates with ClamAV to per
 5. Write tests in `tests/ui/test_new_view.py`
 
 ### Adding a Core Feature
+
 1. Create module in `src/core/`
 2. Use dataclasses for results, enums for statuses
 3. Implement both sync and async methods
@@ -597,12 +651,14 @@ The `scan_backend` setting determines how ClamUI communicates with ClamAV to per
 6. Write comprehensive tests
 
 ### Adding a Preferences Page
+
 1. Create `src/ui/preferences/new_page.py` inheriting from `PreferencesPageMixin`
 2. Implement `create_page()` class method
 3. Add page instantiation in `PreferencesWindow.__init__()`
 4. Write tests in `tests/ui/preferences/test_new_page.py`
 
 ### Modifying Scan Profiles
+
 1. Default profiles defined in `ProfileManager.DEFAULT_PROFILES`
 2. Validation in `_validate_profile()`, `_validate_targets()`, `_validate_exclusions()`
 3. Storage in `ProfileStorage` using atomic file writes
@@ -628,6 +684,7 @@ clamui-scheduled-scan = "src.cli.scheduled_scan:main"
 ## Dependencies
 
 Key runtime dependencies:
+
 - `PyGObject` - GTK4/Adwaita bindings (provided by system/runtime)
 - `keyring>=25.0.0` - Secure credential storage
 
@@ -636,10 +693,12 @@ Key runtime dependencies:
 ### Flatpak Python Dependencies
 
 Python dependencies for the Flatpak build are managed using:
+
 - **Build dependencies**: `flatpak-pip-generator` from [flatpak-builder-tools](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip)
 - **Runtime dependencies**: `req2flatpak` (prefers binary wheels for faster builds)
 
 **Files:**
+
 - `flathub/requirements-build.txt` - Build dependencies (hatchling)
 - `flathub/requirements-runtime.txt` - Runtime dependencies with minimum versions
 - `flathub/requirements-runtime-pinned.txt` - Pinned versions for req2flatpak
@@ -651,6 +710,7 @@ Python dependencies for the Flatpak build are managed using:
 ### Flatpak-Specific Code
 
 The `src/core/flatpak.py` module handles Flatpak-specific functionality:
+
 - `is_flatpak()` - Detect if running in Flatpak sandbox
 - `wrap_host_command()` - Wrap commands for host execution
 - `get_clamav_database_dir()` - Get writable database directory
