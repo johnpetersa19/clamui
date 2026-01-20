@@ -321,6 +321,25 @@ Additional Flatpak utilities in `flatpak.py`:
 - Use `gi.require_version()` before importing
 - Set CSS classes via `add_css_class()`
 
+### Icon Usage (Adwaita Only)
+
+Always use standard Adwaita symbolic icons. Never use:
+
+- Application-specific icons (e.g., `org.gnome.Nautilus-symbolic`)
+- KDE/Breeze icons
+- Non-standard icon names
+
+**Safe Adwaita icons for common use cases:**
+
+- File/folder: `folder-symbolic`, `folder-open-symbolic`
+- Info: `dialog-information-symbolic`
+- Warning: `dialog-warning-symbolic`
+- Error: `dialog-error-symbolic`
+- Settings: `preferences-system-symbolic`
+- Security: `security-high-symbolic`, `security-medium-symbolic`
+
+Reference: https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/named-icons.html
+
 ### Thread Locks
 
 Use `threading.Lock()` for shared state in managers:

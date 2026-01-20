@@ -158,9 +158,7 @@ class FileManagerIntegrationDialog(Adw.Dialog):
             # No file managers detected
             no_fm_row = Adw.ActionRow()
             no_fm_row.set_title("No supported file managers detected")
-            no_fm_row.set_subtitle(
-                "ClamUI supports Nemo, Nautilus, and Dolphin file managers."
-            )
+            no_fm_row.set_subtitle("ClamUI supports Nemo, Nautilus, and Dolphin file managers.")
 
             warning_icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
             warning_icon.add_css_class("dim-label")
@@ -210,11 +208,11 @@ class FileManagerIntegrationDialog(Adw.Dialog):
             Icon name string.
         """
         icons = {
-            FileManager.NEMO: "system-file-manager-symbolic",
-            FileManager.NAUTILUS: "org.gnome.Nautilus-symbolic",
-            FileManager.DOLPHIN: "system-file-manager-symbolic",
+            FileManager.NEMO: "folder-symbolic",
+            FileManager.NAUTILUS: "folder-symbolic",
+            FileManager.DOLPHIN: "folder-symbolic",
         }
-        return icons.get(file_manager, "system-file-manager-symbolic")
+        return icons.get(file_manager, "folder-symbolic")
 
     def _create_actions_section(self, preferences_page: Adw.PreferencesPage):
         """Create the action buttons section."""
@@ -240,18 +238,6 @@ class FileManagerIntegrationDialog(Adw.Dialog):
         button_box.append(install_button)
 
         actions_group.add(button_box)
-
-        # Don't ask again option
-        self._dont_ask_switch = Adw.SwitchRow()
-        self._dont_ask_switch.set_title("Don't ask again")
-        self._dont_ask_switch.set_subtitle("Skip this dialog on future launches")
-        self._dont_ask_switch.set_active(False)
-
-        settings_icon = Gtk.Image.new_from_icon_name("preferences-system-symbolic")
-        settings_icon.add_css_class("dim-label")
-        self._dont_ask_switch.add_prefix(settings_icon)
-
-        actions_group.add(self._dont_ask_switch)
 
         preferences_page.add(actions_group)
 
@@ -286,13 +272,7 @@ class FileManagerIntegrationDialog(Adw.Dialog):
         self._save_preference_and_close()
 
     def _save_preference_and_close(self):
-        """Save the 'don't ask again' preference and close."""
-        if self._settings_manager and self._dont_ask_switch.get_active():
-            self._settings_manager.set("file_manager_integration_prompted", True)
-            logger.info("File manager integration prompt disabled for future launches")
-
-        # Mark as prompted even if "don't ask again" wasn't checked
-        # (we still prompted the user this time)
+        """Save the prompted preference and close."""
         if self._settings_manager:
             self._settings_manager.set("file_manager_integration_prompted", True)
 
