@@ -96,6 +96,16 @@
   </keywords>
 
   <releases>
+    <release version="0.1.2" date="2026-01-20">
+      <description>
+        <p>Flatpak Improvements</p>
+        <ul>
+          <li>Fixed bugs related to Flatpak installation and execution</li>
+          <li>Improved Flatpak integration with host system</li>
+          <li>Enhanced Flatpak support for tray icon, keyring and notifications</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.1b" date="2026-01-17">
       <description>
         <p>Bug fix release</p>
