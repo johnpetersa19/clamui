@@ -282,7 +282,7 @@ class ClamUIApp(Adw.Application):
 
         # Show file manager integration dialog on first Flatpak run
         if is_new_window:
-            self._maybe_show_file_manager_integration_dialog()
+            self._maybe_show_file_manager_integration_dialog(win)
 
         # Process any initial scan paths from CLI (e.g., from context menu)
         self._process_initial_scan_paths()
@@ -364,7 +364,7 @@ class ClamUIApp(Adw.Application):
         if db_dir is not None:
             logger.info(f"ClamAV database directory: {db_dir}")
 
-    def _maybe_show_file_manager_integration_dialog(self):
+    def _maybe_show_file_manager_integration_dialog(self, win: "MainWindow"):
         """
         Show file manager integration dialog on first Flatpak run.
 
@@ -394,15 +394,13 @@ class ClamUIApp(Adw.Application):
             return
 
         # Show the integration dialog
-        win = self.props.active_window
-        if win:
-            from .ui.file_manager_integration_dialog import FileManagerIntegrationDialog
+        from .ui.file_manager_integration_dialog import FileManagerIntegrationDialog
 
-            dialog = FileManagerIntegrationDialog(
-                settings_manager=self._settings_manager,
-            )
-            dialog.present(win)
-            logger.info("Showing file manager integration dialog")
+        dialog = FileManagerIntegrationDialog(
+            settings_manager=self._settings_manager,
+        )
+        dialog.present(win)
+        logger.info("Showing file manager integration dialog")
 
     def _setup_actions(self):
         """Set up application-level actions."""
