@@ -7,11 +7,11 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, GLib, GObject, Gtk
 
 from ..core.log_manager import DaemonStatus, LogEntry, LogManager
 from ..core.statistics_calculator import StatisticsCalculator
-from ..core.utils import copy_to_clipboard
+from .clipboard_helper import ClipboardHelper
 from .file_export import CSV_FILTER, JSON_FILTER, TEXT_FILTER, FileExportHelper
 from .fullscreen_dialog import FullscreenLogDialog
 from .pagination import PaginatedListController
@@ -21,6 +21,116 @@ from .view_helpers import EmptyStateConfig, create_empty_state, create_loading_r
 # Backward compatibility constants for tests
 INITIAL_LOG_DISPLAY_LIMIT = PaginatedListController.DEFAULT_INITIAL_LIMIT
 LOAD_MORE_LOG_BATCH_SIZE = PaginatedListController.DEFAULT_BATCH_SIZE
+
+
+class ClearLogsDialog(Adw.Window):
+    """
+    Confirmation dialog for clearing all logs.
+
+    Uses Adw.Window instead of Adw.MessageDialog for compatibility with
+    libadwaita < 1.5 (Ubuntu 22.04, Pop!_OS 22.04).
+
+    Usage:
+        def on_response(dialog, response):
+            if response == "clear":
+                # Clear the logs
+                pass
+
+        dialog = ClearLogsDialog()
+        dialog.connect("response", on_response)
+        dialog.set_transient_for(parent_window)
+        dialog.present()
+    """
+
+    __gsignals__ = {"response": (GObject.SignalFlags.RUN_LAST, None, (str,))}
+
+    def __init__(self, **kwargs):
+        """Initialize the clear logs confirmation dialog."""
+        super().__init__(**kwargs)
+
+        self._heading = "Clear All Logs?"
+        self._body = (
+            "This will permanently delete all historical logs. This action cannot be undone."
+        )
+
+        self.set_title(self._heading)
+        self.set_default_size(400, -1)  # Natural height
+
+        # Configure as modal dialog
+        self.set_modal(True)
+        self.set_deletable(True)
+
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Set up the dialog UI."""
+        # Create main container with toolbar view for header bar
+        toolbar_view = Adw.ToolbarView()
+
+        # Create header bar
+        header_bar = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header_bar)
+
+        # Main content box
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        content_box.set_margin_top(12)
+        content_box.set_margin_bottom(24)
+
+        # Warning icon
+        warning_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
+        warning_icon.set_pixel_size(48)
+        warning_icon.add_css_class("warning")
+        warning_icon.set_halign(Gtk.Align.CENTER)
+        content_box.append(warning_icon)
+
+        # Body text
+        body_label = Gtk.Label()
+        body_label.set_text(self._body)
+        body_label.set_wrap(True)
+        body_label.set_xalign(0.5)
+        body_label.set_justify(Gtk.Justification.CENTER)
+        content_box.append(body_label)
+
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        button_box.set_halign(Gtk.Align.CENTER)
+        button_box.set_margin_top(12)
+
+        # Cancel button
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", self._on_cancel_clicked)
+        button_box.append(cancel_button)
+
+        # Clear All button
+        clear_button = Gtk.Button(label="Clear All")
+        clear_button.add_css_class("destructive-action")
+        clear_button.connect("clicked", self._on_clear_clicked)
+        button_box.append(clear_button)
+
+        content_box.append(button_box)
+
+        toolbar_view.set_content(content_box)
+        self.set_content(toolbar_view)
+
+    def _on_cancel_clicked(self, button):
+        """Handle cancel button click."""
+        self.emit("response", "cancel")
+        self.close()
+
+    def _on_clear_clicked(self, button):
+        """Handle clear button click."""
+        self.emit("response", "clear")
+        self.close()
+
+    def get_heading(self) -> str:
+        """Get the dialog heading/title (for test compatibility)."""
+        return self._heading
+
+    def get_body(self) -> str:
+        """Get the dialog body text (for test compatibility)."""
+        return self._body
 
 
 class LogsView(Gtk.Box):
@@ -49,9 +159,7 @@ class LogsView(Gtk.Box):
         self._log_manager = LogManager()
 
         # Initialize statistics calculator
-        self._statistics_calculator = StatisticsCalculator(
-            log_manager=self._log_manager
-        )
+        self._statistics_calculator = StatisticsCalculator(log_manager=self._log_manager)
 
         # Currently selected log entry
         self._selected_log: LogEntry | None = None
@@ -188,9 +296,7 @@ class LogsView(Gtk.Box):
 
         # Export to CSV button
         export_csv_button = Gtk.Button()
-        export_csv_button.set_icon_name(
-            resolve_icon_name("x-office-spreadsheet-symbolic")
-        )
+        export_csv_button.set_icon_name(resolve_icon_name("x-office-spreadsheet-symbolic"))
         export_csv_button.set_tooltip_text("Export all logs to CSV")
         export_csv_button.add_css_class("flat")
         export_csv_button.set_sensitive(False)  # Disabled until logs are loaded
@@ -292,9 +398,7 @@ class LogsView(Gtk.Box):
 
         # Export to CSV button
         export_csv_button = Gtk.Button()
-        export_csv_button.set_icon_name(
-            resolve_icon_name("x-office-spreadsheet-symbolic")
-        )
+        export_csv_button.set_icon_name(resolve_icon_name("x-office-spreadsheet-symbolic"))
         export_csv_button.set_tooltip_text("Export to CSV file")
         export_csv_button.add_css_class("flat")
         export_csv_button.set_sensitive(False)  # Disabled until log selected
@@ -388,15 +492,11 @@ class LogsView(Gtk.Box):
         self._daemon_status_row = Adw.ActionRow()
         self._daemon_status_row.set_title("Daemon Status")
         self._daemon_status_row.set_subtitle("Checking...")
-        self._daemon_status_icon = add_row_icon(
-            self._daemon_status_row, "dialog-question-symbolic"
-        )
+        self._daemon_status_icon = add_row_icon(self._daemon_status_row, "dialog-question-symbolic")
 
         # Refresh toggle button for live updates
         self._live_toggle = Gtk.ToggleButton()
-        self._live_toggle.set_icon_name(
-            resolve_icon_name("media-playback-start-symbolic")
-        )
+        self._live_toggle.set_icon_name(resolve_icon_name("media-playback-start-symbolic"))
         self._live_toggle.set_tooltip_text("Start live log updates")
         self._live_toggle.set_valign(Gtk.Align.CENTER)
         self._live_toggle.connect("toggled", self._on_live_toggle)
@@ -589,9 +689,7 @@ class LogsView(Gtk.Box):
             status_icon.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             status_icon.add_css_class("error")
         else:
-            status_icon.set_from_icon_name(
-                resolve_icon_name("dialog-information-symbolic")
-            )
+            status_icon.set_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
         status_icon.set_valign(Gtk.Align.CENTER)
         row.add_suffix(status_icon)
 
@@ -676,9 +774,7 @@ class LogsView(Gtk.Box):
                     lines.append(f"  Files Scanned: {stats['files_scanned']:,}")
 
                 if stats["directories_scanned"] > 0:
-                    lines.append(
-                        f"  Directories Scanned: {stats['directories_scanned']:,}"
-                    )
+                    lines.append(f"  Directories Scanned: {stats['directories_scanned']:,}")
 
                 if stats["duration"] > 0:
                     # Format duration nicely
@@ -731,6 +827,7 @@ class LogsView(Gtk.Box):
         Handle copy to clipboard button click for log details.
 
         Copies the currently displayed log details to the system clipboard.
+        Uses ClipboardHelper for size-aware copying with appropriate feedback.
         """
         if self._selected_log is None:
             return
@@ -741,17 +838,14 @@ class LogsView(Gtk.Box):
         end = buffer.get_end_iter()
         content = buffer.get_text(start, end, False)
 
-        # Copy to clipboard
-        success = copy_to_clipboard(content)
-
-        # Show feedback via toast (find the parent window to show toast)
-        window = self.get_root()
-        if hasattr(window, "add_toast"):
-            if success:
-                toast = Adw.Toast.new("Log details copied to clipboard")
-            else:
-                toast = Adw.Toast.new("Failed to copy to clipboard")
-            window.add_toast(toast)
+        # Copy with size-aware feedback (redirects to export for large content)
+        helper = ClipboardHelper(parent_widget=self)
+        helper.copy_with_feedback(
+            text=content,
+            success_message="Log details copied to clipboard",
+            error_message="Failed to copy to clipboard",
+            on_too_large=lambda: self._on_export_detail_text_clicked(button),
+        )
 
     def _on_export_detail_text_clicked(self, button: Gtk.Button):
         """
@@ -806,9 +900,7 @@ class LogsView(Gtk.Box):
             dialog_title="Export Log Details as JSON",
             filename_prefix="clamui_log",
             file_filter=JSON_FILTER,
-            content_generator=lambda: self._format_log_entry_as_json(
-                self._selected_log
-            ),
+            content_generator=lambda: self._format_log_entry_as_json(self._selected_log),
         )
         helper.show_save_dialog()
 
@@ -1009,22 +1101,13 @@ class LogsView(Gtk.Box):
 
     def _on_clear_logs_clicked(self, button: Gtk.Button):
         """Handle clear logs button click."""
-        # Show confirmation dialog
-        dialog = Adw.MessageDialog()
-        dialog.set_heading("Clear All Logs?")
-        dialog.set_body(
-            "This will permanently delete all historical logs. This action cannot be undone."
-        )
-        dialog.set_transient_for(self.get_root())
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("clear", "Clear All")
-        dialog.set_response_appearance("clear", Adw.ResponseAppearance.DESTRUCTIVE)
-        dialog.set_default_response("cancel")
-        dialog.set_close_response("cancel")
+        # Show confirmation dialog using ClearLogsDialog for libadwaita < 1.5 compatibility
+        dialog = ClearLogsDialog()
         dialog.connect("response", self._on_clear_dialog_response)
+        dialog.set_transient_for(self.get_root())
         dialog.present()
 
-    def _on_clear_dialog_response(self, dialog: Adw.MessageDialog, response: str):
+    def _on_clear_dialog_response(self, dialog: ClearLogsDialog, response: str):
         """Handle clear confirmation dialog response."""
         if response == "clear":
             self._log_manager.clear_logs()
@@ -1096,9 +1179,7 @@ class LogsView(Gtk.Box):
 
         if status == DaemonStatus.RUNNING:
             self._daemon_status_row.set_subtitle("Running")
-            self._daemon_status_icon.set_from_icon_name(
-                resolve_icon_name("object-select-symbolic")
-            )
+            self._daemon_status_icon.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
             # Remove any warning/error classes and add success
             self._daemon_status_row.remove_css_class("warning")
             self._daemon_status_row.remove_css_class("error")

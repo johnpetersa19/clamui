@@ -5,11 +5,118 @@ Clipboard operations for ClamUI.
 This module provides functions for:
 - Copying text to the system clipboard using GTK4 clipboard API
 - Supporting both regular desktop and Flatpak environments
+- Size-based tiered clipboard operations to prevent UI freezes
+- Async clipboard operations for large content
 """
 
 import logging
+import threading
+from collections.abc import Callable
+from dataclasses import dataclass
+from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+# Size thresholds for clipboard operations
+CLIPBOARD_SYNC_THRESHOLD = 1 * 1024 * 1024  # 1 MB - sync copy is safe
+CLIPBOARD_ASYNC_THRESHOLD = 10 * 1024 * 1024  # 10 MB - async copy with feedback
+# Above CLIPBOARD_ASYNC_THRESHOLD: suggest file export instead
+
+
+class ClipboardResult(Enum):
+    """Result status for clipboard operations."""
+
+    SUCCESS = "success"
+    ERROR = "error"
+    TOO_LARGE = "too_large"
+
+
+@dataclass
+class ClipboardOperationResult:
+    """Result of a clipboard operation with details."""
+
+    status: ClipboardResult
+    message: str
+    size_bytes: int
+
+    @property
+    def is_success(self) -> bool:
+        """Check if the operation was successful."""
+        return self.status == ClipboardResult.SUCCESS
+
+    @property
+    def is_too_large(self) -> bool:
+        """Check if the content was too large for clipboard."""
+        return self.status == ClipboardResult.TOO_LARGE
+
+
+def get_text_size(text: str) -> int:
+    """
+    Get the size of text in bytes (UTF-8 encoded).
+
+    Args:
+        text: The text to measure
+
+    Returns:
+        Size in bytes
+    """
+    if not text:
+        return 0
+    return len(text.encode("utf-8"))
+
+
+def format_size(size_bytes: int) -> str:
+    """
+    Format a byte size as a human-readable string.
+
+    Args:
+        size_bytes: Size in bytes
+
+    Returns:
+        Human-readable size string (e.g., "1.5 MB", "256 KB")
+    """
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
+
+
+def _do_clipboard_set(text: str) -> bool:
+    """
+    Perform the actual clipboard set operation.
+
+    This is the low-level operation that interacts with GTK.
+
+    Args:
+        text: The text to copy
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        import gi
+
+        gi.require_version("Gdk", "4.0")
+        from gi.repository import Gdk
+
+        display = Gdk.Display.get_default()
+        if display is None:
+            return False
+
+        clipboard = display.get_clipboard()
+        if clipboard is None:
+            return False
+
+        clipboard.set(text)
+        return True
+
+    except Exception as e:
+        logger.debug("Failed to copy to clipboard: %s", e)
+        return False
 
 
 def copy_to_clipboard(text: str) -> bool:
@@ -18,6 +125,10 @@ def copy_to_clipboard(text: str) -> bool:
 
     Uses the default display's clipboard to copy text content.
     This works in both regular desktop and Flatpak environments.
+
+    Note: This is a synchronous operation. For large content (>1 MB),
+    consider using copy_to_clipboard_with_result() or copy_to_clipboard_async()
+    to avoid UI freezes.
 
     Args:
         text: The text content to copy to the clipboard
@@ -35,28 +146,170 @@ def copy_to_clipboard(text: str) -> bool:
     if not text:
         return False
 
-    try:
-        # Import GTK/GDK for clipboard access
-        import gi
+    return _do_clipboard_set(text)
 
-        gi.require_version("Gdk", "4.0")
-        from gi.repository import Gdk
 
-        # Get the default display
-        display = Gdk.Display.get_default()
-        if display is None:
-            return False
+def copy_to_clipboard_with_result(text: str) -> ClipboardOperationResult:
+    """
+    Copy text to clipboard with detailed result information.
 
-        # Get the clipboard
-        clipboard = display.get_clipboard()
-        if clipboard is None:
-            return False
+    Performs size validation and returns structured result with
+    status, message, and size information.
 
-        # Set the text content
-        clipboard.set(text)
+    Args:
+        text: The text content to copy
 
-        return True
+    Returns:
+        ClipboardOperationResult with status, message, and size_bytes
 
-    except Exception as e:
-        logger.debug("Failed to copy to clipboard: %s", e)
-        return False
+    Example:
+        >>> result = copy_to_clipboard_with_result("Hello")
+        >>> result.is_success
+        True
+        >>> result.size_bytes
+        5
+    """
+    if not text:
+        return ClipboardOperationResult(
+            status=ClipboardResult.ERROR,
+            message="No content to copy",
+            size_bytes=0,
+        )
+
+    size_bytes = get_text_size(text)
+
+    # Check if content is too large for clipboard
+    if size_bytes > CLIPBOARD_ASYNC_THRESHOLD:
+        return ClipboardOperationResult(
+            status=ClipboardResult.TOO_LARGE,
+            message=f"Content too large ({format_size(size_bytes)}). "
+            "Consider exporting to a file instead.",
+            size_bytes=size_bytes,
+        )
+
+    # Perform the copy
+    success = _do_clipboard_set(text)
+
+    if success:
+        return ClipboardOperationResult(
+            status=ClipboardResult.SUCCESS,
+            message="Copied to clipboard",
+            size_bytes=size_bytes,
+        )
+    else:
+        return ClipboardOperationResult(
+            status=ClipboardResult.ERROR,
+            message="Failed to access clipboard",
+            size_bytes=size_bytes,
+        )
+
+
+def copy_to_clipboard_async(
+    text: str,
+    callback: Callable[[ClipboardOperationResult], None],
+) -> None:
+    """
+    Copy text to clipboard asynchronously with callback notification.
+
+    Runs the clipboard operation in a background thread to avoid
+    blocking the UI. The callback is invoked on the main thread
+    via GLib.idle_add() when the operation completes.
+
+    This is recommended for content between 1-10 MB where the
+    operation might take 10-100ms.
+
+    Args:
+        text: The text content to copy
+        callback: Function called with ClipboardOperationResult when done.
+                 Called on the main GTK thread.
+
+    Example:
+        def on_copy_done(result):
+            if result.is_success:
+                show_toast("Copied!")
+            else:
+                show_toast(result.message)
+
+        copy_to_clipboard_async(large_text, on_copy_done)
+    """
+    if not text:
+        # For empty text, call callback immediately (no need for thread)
+        result = ClipboardOperationResult(
+            status=ClipboardResult.ERROR,
+            message="No content to copy",
+            size_bytes=0,
+        )
+        callback(result)
+        return
+
+    size_bytes = get_text_size(text)
+
+    # Check if content is too large
+    if size_bytes > CLIPBOARD_ASYNC_THRESHOLD:
+        result = ClipboardOperationResult(
+            status=ClipboardResult.TOO_LARGE,
+            message=f"Content too large ({format_size(size_bytes)}). "
+            "Consider exporting to a file instead.",
+            size_bytes=size_bytes,
+        )
+        callback(result)
+        return
+
+    def thread_target():
+        """Background thread that performs the clipboard operation."""
+        success = _do_clipboard_set(text)
+
+        if success:
+            result = ClipboardOperationResult(
+                status=ClipboardResult.SUCCESS,
+                message="Copied to clipboard",
+                size_bytes=size_bytes,
+            )
+        else:
+            result = ClipboardOperationResult(
+                status=ClipboardResult.ERROR,
+                message="Failed to access clipboard",
+                size_bytes=size_bytes,
+            )
+
+        # Schedule callback on main thread
+        try:
+            from gi.repository import GLib
+
+            GLib.idle_add(callback, result)
+        except Exception:
+            # If GLib isn't available, call directly (for testing)
+            callback(result)
+
+    thread = threading.Thread(target=thread_target, daemon=True)
+    thread.start()
+
+
+def get_clipboard_size_tier(text: str) -> str:
+    """
+    Determine which size tier the text falls into.
+
+    Useful for deciding which clipboard operation to use.
+
+    Args:
+        text: The text to check
+
+    Returns:
+        One of "sync", "async", or "too_large"
+
+    Example:
+        >>> tier = get_clipboard_size_tier(small_text)
+        >>> if tier == "sync":
+        ...     copy_to_clipboard(small_text)
+    """
+    if not text:
+        return "sync"
+
+    size_bytes = get_text_size(text)
+
+    if size_bytes <= CLIPBOARD_SYNC_THRESHOLD:
+        return "sync"
+    elif size_bytes <= CLIPBOARD_ASYNC_THRESHOLD:
+        return "async"
+    else:
+        return "too_large"

@@ -975,25 +975,18 @@ class TestLogsViewCopyExport:
 
     def test_on_copy_detail_clicked_with_no_selection(self, logs_view_class):
         """Test that copy does nothing when no log selected."""
-        with mock.patch.dict(
-            sys.modules,
-            {
-                "src.core.utils": mock.MagicMock(),
-            },
-        ):
-            from src.core.utils import copy_to_clipboard
+        view = object.__new__(logs_view_class)
+        view._selected_log = None
 
-            view = object.__new__(logs_view_class)
-            view._selected_log = None
-
+        # Should return early without creating ClipboardHelper
+        with mock.patch("src.ui.logs_view.ClipboardHelper") as mock_helper:
             view._on_copy_detail_clicked(mock.MagicMock())
-
-            copy_to_clipboard.assert_not_called()
+            mock_helper.assert_not_called()
 
     def test_on_copy_detail_clicked_copies_content(
         self, logs_view_class, mock_log_entry
     ):
-        """Test that copy copies content to clipboard."""
+        """Test that copy copies content to clipboard via ClipboardHelper."""
         view = object.__new__(logs_view_class)
         view._selected_log = mock_log_entry
         view._detail_text = mock.MagicMock()
@@ -1004,11 +997,19 @@ class TestLogsViewCopyExport:
         view._detail_text.get_buffer.return_value = mock_buffer
         view.get_root = mock.MagicMock(return_value=None)
 
-        # Patch copy_to_clipboard on the logs_view module's reference
-        with mock.patch("src.ui.logs_view.copy_to_clipboard") as mock_copy:
-            mock_copy.return_value = True
+        # Patch ClipboardHelper to verify it's called with correct content
+        with mock.patch("src.ui.logs_view.ClipboardHelper") as mock_helper_class:
+            mock_helper = mock.MagicMock()
+            mock_helper_class.return_value = mock_helper
+
             view._on_copy_detail_clicked(mock.MagicMock())
-            mock_copy.assert_called_once_with("log content")
+
+            mock_helper_class.assert_called_once_with(parent_widget=view)
+            mock_helper.copy_with_feedback.assert_called_once()
+            # Verify the text argument
+            call_kwargs = mock_helper.copy_with_feedback.call_args.kwargs
+            assert call_kwargs["text"] == "log content"
+            assert call_kwargs["success_message"] == "Log details copied to clipboard"
 
     def test_on_export_detail_text_clicked_with_no_selection(self, logs_view_class):
         """Test that export does nothing when no log selected."""

@@ -14,9 +14,12 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk
 
+from ..core.clipboard import copy_to_clipboard
 from ..core.quarantine import QuarantineManager, QuarantineStatus
 from ..core.scanner import ScanResult, ScanStatus, ThreatDetail
-from ..core.utils import copy_to_clipboard, format_flatpak_portal_path
+from ..core.utils import format_flatpak_portal_path
+from .clipboard_helper import ClipboardHelper
+from .file_export import TEXT_FILTER, FileExportHelper
 from .utils import resolve_icon_name
 
 if TYPE_CHECKING:
@@ -524,13 +527,37 @@ class ScanResultsDialog(Adw.Window):
             self._quarantine_all_button.set_label(f"Quarantine All ({count})")
 
     def _on_export_clicked(self, button: Gtk.Button):
-        """Handle export button click."""
-        # Get the scan output and copy to clipboard
-        if self._scan_result.stdout:
-            copy_to_clipboard(self._scan_result.stdout)
-            self._show_toast("Results copied to clipboard")
-        else:
+        """Handle export button click.
+
+        Uses ClipboardHelper for size-aware copying. For very large scan
+        outputs (>10 MB), redirects to file export instead.
+        """
+        if not self._scan_result.stdout:
             self._show_toast("No results to export")
+            return
+
+        helper = ClipboardHelper(
+            parent_widget=self,
+            toast_manager=self._toast_overlay,
+        )
+        helper.copy_with_feedback(
+            text=self._scan_result.stdout,
+            success_message="Results copied to clipboard",
+            error_message="Failed to copy results",
+            on_too_large=lambda: self._export_results_to_file(button),
+        )
+
+    def _export_results_to_file(self, button: Gtk.Button):
+        """Export scan results to a text file (fallback for large results)."""
+        helper = FileExportHelper(
+            parent_widget=self,
+            dialog_title="Export Scan Results",
+            filename_prefix="clamui_scan_results",
+            file_filter=TEXT_FILTER,
+            content_generator=lambda: self._scan_result.stdout or "",
+            toast_manager=self._toast_overlay,
+        )
+        helper.show_save_dialog()
 
     def _show_toast(self, message: str):
         """Show a toast notification."""
