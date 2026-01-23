@@ -124,6 +124,10 @@ class SettingsManager:
                     # Atomic rename
                     temp_path_obj = Path(temp_path)
                     temp_path_obj.replace(self._settings_file)
+
+                    # Harden file permissions (owner read/write only)
+                    # Settings may contain sensitive data like API keys in fallback storage
+                    self._settings_file.chmod(0o600)
                     return True
                 except Exception:
                     # Clean up temp file on failure

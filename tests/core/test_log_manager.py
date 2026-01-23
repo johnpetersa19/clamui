@@ -407,9 +407,9 @@ Scanned directories: 10
             threat_details=threat_details,
         )
         # Newlines should be removed from file_path (single-line field)
-        assert "\n" not in entry.details or entry.details.count("\n") == entry.details.count(
-            "Threats found"
-        )
+        assert "\n" not in entry.details or entry.details.count(
+            "\n"
+        ) == entry.details.count("Threats found")
         # The injected content should appear on the same line
         assert "malware.exe [CLEAN]" in entry.details
 
@@ -588,6 +588,25 @@ class TestLogManager:
             data = json.load(f)
         assert data["id"] == entry.id
         assert data["type"] == "scan"
+
+    def test_save_log_sets_restrictive_permissions(self, log_manager, temp_log_dir):
+        """Test that save_log sets 0o600 permissions on log files."""
+        entry = LogEntry.create(
+            log_type="scan",
+            status="clean",
+            summary="Test scan",
+            details="Details here",
+        )
+        result = log_manager.save_log(entry)
+
+        assert result is True
+        log_file = Path(temp_log_dir) / f"{entry.id}.json"
+        assert log_file.exists()
+
+        # Verify file permissions are owner read/write only (0o600)
+        # Log files may contain sensitive scan paths
+        file_mode = log_file.stat().st_mode & 0o777
+        assert file_mode == 0o600, f"Expected 0o600, got {oct(file_mode)}"
 
     def test_get_logs_empty(self, log_manager):
         """Test get_logs returns empty list when no logs exist."""
@@ -810,7 +829,9 @@ class TestLogManagerDaemonStatus:
 
     def test_get_daemon_status_running(self, log_manager):
         """Test daemon status when clamd is running."""
-        with mock.patch("src.core.log_manager.which_host_command", return_value="/usr/bin/clamd"):
+        with mock.patch(
+            "src.core.log_manager.which_host_command", return_value="/usr/bin/clamd"
+        ):
             with mock.patch("subprocess.run") as mock_run:
                 mock_run.return_value = mock.Mock(returncode=0)
                 status, message = log_manager.get_daemon_status()
@@ -819,7 +840,9 @@ class TestLogManagerDaemonStatus:
 
     def test_get_daemon_status_stopped(self, log_manager):
         """Test daemon status when clamd is installed but not running."""
-        with mock.patch("src.core.log_manager.which_host_command", return_value="/usr/bin/clamd"):
+        with mock.patch(
+            "src.core.log_manager.which_host_command", return_value="/usr/bin/clamd"
+        ):
             with mock.patch("subprocess.run") as mock_run:
                 mock_run.return_value = mock.Mock(returncode=1)
                 status, message = log_manager.get_daemon_status()
@@ -828,7 +851,9 @@ class TestLogManagerDaemonStatus:
 
     def test_get_daemon_status_unknown_on_error(self, log_manager):
         """Test daemon status returns UNKNOWN on subprocess error."""
-        with mock.patch("src.core.log_manager.which_host_command", return_value="/usr/bin/clamd"):
+        with mock.patch(
+            "src.core.log_manager.which_host_command", return_value="/usr/bin/clamd"
+        ):
             with mock.patch("subprocess.run") as mock_run:
                 mock_run.side_effect = OSError("Test error")
                 status, message = log_manager.get_daemon_status()
@@ -872,9 +897,12 @@ class TestLogManagerDaemonLogs:
             temp_log_path = f.name
 
         try:
-            with mock.patch.object(log_manager, "get_daemon_log_path", return_value=temp_log_path):
+            with mock.patch.object(
+                log_manager, "get_daemon_log_path", return_value=temp_log_path
+            ):
                 with mock.patch(
-                    "src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd
+                    "src.core.log_manager.wrap_host_command",
+                    side_effect=lambda cmd: cmd,
                 ):
                     success, content = log_manager.read_daemon_logs(num_lines=10)
                     assert success is True
@@ -892,9 +920,12 @@ class TestLogManagerDaemonLogs:
             temp_log_path = f.name
 
         try:
-            with mock.patch.object(log_manager, "get_daemon_log_path", return_value=temp_log_path):
+            with mock.patch.object(
+                log_manager, "get_daemon_log_path", return_value=temp_log_path
+            ):
                 with mock.patch(
-                    "src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd
+                    "src.core.log_manager.wrap_host_command",
+                    side_effect=lambda cmd: cmd,
                 ):
                     success, content = log_manager.read_daemon_logs(num_lines=10)
                     assert success is True
@@ -910,9 +941,12 @@ class TestLogManagerDaemonLogs:
             temp_log_path = f.name
 
         try:
-            with mock.patch.object(log_manager, "get_daemon_log_path", return_value=temp_log_path):
+            with mock.patch.object(
+                log_manager, "get_daemon_log_path", return_value=temp_log_path
+            ):
                 with mock.patch(
-                    "src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd
+                    "src.core.log_manager.wrap_host_command",
+                    side_effect=lambda cmd: cmd,
                 ):
                     success, content = log_manager.read_daemon_logs()
                     assert success is True
@@ -1084,7 +1118,10 @@ class TestLogManagerAsync:
 
         with mock.patch("src.core.log_manager.GLib") as mock_glib:
             # Track calls to idle_add without executing
-            mock_glib.idle_add.side_effect = lambda func, *args: (func(*args), callback_event.set())
+            mock_glib.idle_add.side_effect = lambda func, *args: (
+                func(*args),
+                callback_event.set(),
+            )
 
             log_manager.get_logs_async(mock_callback)
             callback_event.wait(timeout=5)
@@ -1198,7 +1235,11 @@ class TestLogManagerIndexInfrastructure:
             "version": 1,
             "entries": [
                 {"id": "test-id-1", "timestamp": "2024-01-01T10:00:00", "type": "scan"},
-                {"id": "test-id-2", "timestamp": "2024-01-02T10:00:00", "type": "update"},
+                {
+                    "id": "test-id-2",
+                    "timestamp": "2024-01-02T10:00:00",
+                    "type": "update",
+                },
             ],
         }
         index_path = Path(temp_log_dir) / "log_index.json"
@@ -1245,7 +1286,9 @@ class TestLogManagerIndexInfrastructure:
             json.dump(index_data, f)
 
         # Mock open to raise PermissionError
-        with mock.patch("builtins.open", side_effect=PermissionError("Permission denied")):
+        with mock.patch(
+            "builtins.open", side_effect=PermissionError("Permission denied")
+        ):
             index = log_manager._load_index()
             assert index["version"] == 1
             assert index["entries"] == []
@@ -1317,7 +1360,9 @@ class TestLogManagerIndexInfrastructure:
         index_data = {"version": 1, "entries": []}
 
         # Mock tempfile.mkstemp to raise PermissionError
-        with mock.patch("tempfile.mkstemp", side_effect=PermissionError("Permission denied")):
+        with mock.patch(
+            "tempfile.mkstemp", side_effect=PermissionError("Permission denied")
+        ):
             result = log_manager._save_index(index_data)
             assert result is False
 
@@ -1336,7 +1381,9 @@ class TestLogManagerIndexInfrastructure:
 
         # Mock Path.replace to fail after temp file is created
         with mock.patch("tempfile.mkstemp", side_effect=track_mkstemp):
-            with mock.patch("pathlib.Path.replace", side_effect=OSError("Simulated failure")):
+            with mock.patch(
+                "pathlib.Path.replace", side_effect=OSError("Simulated failure")
+            ):
                 result = log_manager._save_index(index_data)
                 assert result is False
 
@@ -1772,7 +1819,9 @@ class TestLogManagerIndexMaintenance:
         assert index["version"] == 1
         assert index["entries"] == []
 
-    def test_clear_logs_skips_index_file_during_deletion(self, log_manager, temp_log_dir):
+    def test_clear_logs_skips_index_file_during_deletion(
+        self, log_manager, temp_log_dir
+    ):
         """Test that clear_logs doesn't delete the index file itself."""
         # Create entries
         for i in range(3):
@@ -2225,7 +2274,9 @@ class TestLogManagerIndexValidation:
         # Index with entries (but directory doesn't exist)
         index_data = {
             "version": 1,
-            "entries": [{"id": "test-id", "timestamp": "2024-01-01T00:00:00", "type": "scan"}],
+            "entries": [
+                {"id": "test-id", "timestamp": "2024-01-01T00:00:00", "type": "scan"}
+            ],
         }
 
         # Should be invalid (directory doesn't exist but index has entries)
@@ -2518,7 +2569,9 @@ class TestLogManagerOptimizedGetLogs:
         assert logs[1].summary == "Second"
         assert logs[2].summary == "First"
 
-    def test_get_logs_fallback_to_full_scan_without_index(self, log_manager, temp_log_dir):
+    def test_get_logs_fallback_to_full_scan_without_index(
+        self, log_manager, temp_log_dir
+    ):
         """Test that get_logs() falls back to full scan when index is missing."""
         # Create log entries
         entry1 = LogEntry.create(
@@ -2552,7 +2605,9 @@ class TestLogManagerOptimizedGetLogs:
         assert "Entry 1" in summaries
         assert "Entry 2" in summaries
 
-    def test_get_logs_fallback_to_full_scan_with_empty_index(self, log_manager, temp_log_dir):
+    def test_get_logs_fallback_to_full_scan_with_empty_index(
+        self, log_manager, temp_log_dir
+    ):
         """Test that get_logs() falls back to full scan when index is empty."""
         # Create log entries
         entry = LogEntry.create(
@@ -2781,7 +2836,9 @@ class TestLogManagerOptimizedGetLogs:
         assert "Valid entry 1" in summaries
         assert "Valid entry 2" in summaries
 
-    def test_get_logs_skips_index_file_in_fallback_scan(self, log_manager, temp_log_dir):
+    def test_get_logs_skips_index_file_in_fallback_scan(
+        self, log_manager, temp_log_dir
+    ):
         """Test that get_logs() skips the index file during fallback scan."""
         # Create log entries
         entry = LogEntry.create(
@@ -2872,7 +2929,9 @@ class TestLogManagerOptimizedGetLogs:
         logs = manager.get_logs()
         assert logs == []
 
-    def test_get_logs_consistency_between_index_and_fallback(self, log_manager, temp_log_dir):
+    def test_get_logs_consistency_between_index_and_fallback(
+        self, log_manager, temp_log_dir
+    ):
         """Test that get_logs() returns same results with index and fallback."""
         # Create diverse set of entries
         entries = []
@@ -3318,7 +3377,13 @@ class TestLogManagerAutoMigration:
             json.dump(
                 {
                     "version": 1,
-                    "entries": [{"id": "fake", "timestamp": "2024-01-01T00:00:00", "type": "scan"}],
+                    "entries": [
+                        {
+                            "id": "fake",
+                            "timestamp": "2024-01-01T00:00:00",
+                            "type": "scan",
+                        }
+                    ],
                 },
                 f,
             )
@@ -3853,7 +3918,9 @@ class TestLogManagerMigrationIntegration:
             try:
                 for _i in range(5):
                     logs = manager.get_logs()
-                    results.append(len(logs) >= 10)  # Should have at least original logs
+                    results.append(
+                        len(logs) >= 10
+                    )  # Should have at least original logs
             except Exception as e:
                 errors.append(e)
 
@@ -4238,7 +4305,9 @@ class TestLogManagerExport:
         lines = csv_output.strip().split("\n")
 
         # Duration should be "0" not "0.00"
-        assert ",0," in lines[1] or ",0\n" in csv_output or lines[1].endswith(",0,false")
+        assert (
+            ",0," in lines[1] or ",0\n" in csv_output or lines[1].endswith(",0,false")
+        )
 
     def test_export_logs_to_csv_default_all_logs(self, log_manager):
         """Test CSV export with no entries parameter uses all logs."""
@@ -4423,7 +4492,9 @@ class TestLogManagerExport:
         """Test exporting logs to CSV file."""
         output_path = Path(temp_log_dir) / "export.csv"
 
-        success, error = log_manager.export_logs_to_file(str(output_path), "csv", sample_entries)
+        success, error = log_manager.export_logs_to_file(
+            str(output_path), "csv", sample_entries
+        )
 
         assert success is True
         assert error is None
@@ -4442,7 +4513,9 @@ class TestLogManagerExport:
         """Test exporting logs to JSON file."""
         output_path = Path(temp_log_dir) / "export.json"
 
-        success, error = log_manager.export_logs_to_file(str(output_path), "json", sample_entries)
+        success, error = log_manager.export_logs_to_file(
+            str(output_path), "json", sample_entries
+        )
 
         assert success is True
         assert error is None
@@ -4456,7 +4529,9 @@ class TestLogManagerExport:
         assert len(data["entries"]) == 3
         assert "export_timestamp" in data
 
-    def test_export_logs_to_file_invalid_format(self, log_manager, sample_entries, temp_log_dir):
+    def test_export_logs_to_file_invalid_format(
+        self, log_manager, sample_entries, temp_log_dir
+    ):
         """Test export with invalid format returns error."""
         output_path = Path(temp_log_dir) / "export.txt"
 
@@ -4475,7 +4550,9 @@ class TestLogManagerExport:
         """Test export creates parent directories if they don't exist."""
         output_path = Path(temp_log_dir) / "subdir" / "nested" / "export.csv"
 
-        success, error = log_manager.export_logs_to_file(str(output_path), "csv", sample_entries)
+        success, error = log_manager.export_logs_to_file(
+            str(output_path), "csv", sample_entries
+        )
 
         assert success is True
         assert error is None
@@ -4492,7 +4569,9 @@ class TestLogManagerExport:
         output_path.write_text("old content")
 
         # Export should overwrite
-        success, error = log_manager.export_logs_to_file(str(output_path), "csv", sample_entries)
+        success, error = log_manager.export_logs_to_file(
+            str(output_path), "csv", sample_entries
+        )
 
         assert success is True
         assert error is None
@@ -4502,7 +4581,9 @@ class TestLogManagerExport:
         assert "old content" not in content
         assert "id,timestamp,type,status" in content
 
-    def test_export_logs_to_file_atomic_write(self, log_manager, sample_entries, temp_log_dir):
+    def test_export_logs_to_file_atomic_write(
+        self, log_manager, sample_entries, temp_log_dir
+    ):
         """Test export uses atomic write (temp file + rename)."""
         output_path = Path(temp_log_dir) / "export.json"
 
@@ -4550,7 +4631,9 @@ class TestLogManagerExport:
             lines = f.readlines()
         assert len(lines) == 4  # 1 header + 3 data rows
 
-    def test_export_logs_to_file_permission_error(self, log_manager, sample_entries, temp_log_dir):
+    def test_export_logs_to_file_permission_error(
+        self, log_manager, sample_entries, temp_log_dir
+    ):
         """Test export handles permission errors gracefully."""
         output_path = Path(temp_log_dir) / "readonly" / "export.csv"
         output_path.parent.mkdir()
@@ -5025,7 +5108,9 @@ class TestLogManagerExport:
 
         # Test JSON export and re-import
         json_path = Path(temp_log_dir) / "mixed_export.json"
-        success, error = log_manager.export_logs_to_file(str(json_path), "json", entries)
+        success, error = log_manager.export_logs_to_file(
+            str(json_path), "json", entries
+        )
         assert success is True
         assert error is None
         assert json_path.exists()

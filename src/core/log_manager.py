@@ -785,11 +785,19 @@ class LogManager:
                 with open(log_file, "w", encoding="utf-8") as f:
                     json.dump(entry.to_dict(), f, indent=2)
 
+                # Harden file permissions (owner read/write only)
+                # Log files may contain sensitive scan paths
+                log_file.chmod(0o600)
+
                 # Update index with new entry metadata (best-effort)
                 try:
                     index_data = self._load_index()
                     index_data["entries"].append(
-                        {"id": entry.id, "timestamp": entry.timestamp, "type": entry.type}
+                        {
+                            "id": entry.id,
+                            "timestamp": entry.timestamp,
+                            "type": entry.type,
+                        }
                     )
                     self._save_index(index_data)
                 except Exception as e:
@@ -1206,7 +1214,16 @@ class LogManager:
 
         # Write header row
         writer.writerow(
-            ["id", "timestamp", "type", "status", "path", "summary", "duration", "scheduled"]
+            [
+                "id",
+                "timestamp",
+                "type",
+                "status",
+                "path",
+                "summary",
+                "duration",
+                "scheduled",
+            ]
         )
 
         # Write data rows
@@ -1401,7 +1418,9 @@ class LogManager:
         if is_flatpak():
             try:
                 result = subprocess.run(
-                    ["flatpak-spawn", "--host", "test", "-f", path], capture_output=True, timeout=5
+                    ["flatpak-spawn", "--host", "test", "-f", path],
+                    capture_output=True,
+                    timeout=5,
                 )
                 return result.returncode == 0
             except Exception as e:

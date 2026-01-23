@@ -6,4 +6,5 @@
 psutil>=5.9.0
 matplotlib>=3.8.0
 requests>=2.31.0
+urllib3>=2.6.3
 keyring>=25.0.0

@@ -264,7 +264,9 @@ class TestSettingsManagerResetAndGetAll:
         result = settings_manager.reset_to_defaults()
         assert result is True
 
-    def test_reset_to_defaults_persists_to_file(self, settings_manager, temp_config_dir):
+    def test_reset_to_defaults_persists_to_file(
+        self, settings_manager, temp_config_dir
+    ):
         """Test that reset_to_defaults persists changes to file."""
         settings_manager.set("custom_setting", "custom_value")
         settings_manager.reset_to_defaults()
@@ -586,7 +588,9 @@ class TestSettingsExclusions:
         assert retrieved[2]["pattern"] == "*.log"
         assert retrieved[2]["enabled"] is False
 
-    def test_exclusion_patterns_persist_to_file(self, settings_manager, temp_config_dir):
+    def test_exclusion_patterns_persist_to_file(
+        self, settings_manager, temp_config_dir
+    ):
         """Test that exclusion patterns persist to the settings file."""
         patterns = [
             {"pattern": "*.tmp", "type": "file", "enabled": True},
@@ -631,7 +635,9 @@ class TestSettingsExclusions:
 
         existing_data = {
             "notifications_enabled": True,
-            "exclusion_patterns": [{"pattern": "dist", "type": "directory", "enabled": True}],
+            "exclusion_patterns": [
+                {"pattern": "dist", "type": "directory", "enabled": True}
+            ],
         }
         settings_file.write_text(json.dumps(existing_data))
 
@@ -813,7 +819,9 @@ class TestSettingsManagerLoadEdgeCases:
         config_dir.mkdir(parents=True, exist_ok=True)
         settings_file = config_dir / "settings.json"
         settings_file.write_text(
-            json.dumps({"notifications_enabled": True, "unicode_setting": "文字テスト 🎉"})
+            json.dumps(
+                {"notifications_enabled": True, "unicode_setting": "文字テスト 🎉"}
+            )
         )
 
         manager = SettingsManager(config_dir=config_dir)
@@ -1040,7 +1048,11 @@ class TestSettingsManagerMalformedExclusionEdgeCases:
                     "exclusion_patterns": [
                         {"pattern": "*.log"},  # Missing type and enabled
                         {"type": "file", "enabled": True},  # Missing pattern
-                        {"pattern": "", "type": "file", "enabled": True},  # Empty pattern
+                        {
+                            "pattern": "",
+                            "type": "file",
+                            "enabled": True,
+                        },  # Empty pattern
                     ]
                 }
             )
@@ -1068,7 +1080,11 @@ class TestSettingsManagerMalformedExclusionEdgeCases:
                             "type": "file",
                             "enabled": True,
                         },  # pattern should be string
-                        {"pattern": "*.log", "type": 456, "enabled": True},  # type should be string
+                        {
+                            "pattern": "*.log",
+                            "type": 456,
+                            "enabled": True,
+                        },  # type should be string
                         {
                             "pattern": "*.tmp",
                             "type": "file",
@@ -1139,6 +1155,7 @@ class TestSettingsManagerAtomicWrite:
             mock.patch("tempfile.mkstemp") as mock_mkstemp,
             mock.patch("os.fdopen") as mock_fdopen,
             mock.patch.object(Path, "replace") as mock_replace,
+            mock.patch.object(Path, "chmod") as mock_chmod,
             mock.patch.object(Path, "mkdir"),
         ):
             # Setup mocks
@@ -1156,6 +1173,8 @@ class TestSettingsManagerAtomicWrite:
             mock_mkstemp.assert_called_once()
             mock_fdopen.assert_called_once()
             mock_replace.assert_called_once()
+            # Verify file permissions are hardened (owner read/write only)
+            mock_chmod.assert_called_once_with(0o600)
 
     def test_save_cleans_up_temp_file_on_failure(self, temp_config_dir):
         """Test that save cleans up temp file if write fails."""
@@ -1227,7 +1246,9 @@ class TestSettingsManagerAtomicWrite:
         """Test that save handles directory creation failures gracefully."""
         settings_manager = SettingsManager(config_dir=temp_config_dir)
 
-        with mock.patch.object(Path, "mkdir", side_effect=PermissionError("Cannot create dir")):
+        with mock.patch.object(
+            Path, "mkdir", side_effect=PermissionError("Cannot create dir")
+        ):
             result = settings_manager.save()
 
         assert result is False
@@ -1236,7 +1257,9 @@ class TestSettingsManagerAtomicWrite:
         """Test that save handles temp file creation failures gracefully."""
         settings_manager = SettingsManager(config_dir=temp_config_dir)
 
-        with mock.patch("tempfile.mkstemp", side_effect=OSError("Cannot create temp file")):
+        with mock.patch(
+            "tempfile.mkstemp", side_effect=OSError("Cannot create temp file")
+        ):
             result = settings_manager.save()
 
         assert result is False
