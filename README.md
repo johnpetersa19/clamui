@@ -90,16 +90,16 @@ ClamUI provides a comprehensive set of features designed to make antivirus prote
 
 <div align="center">
 
-| Scan Results | Quarantine Management |
-|:------------:|:---------------------:|
+|                         Scan Results                          |                 Quarantine Management                 |
+| :-----------------------------------------------------------: | :---------------------------------------------------: |
 | ![Scan Results](./screenshots/main_view_with_scan_result.png) | ![Quarantine View](./screenshots/quarantine_view.png) |
 
-| ClamAV Components Status | Scan History |
-|:------------------------:|:------------:|
+|               ClamAV Components Status                |                  Scan History                   |
+| :---------------------------------------------------: | :---------------------------------------------: |
 | ![Components View](./screenshots/components_view.png) | ![History View](./screenshots/history_view.png) |
 
-| Scan Profiles | Settings |
-|:-------------:|:--------:|
+|                        Scan Profiles                        |                   Settings                    |
+| :---------------------------------------------------------: | :-------------------------------------------: |
 | ![Profile Management](./screenshots/profile_management.png) | ![Config View](./screenshots/config_view.png) |
 
 </div>
@@ -251,7 +251,7 @@ ClamUI requires the following components to be installed on your system:
 <td>For the graphical interface</td>
 </tr>
 <tr>
-<td><strong>Python 3.x</strong></td>
+<td><strong>Python 3.10+</strong></td>
 <td>With PyGObject bindings</td>
 </tr>
 </table>

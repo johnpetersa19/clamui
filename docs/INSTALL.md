@@ -18,11 +18,11 @@ This document provides comprehensive installation instructions for ClamUI on Lin
 
 The recommended installation method depends on your Linux distribution:
 
-| Distribution | Recommended Method |
-|-------------|-------------------|
-| Any (universal) | [Flatpak](#flatpak-installation) |
+| Distribution               | Recommended Method                           |
+| -------------------------- | -------------------------------------------- |
+| Any (universal)            | [Flatpak](#flatpak-installation)             |
 | Debian, Ubuntu, Linux Mint | [.deb package](#debian-package-installation) |
-| Fedora, Arch, others | [Flatpak](#flatpak-installation) |
+| Fedora, Arch, others       | [Flatpak](#flatpak-installation)             |
 
 ---
 
@@ -92,13 +92,13 @@ Or find "ClamUI" in your application menu.
 
 ClamUI requests the following permissions:
 
-| Permission | Purpose |
-|------------|---------|
-| `--filesystem=host:ro` | Read-only access to scan files and directories |
-| `--talk-name=org.freedesktop.Flatpak` | Execute host ClamAV binaries via `flatpak-spawn` |
-| `--socket=session-bus` | Desktop notifications for scan completion |
-| `--socket=wayland` | Native Wayland display support |
-| `--socket=fallback-x11` | X11 compatibility |
+| Permission                            | Purpose                                                       |
+| ------------------------------------- | ------------------------------------------------------------- |
+| `--filesystem=host`                   | Full filesystem access for scanning and quarantine operations |
+| `--talk-name=org.freedesktop.Flatpak` | Execute host ClamAV binaries via `flatpak-spawn`              |
+| `--socket=session-bus`                | Desktop notifications for scan completion                     |
+| `--socket=wayland`                    | Native Wayland display support                                |
+| `--socket=fallback-x11`               | X11 compatibility                                             |
 
 ### Managing Permissions
 
@@ -153,12 +153,12 @@ sudo apt install ./clamui_*.deb
 
 ### What Gets Installed
 
-| Path | Description |
-|------|-------------|
-| `/usr/bin/clamui` | Launcher script |
-| `/usr/lib/python3/dist-packages/clamui/` | Python application modules |
-| `/usr/share/applications/io.github.linx_systems.ClamUI.desktop` | Desktop entry file |
-| `/usr/share/icons/hicolor/scalable/apps/io.github.linx_systems.ClamUI.svg` | Application icon |
+| Path                                                                       | Description                |
+| -------------------------------------------------------------------------- | -------------------------- |
+| `/usr/bin/clamui`                                                          | Launcher script            |
+| `/usr/lib/python3/dist-packages/clamui/`                                   | Python application modules |
+| `/usr/share/applications/io.github.linx_systems.ClamUI.desktop`            | Desktop entry file         |
+| `/usr/share/icons/hicolor/scalable/apps/io.github.linx_systems.ClamUI.svg` | Application icon           |
 
 ### Run ClamUI
 
@@ -170,10 +170,6 @@ Or find "ClamUI" in your application menu.
 
 > **Troubleshooting**: If you encounter issues with missing dependencies or ClamAV installation, see [ClamAV Installation Issues](./TROUBLESHOOTING.md#clamav-installation-issues) in the troubleshooting guide.
 
-### Further Information
-
-For detailed information about building and troubleshooting the Debian package, see [DEBIAN_PACKAGING.md](../DEBIAN_PACKAGING.md).
-
 ---
 
 ## File Manager Context Menu
@@ -182,11 +178,11 @@ ClamUI integrates with file managers to provide a "Scan with ClamUI" right-click
 
 ### Supported File Managers
 
-| File Manager | Desktop | Integration Type |
-|--------------|---------|-----------------|
-| Nautilus | GNOME | Desktop entry action |
-| Dolphin | KDE | Desktop entry action |
-| Nemo | Cinnamon | Native Nemo action |
+| File Manager | Desktop  | Integration Type     |
+| ------------ | -------- | -------------------- |
+| Nautilus     | GNOME    | Desktop entry action |
+| Dolphin      | KDE      | Desktop entry action |
+| Nemo         | Cinnamon | Native Nemo action   |
 
 ### Flatpak Users
 
@@ -199,16 +195,19 @@ For native (non-Flatpak) installations, set up context menu integration manually
 #### GNOME (Nautilus) and KDE (Dolphin)
 
 1. **Copy the desktop file**:
+
    ```bash
    cp io.github.linx_systems.ClamUI.desktop ~/.local/share/applications/
    ```
 
 2. **Update the desktop database**:
+
    ```bash
    update-desktop-database ~/.local/share/applications
    ```
 
 3. **Restart your file manager**:
+
    ```bash
    # For GNOME (Nautilus):
    nautilus -q
@@ -222,11 +221,13 @@ For native (non-Flatpak) installations, set up context menu integration manually
 Nemo uses its own action format for context menu extensions:
 
 1. **Create the Nemo actions directory**:
+
    ```bash
    mkdir -p ~/.local/share/nemo/actions
    ```
 
 2. **Copy the Nemo action file**:
+
    ```bash
    cp io.github.linx_systems.ClamUI.nemo_action ~/.local/share/nemo/actions/
    ```
@@ -238,10 +239,10 @@ Nemo uses its own action format for context menu extensions:
 
 ### Using the Context Menu
 
-| Action | Description |
-|--------|-------------|
-| **Single file** | Right-click a file and select "Scan with ClamUI" |
-| **Folder** | Right-click a folder to recursively scan all contents |
+| Action                 | Description                                                      |
+| ---------------------- | ---------------------------------------------------------------- |
+| **Single file**        | Right-click a file and select "Scan with ClamUI"                 |
+| **Folder**             | Right-click a folder to recursively scan all contents            |
 | **Multiple selection** | Select multiple files/folders, right-click, and scan all at once |
 
 ### Verifying Context Menu Installation
@@ -275,13 +276,13 @@ ClamUI provides an optional system tray icon for quick access to scanning functi
 
 ### Features
 
-| Feature | Description |
-|---------|-------------|
+| Feature              | Description                                                              |
+| -------------------- | ------------------------------------------------------------------------ |
 | **Status Indicator** | Tray icon shows protection status (protected, warning, scanning, threat) |
-| **Quick Actions** | Right-click menu for Quick Scan, Full Scan, and Update Definitions |
-| **Scan Progress** | Shows scan progress percentage during active scans |
-| **Window Toggle** | Click the tray icon to show/hide the main window |
-| **Minimize to Tray** | Option to hide to tray instead of taskbar when minimizing |
+| **Quick Actions**    | Right-click menu for Quick Scan, Full Scan, and Update Definitions       |
+| **Scan Progress**    | Shows scan progress percentage during active scans                       |
+| **Window Toggle**    | Click the tray icon to show/hide the main window                         |
+| **Minimize to Tray** | Option to hide to tray instead of taskbar when minimizing                |
 
 ### Requirements
 
@@ -385,6 +386,5 @@ update-desktop-database ~/.local/share/applications
 
 - [README.md](../README.md) - Project overview and quick start
 - [CONFIGURATION.md](./CONFIGURATION.md) - Configuration reference and settings guide
-- [DEBIAN_PACKAGING.md](../DEBIAN_PACKAGING.md) - Detailed Debian packaging guide
-- [FLATPAK_SUBMISSION.md](../FLATPAK_SUBMISSION.md) - Flathub submission documentation
-- [docs/DEVELOPMENT.md](./DEVELOPMENT.md) - Development setup and contributing
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Troubleshooting common issues
+- [DEVELOPMENT.md](./DEVELOPMENT.md) - Development setup and contributing

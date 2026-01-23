@@ -851,3 +851,31 @@ flatpak-builder --force-clean build-dir flathub/io.github.linx_systems.ClamUI.ym
 # Run the built application
 flatpak-builder --run build-dir flathub/io.github.linx_systems.ClamUI.yml clamui
 ```
+
+---
+
+## Known Issues & Technical Debt
+
+### Security Hardening (Implemented)
+
+- Settings file uses atomic writes with 0o600 permissions
+- Log files restricted to owner-only access (0o600)
+- Quarantine database secured with restricted permissions
+
+### Packaging Notes
+
+- Flatpak uses `--filesystem=host` (read-write) for full scanning capability and quarantine operations
+- Debian packages require Python 3.10+
+- urllib3>=2.6.3 required for CVE fix (decompression-bomb bypass on redirects)
+
+### libadwaita Compatibility
+
+- All dialogs use `Adw.Window` (1.0+) pattern for Ubuntu 22.04 compatibility
+- `resolve_icon_name()` wrapper provides icon fallback chains for missing icons
+- Minimum supported: libadwaita 1.1.x (Ubuntu 22.04 / Pop!\_OS 22.04)
+
+### Input Sanitization
+
+- All user input logged via `sanitize_log_line()` / `sanitize_log_text()`
+- Protection against ANSI escape sequences, Unicode bidirectional overrides, control characters
+- Command injection prevented via `shlex.quote()` in scheduler and subprocess calls
