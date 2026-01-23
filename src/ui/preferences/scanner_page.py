@@ -74,9 +74,7 @@ class ScannerPage(PreferencesPageMixin):
         temp_instance._parent_window = parent_window
 
         # Create scan backend settings group (ClamUI settings, auto-saved)
-        ScannerPage._create_scan_backend_group(
-            page, widgets_dict, settings_manager, temp_instance
-        )
+        ScannerPage._create_scan_backend_group(page, widgets_dict, settings_manager, temp_instance)
 
         # Create file location group
         temp_instance._create_file_location_group(
@@ -116,8 +114,9 @@ class ScannerPage(PreferencesPageMixin):
         - Daemon: Use clamd daemon only (faster, requires daemon running)
         - Clamscan: Use standalone clamscan only
 
-        In Flatpak mode, only clamscan is available (daemon cannot be accessed
-        from inside the sandbox), so a simplified informational view is shown.
+        In Flatpak mode, the daemon backend is available because commands
+        are executed on the host via flatpak-spawn --host, where they can
+        access the clamd socket normally.
 
         This group auto-saves changes immediately to settings.
 
@@ -130,49 +129,15 @@ class ScannerPage(PreferencesPageMixin):
         group = Adw.PreferencesGroup()
         group.set_title("Scan Backend")
 
-        # In Flatpak, only clamscan is supported - show informational view
-        if is_flatpak():
-            group.set_description(
-                "Flatpak uses the bundled standalone scanner for reliable, self-contained operation."
-            )
-
-            # Show current backend (always clamscan in Flatpak)
-            backend_row = Adw.ActionRow()
-            backend_row.set_title("Scan Backend")
-            backend_row.set_subtitle(
-                "Standalone Scanner (clamscan) — Bundled with Flatpak"
-            )
-            add_row_icon(backend_row, "security-high-symbolic")
-
-            # Add info badge
-            info_badge = Gtk.Label()
-            info_badge.set_text("Flatpak")
-            info_badge.add_css_class("dim-label")
-            info_badge.add_css_class("caption")
-            backend_row.add_suffix(info_badge)
-
-            group.add(backend_row)
-
-            # Info about why daemon is not available
-            info_row = Adw.ActionRow()
-            info_row.set_title("Daemon Scanner")
-            info_row.set_subtitle("Not available in Flatpak (sandbox restriction)")
-            add_row_icon(info_row, "dialog-information-symbolic")
-
-            unavailable_label = Gtk.Label()
-            unavailable_label.set_text("N/A")
-            unavailable_label.add_css_class("dim-label")
-            info_row.add_suffix(unavailable_label)
-
-            group.add(info_row)
-
-            page.add(group)
-            return
-
-        # Native installation - show full backend selection UI
         from ...core.utils import check_clamd_connection
 
-        group.set_description("Select how ClamUI performs scans. Auto-saved.")
+        # Set description based on installation type
+        if is_flatpak():
+            group.set_description(
+                "Select how ClamUI performs scans. Daemon runs on host via flatpak-spawn. Auto-saved."
+            )
+        else:
+            group.set_description("Select how ClamUI performs scans. Auto-saved.")
 
         # Scan backend dropdown
         backend_row = Adw.ComboRow()
@@ -189,9 +154,7 @@ class ScannerPage(PreferencesPageMixin):
         backend_row.set_selected(backend_map.get(current_backend, 0))
 
         # Set initial subtitle based on current selection
-        ScannerPage._update_backend_subtitle(
-            backend_row, backend_map.get(current_backend, 0)
-        )
+        ScannerPage._update_backend_subtitle(backend_row, backend_map.get(current_backend, 0))
 
         # Connect to selection changes - pass settings_manager in lambda
         backend_row.connect(
@@ -210,15 +173,11 @@ class ScannerPage(PreferencesPageMixin):
         is_connected, message = check_clamd_connection()
         if is_connected:
             status_row.set_subtitle("✓ Daemon available")
-            status_icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("object-select-symbolic")
-            )
+            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
             status_icon.add_css_class("success")
         else:
             status_row.set_subtitle(f"⚠ Not available: {message}")
-            status_icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-warning-symbolic")
-            )
+            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             status_icon.add_css_class("warning")
 
         status_row.add_suffix(status_icon)
@@ -232,9 +191,7 @@ class ScannerPage(PreferencesPageMixin):
         refresh_button.add_css_class("flat")
         refresh_button.connect(
             "clicked",
-            lambda btn: ScannerPage._on_refresh_daemon_status(
-                widgets_dict["daemon_status_row"]
-            ),
+            lambda btn: ScannerPage._on_refresh_daemon_status(widgets_dict["daemon_status_row"]),
         )
         status_row.add_suffix(refresh_button)
 
@@ -311,9 +268,7 @@ class ScannerPage(PreferencesPageMixin):
             # Update icon
             for child in list(status_row):
                 if isinstance(child, Gtk.Image):
-                    child.set_from_icon_name(
-                        resolve_icon_name("object-select-symbolic")
-                    )
+                    child.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
                     child.remove_css_class("warning")
                     child.add_css_class("success")
                     break
@@ -321,9 +276,7 @@ class ScannerPage(PreferencesPageMixin):
             status_row.set_subtitle(f"⚠ Not available: {message}")
             for child in list(status_row):
                 if isinstance(child, Gtk.Image):
-                    child.set_from_icon_name(
-                        resolve_icon_name("dialog-warning-symbolic")
-                    )
+                    child.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
                     child.remove_css_class("success")
                     child.add_css_class("warning")
                     break
@@ -343,9 +296,7 @@ class ScannerPage(PreferencesPageMixin):
 
         # Get the path to the documentation file
         # From src/ui/preferences/scanner_page.py -> src/ui/preferences/ -> src/ui/ -> src/ -> project_root/
-        docs_path = (
-            Path(__file__).parent.parent.parent.parent / "docs" / "SCAN_BACKENDS.md"
-        )
+        docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "SCAN_BACKENDS.md"
 
         # Check if file exists
         if not docs_path.exists():
@@ -494,9 +445,7 @@ class ScannerPage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
-    def _create_performance_group(
-        page: Adw.PreferencesPage, widgets_dict: dict, helper
-    ):
+    def _create_performance_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
         """
         Create the Performance preferences group for clamd.conf.
 
@@ -546,9 +495,7 @@ class ScannerPage(PreferencesPageMixin):
         # MaxFiles spin row (0-1000000)
         max_files_row = Adw.SpinRow.new_with_range(0, 1000000, 1)
         max_files_row.set_title("Max Files in Archive")
-        max_files_row.set_subtitle(
-            "Maximum number of files to scan in archive (0 = unlimited)"
-        )
+        max_files_row.set_subtitle("Maximum number of files to scan in archive (0 = unlimited)")
         max_files_row.set_numeric(True)
         max_files_row.set_snap_to_ticks(True)
         widgets_dict["MaxFiles"] = max_files_row
@@ -582,9 +529,7 @@ class ScannerPage(PreferencesPageMixin):
         log_file_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         log_file_row.set_show_apply_button(False)
         # Add document icon as prefix
-        log_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("text-x-generic-symbolic")
-        )
+        log_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("text-x-generic-symbolic"))
         log_icon.set_margin_start(6)
         log_file_row.add_prefix(log_icon)
         widgets_dict["LogFile"] = log_file_row
@@ -667,9 +612,7 @@ class ScannerPage(PreferencesPageMixin):
         updates["ScanOLE2"] = "yes" if widgets_dict["ScanOLE2"].get_active() else "no"
         updates["ScanPDF"] = "yes" if widgets_dict["ScanPDF"].get_active() else "no"
         updates["ScanHTML"] = "yes" if widgets_dict["ScanHTML"].get_active() else "no"
-        updates["ScanArchive"] = (
-            "yes" if widgets_dict["ScanArchive"].get_active() else "no"
-        )
+        updates["ScanArchive"] = "yes" if widgets_dict["ScanArchive"].get_active() else "no"
 
         # Collect performance settings
         updates["MaxFileSize"] = str(int(widgets_dict["MaxFileSize"].get_value()))
@@ -682,9 +625,7 @@ class ScannerPage(PreferencesPageMixin):
         if log_file:
             updates["LogFile"] = log_file
 
-        updates["LogVerbose"] = (
-            "yes" if widgets_dict["LogVerbose"].get_active() else "no"
-        )
+        updates["LogVerbose"] = "yes" if widgets_dict["LogVerbose"].get_active() else "no"
         updates["LogSyslog"] = "yes" if widgets_dict["LogSyslog"].get_active() else "no"
 
         return updates

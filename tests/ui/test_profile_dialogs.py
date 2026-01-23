@@ -511,9 +511,7 @@ class TestProfileListDialogWithMockManager:
         """Create a mock profile manager for testing."""
 
         class MockProfile:
-            def __init__(
-                self, id, name, description="", targets=None, is_default=False
-            ):
+            def __init__(self, id, name, description="", targets=None, is_default=False):
                 self.id = id
                 self.name = name
                 self.description = description
@@ -526,9 +524,7 @@ class TestProfileListDialogWithMockManager:
                 self._profiles = [
                     MockProfile("1", "Quick Scan", "A quick scan", ["/home"], False),
                     MockProfile("2", "Full Scan", "Complete system scan", ["/"], True),
-                    MockProfile(
-                        "3", "Custom Scan", "", ["/home/user/downloads"], False
-                    ),
+                    MockProfile("3", "Custom Scan", "", ["/home/user/downloads"], False),
                 ]
 
             def list_profiles(self):
@@ -675,9 +671,7 @@ class TestProfileDialogWithPartialExclusions:
         assert "/home/cache" in data["exclusions"]["paths"]
         assert "patterns" not in data["exclusions"]
 
-    def test_loads_exclusion_patterns_only(
-        self, dialog_class, profile_with_patterns_only
-    ):
+    def test_loads_exclusion_patterns_only(self, dialog_class, profile_with_patterns_only):
         """Test loading profile with only exclusion patterns."""
         dialog = dialog_class(profile=profile_with_patterns_only)
         data = dialog.get_profile_data()

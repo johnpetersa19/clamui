@@ -19,9 +19,7 @@ from gi.repository import Adw, Gtk
 from ..utils import resolve_icon_name
 
 
-def populate_bool_field(
-    config, widgets_dict: dict, key: str, default: bool = False
-) -> None:
+def populate_bool_field(config, widgets_dict: dict, key: str, default: bool = False) -> None:
     """
     Populate a boolean switch widget from config.
 
@@ -69,9 +67,7 @@ def populate_text_field(config, widgets_dict: dict, key: str) -> None:
         widgets_dict[key].set_text(config.get_value(key))
 
 
-def populate_multivalue_field(
-    config, widgets_dict: dict, key: str, separator: str = ", "
-) -> None:
+def populate_multivalue_field(config, widgets_dict: dict, key: str, separator: str = ", ") -> None:
     """
     Populate a text entry widget with comma-separated values from config.
 
@@ -119,9 +115,7 @@ class PreferencesPageMixin:
 
         # Create lock icon - using system-lock-screen-symbolic
         # Alternative: changes-allow-symbolic for a shield-style icon
-        lock_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("system-lock-screen-symbolic")
-        )
+        lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-lock-screen-symbolic"))
         lock_icon.add_css_class("dim-label")
         lock_icon.set_tooltip_text("Requires administrator privileges to modify")
 
@@ -151,9 +145,7 @@ class PreferencesPageMixin:
             )
         except Exception as e:
             # Show error dialog if opening fails
-            self._show_simple_dialog(
-                "Error Opening Folder", f"Could not open folder: {str(e)}"
-            )
+            self._show_simple_dialog("Error Opening Folder", f"Could not open folder: {str(e)}")
 
     def _show_simple_dialog(self, title: str, message: str):
         """
@@ -252,9 +244,7 @@ class PreferencesPageMixin:
         path_row.set_subtitle_selectable(True)
 
         # Add folder icon as prefix
-        folder_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("folder-open-symbolic")
-        )
+        folder_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("folder-open-symbolic"))
         folder_icon.set_margin_start(6)
         path_row.add_prefix(folder_icon)
 

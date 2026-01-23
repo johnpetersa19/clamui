@@ -137,9 +137,7 @@ class FileManagerIntegrationDialog(Adw.Window):
             "No system files are modified."
         )
 
-        info_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("dialog-information-symbolic")
-        )
+        info_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
         info_icon.add_css_class("dim-label")
         info_row.add_prefix(info_icon)
 
@@ -167,9 +165,7 @@ class FileManagerIntegrationDialog(Adw.Window):
             # No file managers detected
             no_fm_row = Adw.ActionRow()
             no_fm_row.set_title("No supported file managers detected")
-            no_fm_row.set_subtitle(
-                "ClamUI supports Nemo, Nautilus, and Dolphin file managers."
-            )
+            no_fm_row.set_subtitle("ClamUI supports Nemo, Nautilus, and Dolphin file managers.")
 
             warning_icon = Gtk.Image.new_from_icon_name(
                 resolve_icon_name("dialog-warning-symbolic")

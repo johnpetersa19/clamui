@@ -193,9 +193,7 @@ def get_available_integrations() -> list[IntegrationInfo]:
         return integrations
 
     if not INTEGRATIONS_SOURCE_DIR.exists():
-        logger.warning(
-            f"Integration source directory not found: {INTEGRATIONS_SOURCE_DIR}"
-        )
+        logger.warning(f"Integration source directory not found: {INTEGRATIONS_SOURCE_DIR}")
         return integrations
 
     # Nemo (Linux Mint, Cinnamon)

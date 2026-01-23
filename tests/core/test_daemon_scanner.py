@@ -85,7 +85,10 @@ class TestDaemonScannerBuildCommand:
 
         scanner = daemon_scanner_class()
 
-        with patch("src.core.daemon_scanner.which_host_command", return_value="/usr/bin/clamdscan"):
+        with patch(
+            "src.core.daemon_scanner.which_host_command",
+            return_value="/usr/bin/clamdscan",
+        ):
             with patch("src.core.daemon_scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_file), recursive=True)
 
@@ -121,7 +124,10 @@ class TestDaemonScannerBuildCommand:
 
         scanner = daemon_scanner_class(settings_manager=mock_settings)
 
-        with patch("src.core.daemon_scanner.which_host_command", return_value="/usr/bin/clamdscan"):
+        with patch(
+            "src.core.daemon_scanner.which_host_command",
+            return_value="/usr/bin/clamdscan",
+        ):
             with patch("src.core.daemon_scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_file), recursive=True)
 
@@ -1303,3 +1309,82 @@ class TestDaemonScannerExclusionHelpers:
 
         # Should NOT match because "excluded_other" is not under "excluded"
         assert scanner._matches_exclusion_path(str(file_in_similar), exclude_paths) is False
+
+
+class TestDaemonScannerFlatpakSupport:
+    """Tests for DaemonScanner Flatpak mode support."""
+
+    def test_build_command_uses_optimal_flags_in_flatpak(self, tmp_path, daemon_scanner_class):
+        """Test _build_command uses --multiscan --fdpass in Flatpak mode.
+
+        Previously, Flatpak mode used --stream which is slower.
+        Now that clamdscan runs on the host via flatpak-spawn --host,
+        it can use the optimal --multiscan --fdpass flags.
+        """
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = daemon_scanner_class()
+
+        # Mock wrap_host_command to simulate Flatpak wrapping
+        def mock_wrap(cmd):
+            return ["flatpak-spawn", "--host"] + cmd
+
+        with patch(
+            "src.core.daemon_scanner.which_host_command",
+            return_value="/usr/bin/clamdscan",
+        ):
+            with patch("src.core.daemon_scanner.wrap_host_command", side_effect=mock_wrap):
+                cmd = scanner._build_command(str(test_file), recursive=True)
+
+        # Verify flatpak-spawn wrapping
+        assert cmd[0] == "flatpak-spawn"
+        assert cmd[1] == "--host"
+        assert cmd[2] == "/usr/bin/clamdscan"
+
+        # Verify optimal flags are used (not --stream)
+        assert "--multiscan" in cmd
+        assert "--fdpass" in cmd
+        assert "--stream" not in cmd
+
+    def test_build_command_uses_optimal_flags_in_native(self, tmp_path, daemon_scanner_class):
+        """Test _build_command uses --multiscan --fdpass in native mode."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = daemon_scanner_class()
+
+        with patch(
+            "src.core.daemon_scanner.which_host_command",
+            return_value="/usr/bin/clamdscan",
+        ):
+            with patch("src.core.daemon_scanner.wrap_host_command", side_effect=lambda x: x):
+                cmd = scanner._build_command(str(test_file), recursive=True)
+
+        assert cmd[0] == "/usr/bin/clamdscan"
+        assert "--multiscan" in cmd
+        assert "--fdpass" in cmd
+        assert "--stream" not in cmd
+
+    def test_build_command_wraps_with_flatpak_spawn(self, tmp_path, daemon_scanner_class):
+        """Test _build_command wraps command for Flatpak execution on host."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        scanner = daemon_scanner_class()
+
+        # Mock wrap_host_command to add flatpak-spawn prefix
+        def mock_wrap(cmd):
+            return ["flatpak-spawn", "--host"] + cmd
+
+        with patch("src.core.daemon_scanner.which_host_command", return_value="clamdscan"):
+            with patch("src.core.daemon_scanner.wrap_host_command", side_effect=mock_wrap):
+                cmd = scanner._build_command(str(test_file), recursive=True)
+
+        # Should be wrapped with flatpak-spawn --host
+        assert cmd[0] == "flatpak-spawn"
+        assert cmd[1] == "--host"
+        # clamdscan should be the first actual command
+        assert cmd[2] == "clamdscan"
+        # The path should be at the end
+        assert str(test_file) in cmd

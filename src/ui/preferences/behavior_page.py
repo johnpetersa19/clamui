@@ -103,9 +103,7 @@ class BehaviorPage(PreferencesPageMixin):
         # Close behavior combo row
         self._close_behavior_row = Adw.ComboRow()
         self._close_behavior_row.set_title("When closing window")
-        self._close_behavior_row.set_subtitle(
-            "Choose what happens when you close the main window"
-        )
+        self._close_behavior_row.set_subtitle("Choose what happens when you close the main window")
 
         # Create string list model for options
         model = Gtk.StringList()
@@ -145,9 +143,7 @@ class BehaviorPage(PreferencesPageMixin):
         row.connect("activated", self._on_file_manager_integration_clicked)
 
         # Icon prefix
-        icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("system-file-manager-symbolic")
-        )
+        icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-file-manager-symbolic"))
         icon.add_css_class("dim-label")
         row.add_prefix(icon)
 

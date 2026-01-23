@@ -131,9 +131,7 @@ class ScanResultsDialog(Adw.Window):
             else:
                 self._quarantine_all_button.set_label(f"Quarantine All ({count})")
             self._quarantine_all_button.add_css_class("suggested-action")
-            self._quarantine_all_button.connect(
-                "clicked", self._on_quarantine_all_clicked
-            )
+            self._quarantine_all_button.connect("clicked", self._on_quarantine_all_clicked)
             header_bar.pack_end(self._quarantine_all_button)
 
         toolbar_view.add_top_bar(header_bar)
@@ -177,9 +175,7 @@ class ScanResultsDialog(Adw.Window):
         if self._scan_result.status == ScanStatus.CLEAN:
             expander.set_title("Scan Complete")
             expander.set_subtitle("No threats found")
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("object-select-symbolic")
-            )
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
             icon.add_css_class("success")
         elif self._scan_result.status == ScanStatus.INFECTED:
             threat_text = (
@@ -189,16 +185,12 @@ class ScanResultsDialog(Adw.Window):
             )
             expander.set_title("Threats Detected")
             expander.set_subtitle(f"{threat_text} found")
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-warning-symbolic")
-            )
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             icon.add_css_class("warning")
         else:
             expander.set_title("Scan Error")
             expander.set_subtitle(self._scan_result.error_message or "Unknown error")
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-error-symbolic")
-            )
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
             icon.add_css_class("error")
 
         expander.add_suffix(icon)
@@ -212,9 +204,7 @@ class ScanResultsDialog(Adw.Window):
 
         # Add stat rows
         stats_content.append(
-            self._create_stat_row(
-                "Files scanned:", f"{self._scan_result.scanned_files:,}"
-            )
+            self._create_stat_row("Files scanned:", f"{self._scan_result.scanned_files:,}")
         )
         stats_content.append(
             self._create_stat_row("Directories:", f"{self._scan_result.scanned_dirs:,}")
@@ -222,15 +212,11 @@ class ScanResultsDialog(Adw.Window):
 
         if self._scan_result.infected_count > 0:
             stats_content.append(
-                self._create_stat_row(
-                    "Threats found:", str(self._scan_result.infected_count)
-                )
+                self._create_stat_row("Threats found:", str(self._scan_result.infected_count))
             )
 
         if self._scan_result.error_message:
-            stats_content.append(
-                self._create_stat_row("Error:", self._scan_result.error_message)
-            )
+            stats_content.append(self._create_stat_row("Error:", self._scan_result.error_message))
 
         expander.add_row(stats_content)
         stats_group.add(expander)
@@ -379,9 +365,7 @@ class ScanResultsDialog(Adw.Window):
         quarantine_btn.set_label("Quarantine")
         quarantine_btn.add_css_class("pill")
         quarantine_btn.add_css_class("threat-action-btn")
-        quarantine_btn.connect(
-            "clicked", lambda btn: self._on_quarantine_single(btn, threat)
-        )
+        quarantine_btn.connect("clicked", lambda btn: self._on_quarantine_single(btn, threat))
         actions_box.append(quarantine_btn)
 
         # Exclude button
@@ -409,9 +393,7 @@ class ScanResultsDialog(Adw.Window):
 
     def _on_quarantine_single(self, button: Gtk.Button, threat: ThreatDetail):
         """Quarantine a single threat file."""
-        result = self._quarantine_manager.quarantine_file(
-            threat.file_path, threat.threat_name
-        )
+        result = self._quarantine_manager.quarantine_file(threat.file_path, threat.threat_name)
 
         if result.status == QuarantineStatus.SUCCESS:
             button.set_label("Quarantined")

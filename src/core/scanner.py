@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from gi.repository import GLib
 
-from .flatpak import get_clamav_database_dir, is_flatpak
+from .flatpak import get_clamav_database_dir
 from .log_manager import LogManager
 from .scanner_base import (
     cleanup_process,
@@ -122,7 +122,9 @@ class Scanner:
     """
 
     def __init__(
-        self, log_manager: LogManager | None = None, settings_manager: SettingsManager | None = None
+        self,
+        log_manager: LogManager | None = None,
+        settings_manager: SettingsManager | None = None,
     ):
         """
         Initialize the scanner.
@@ -143,13 +145,10 @@ class Scanner:
     def _get_backend(self) -> str:
         """Get the configured scan backend.
 
-        In Flatpak mode, always returns "clamscan" because the bundled
-        clamdscan cannot connect to the host's clamd socket from inside
-        the sandbox.
+        Both native and Flatpak installations can use the daemon backend.
+        In Flatpak, daemon commands are executed on the host via
+        flatpak-spawn --host, where they can access clamd normally.
         """
-        # Flatpak only supports standalone clamscan (no daemon access)
-        if is_flatpak():
-            return "clamscan"
         if self._settings_manager:
             return self._settings_manager.get("scan_backend", "auto")
         return "auto"

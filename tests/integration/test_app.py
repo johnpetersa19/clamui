@@ -132,9 +132,7 @@ class TestClamUIAppActions:
 
         # Find call to SimpleAction.new with "quit"
         quit_calls = [
-            call
-            for call in gio_mock.SimpleAction.new.call_args_list
-            if call[0][0] == "quit"
+            call for call in gio_mock.SimpleAction.new.call_args_list if call[0][0] == "quit"
         ]
         assert len(quit_calls) == 1
 
@@ -145,9 +143,7 @@ class TestClamUIAppActions:
 
         # Find call to SimpleAction.new with "about"
         about_calls = [
-            call
-            for call in gio_mock.SimpleAction.new.call_args_list
-            if call[0][0] == "about"
+            call for call in gio_mock.SimpleAction.new.call_args_list if call[0][0] == "about"
         ]
         assert len(about_calls) == 1
 
@@ -158,9 +154,7 @@ class TestClamUIAppActions:
 
         # Find call to SimpleAction.new with "preferences"
         preferences_calls = [
-            call
-            for call in gio_mock.SimpleAction.new.call_args_list
-            if call[0][0] == "preferences"
+            call for call in gio_mock.SimpleAction.new.call_args_list if call[0][0] == "preferences"
         ]
         assert len(preferences_calls) == 1
 
@@ -191,9 +185,7 @@ class TestClamUIAppActions:
 
         # Find call to set_accels_for_action with "app.quit"
         accel_calls = [
-            call
-            for call in app.set_accels_for_action.call_args_list
-            if call[0][0] == "app.quit"
+            call for call in app.set_accels_for_action.call_args_list if call[0][0] == "app.quit"
         ]
         assert len(accel_calls) == 1
         assert accel_calls[0][0][1] == ["<Control>q"]
@@ -226,9 +218,7 @@ class TestClamUIAppViewSwitching:
         app._setup_actions()
 
         show_scan_calls = [
-            call
-            for call in gio_mock.SimpleAction.new.call_args_list
-            if call[0][0] == "show-scan"
+            call for call in gio_mock.SimpleAction.new.call_args_list if call[0][0] == "show-scan"
         ]
         assert len(show_scan_calls) == 1
 
@@ -238,9 +228,7 @@ class TestClamUIAppViewSwitching:
         app._setup_actions()
 
         show_update_calls = [
-            call
-            for call in gio_mock.SimpleAction.new.call_args_list
-            if call[0][0] == "show-update"
+            call for call in gio_mock.SimpleAction.new.call_args_list if call[0][0] == "show-update"
         ]
         assert len(show_update_calls) == 1
 
@@ -250,9 +238,7 @@ class TestClamUIAppViewSwitching:
         app._setup_actions()
 
         show_logs_calls = [
-            call
-            for call in gio_mock.SimpleAction.new.call_args_list
-            if call[0][0] == "show-logs"
+            call for call in gio_mock.SimpleAction.new.call_args_list if call[0][0] == "show-logs"
         ]
         assert len(show_logs_calls) == 1
 
@@ -349,9 +335,7 @@ class TestClamUIAppQuickScanProfile:
         assert hasattr(app, "_on_statistics_quick_scan")
         assert callable(app._on_statistics_quick_scan)
 
-    def test_on_statistics_quick_scan_switches_to_scan_view(
-        self, app, mock_gtk_modules
-    ):
+    def test_on_statistics_quick_scan_switches_to_scan_view(self, app, mock_gtk_modules):
         """Test that _on_statistics_quick_scan switches to scan view."""
         # Set up mocks
         mock_window = mock.MagicMock()
@@ -374,9 +358,7 @@ class TestClamUIAppQuickScanProfile:
         mock_window.set_active_view.assert_called_once_with("scan")
         assert app._current_view == "scan"
 
-    def test_on_statistics_quick_scan_applies_quick_scan_profile(
-        self, app, mock_gtk_modules
-    ):
+    def test_on_statistics_quick_scan_applies_quick_scan_profile(self, app, mock_gtk_modules):
         """Test that _on_statistics_quick_scan applies the Quick Scan profile."""
         # Set up mocks
         mock_window = mock.MagicMock()
@@ -399,9 +381,7 @@ class TestClamUIAppQuickScanProfile:
 
         # Verify profile is applied
         mock_scan_view.refresh_profiles.assert_called_once()
-        mock_scan_view.set_selected_profile.assert_called_once_with(
-            "quick-scan-profile-id"
-        )
+        mock_scan_view.set_selected_profile.assert_called_once_with("quick-scan-profile-id")
 
     def test_on_statistics_quick_scan_falls_back_to_home_when_profile_missing(
         self, app, mock_gtk_modules
@@ -430,9 +410,7 @@ class TestClamUIAppQuickScanProfile:
         # Verify set_selected_profile was NOT called
         mock_scan_view.set_selected_profile.assert_not_called()
 
-    def test_on_statistics_quick_scan_does_not_auto_start_scan(
-        self, app, mock_gtk_modules
-    ):
+    def test_on_statistics_quick_scan_does_not_auto_start_scan(self, app, mock_gtk_modules):
         """Test that _on_statistics_quick_scan does NOT auto-start the scan."""
         # Set up mocks
         mock_window = mock.MagicMock()
@@ -455,9 +433,7 @@ class TestClamUIAppQuickScanProfile:
         # Verify _start_scan was NOT called (user must click Start Scan)
         mock_scan_view._start_scan.assert_not_called()
 
-    def test_on_statistics_quick_scan_no_action_without_window(
-        self, app, mock_gtk_modules
-    ):
+    def test_on_statistics_quick_scan_no_action_without_window(self, app, mock_gtk_modules):
         """Test that _on_statistics_quick_scan does nothing without active window."""
         app.props = mock.MagicMock()
         app.props.active_window = None
@@ -556,13 +532,9 @@ class TestClamUIAppTrayQuickScan:
 
         # Verify profile is applied
         mock_scan_view.refresh_profiles.assert_called_once()
-        mock_scan_view.set_selected_profile.assert_called_once_with(
-            "quick-scan-profile-id"
-        )
+        mock_scan_view.set_selected_profile.assert_called_once_with("quick-scan-profile-id")
 
-    def test_do_tray_quick_scan_starts_scan_after_profile_application(
-        self, app, mock_gtk_modules
-    ):
+    def test_do_tray_quick_scan_starts_scan_after_profile_application(self, app, mock_gtk_modules):
         """Test that _do_tray_quick_scan starts the scan after applying profile."""
         # Set up mocks
         mock_window = mock.MagicMock()
@@ -619,9 +591,7 @@ class TestClamUIAppTrayQuickScan:
         # Verify set_selected_profile was NOT called
         mock_scan_view.set_selected_profile.assert_not_called()
 
-    def test_do_tray_quick_scan_starts_scan_in_fallback_case(
-        self, app, mock_gtk_modules
-    ):
+    def test_do_tray_quick_scan_starts_scan_in_fallback_case(self, app, mock_gtk_modules):
         """Test that _do_tray_quick_scan starts scan even when falling back to home directory."""
         # Set up mocks
         mock_window = mock.MagicMock()
@@ -753,9 +723,7 @@ class TestClamUIAppTrayQuickScan:
 class TestClamUIAppQuickScanFallback:
     """Dedicated tests for Quick Scan fallback behavior when profile is not found."""
 
-    def test_statistics_fallback_uses_expanduser_with_tilde(
-        self, app, mock_gtk_modules
-    ):
+    def test_statistics_fallback_uses_expanduser_with_tilde(self, app, mock_gtk_modules):
         """Test that statistics quick scan fallback uses os.path.expanduser with '~'."""
         # Set up mocks
         mock_window = mock.MagicMock()
@@ -804,9 +772,7 @@ class TestClamUIAppQuickScanFallback:
             # Verify expanduser was called with "~" to get home directory
             mock_expanduser.assert_called_once_with("~")
 
-    def test_statistics_fallback_does_not_call_refresh_profiles(
-        self, app, mock_gtk_modules
-    ):
+    def test_statistics_fallback_does_not_call_refresh_profiles(self, app, mock_gtk_modules):
         """Test that statistics quick scan fallback does not call refresh_profiles."""
         # Set up mocks
         mock_window = mock.MagicMock()
@@ -904,9 +870,7 @@ class TestClamUIAppQuickScanFallback:
             assert "Quick Scan profile not found" in warning_call
             assert "falling back" in warning_call.lower()
 
-    def test_statistics_fallback_still_switches_to_scan_view(
-        self, app, mock_gtk_modules
-    ):
+    def test_statistics_fallback_still_switches_to_scan_view(self, app, mock_gtk_modules):
         """Test that statistics quick scan fallback still switches to scan view."""
         # Set up mocks
         mock_window = mock.MagicMock()
@@ -976,9 +940,7 @@ class TestClamUIAppQuickScanFallback:
             app._on_statistics_quick_scan()
 
             # Verify the expanded path is passed to _set_selected_path
-            mock_scan_view._set_selected_path.assert_called_once_with(
-                "/home/specific_user"
-            )
+            mock_scan_view._set_selected_path.assert_called_once_with("/home/specific_user")
 
     def test_tray_fallback_path_is_set_correctly(self, app, mock_gtk_modules):
         """Test that tray quick scan fallback sets the correct home path."""
@@ -1004,6 +966,4 @@ class TestClamUIAppQuickScanFallback:
             app._do_tray_quick_scan()
 
             # Verify the expanded path is passed to _set_selected_path
-            mock_scan_view._set_selected_path.assert_called_once_with(
-                "/home/specific_user"
-            )
+            mock_scan_view._set_selected_path.assert_called_once_with("/home/specific_user")

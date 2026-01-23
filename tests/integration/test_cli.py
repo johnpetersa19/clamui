@@ -258,9 +258,7 @@ class TestNonExistentPaths:
 class TestSymlinks:
     """Tests for handling symbolic links."""
 
-    @pytest.mark.skipif(
-        os.name == "nt", reason="Symlinks require special permissions on Windows"
-    )
+    @pytest.mark.skipif(os.name == "nt", reason="Symlinks require special permissions on Windows")
     def test_symlink_to_file(self, parse_file_arguments, tmp_path):
         """Test parse_file_arguments with symlink to a file."""
         target_file = tmp_path / "target.txt"
@@ -275,9 +273,7 @@ class TestSymlinks:
         # Verify symlink exists
         assert os.path.exists(result[0])
 
-    @pytest.mark.skipif(
-        os.name == "nt", reason="Symlinks require special permissions on Windows"
-    )
+    @pytest.mark.skipif(os.name == "nt", reason="Symlinks require special permissions on Windows")
     def test_symlink_to_directory(self, parse_file_arguments, tmp_path):
         """Test parse_file_arguments with symlink to a directory."""
         target_dir = tmp_path / "target_dir"
@@ -292,9 +288,7 @@ class TestSymlinks:
         # Verify symlink exists and points to directory
         assert os.path.isdir(result[0])
 
-    @pytest.mark.skipif(
-        os.name == "nt", reason="Symlinks require special permissions on Windows"
-    )
+    @pytest.mark.skipif(os.name == "nt", reason="Symlinks require special permissions on Windows")
     def test_broken_symlink(self, parse_file_arguments, tmp_path):
         """Test parse_file_arguments with broken symlink."""
         target = tmp_path / "target_that_will_be_deleted.txt"

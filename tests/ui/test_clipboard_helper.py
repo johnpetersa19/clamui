@@ -20,9 +20,7 @@ class TestClipboardHelper:
         helper = ClipboardHelper(parent_widget=mock_widget)
 
         # Mock the sync copy function
-        with patch(
-            "src.ui.clipboard_helper.copy_to_clipboard_with_result"
-        ) as mock_copy:
+        with patch("src.ui.clipboard_helper.copy_to_clipboard_with_result") as mock_copy:
             from src.core.clipboard import ClipboardOperationResult, ClipboardResult
 
             mock_copy.return_value = ClipboardOperationResult(
@@ -63,9 +61,7 @@ class TestClipboardHelper:
             toast_manager=mock_toast_overlay,
         )
 
-        with patch(
-            "src.ui.clipboard_helper.copy_to_clipboard_with_result"
-        ) as mock_copy:
+        with patch("src.ui.clipboard_helper.copy_to_clipboard_with_result") as mock_copy:
             from src.core.clipboard import ClipboardOperationResult, ClipboardResult
 
             mock_copy.return_value = ClipboardOperationResult(
@@ -157,9 +153,7 @@ class TestClipboardHelper:
 
         helper = ClipboardHelper(parent_widget=mock_widget)
 
-        with patch(
-            "src.ui.clipboard_helper.copy_to_clipboard_with_result"
-        ) as mock_copy:
+        with patch("src.ui.clipboard_helper.copy_to_clipboard_with_result") as mock_copy:
             from src.core.clipboard import ClipboardOperationResult, ClipboardResult
 
             mock_copy.return_value = ClipboardOperationResult(
@@ -185,9 +179,7 @@ class TestClipboardHelper:
 
         helper = ClipboardHelper(parent_widget=mock_widget)
 
-        with patch(
-            "src.ui.clipboard_helper.copy_to_clipboard_with_result"
-        ) as mock_copy:
+        with patch("src.ui.clipboard_helper.copy_to_clipboard_with_result") as mock_copy:
             from src.core.clipboard import ClipboardOperationResult, ClipboardResult
 
             mock_copy.return_value = ClipboardOperationResult(
@@ -242,9 +234,7 @@ class TestClipboardHelperIntegration:
         helper = ClipboardHelper(parent_widget=mock_widget)
 
         # Test sync range (< 1 MB)
-        with patch(
-            "src.ui.clipboard_helper.copy_to_clipboard_with_result"
-        ) as mock_sync:
+        with patch("src.ui.clipboard_helper.copy_to_clipboard_with_result") as mock_sync:
             from src.core.clipboard import ClipboardOperationResult, ClipboardResult
 
             mock_sync.return_value = ClipboardOperationResult(

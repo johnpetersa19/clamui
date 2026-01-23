@@ -15,9 +15,7 @@ import pytest
 # =============================================================================
 def _clear_src_modules():
     """Clear all cached src.* modules to ensure clean imports."""
-    modules_to_remove = [
-        mod for mod in list(sys.modules.keys()) if mod.startswith("src.")
-    ]
+    modules_to_remove = [mod for mod in list(sys.modules.keys()) if mod.startswith("src.")]
     for mod in modules_to_remove:
         del sys.modules[mod]
 
@@ -257,51 +255,37 @@ class TestSchedulerOnCalendar:
 
     def test_generate_oncalendar_weekly_monday(self, scheduler):
         """Test OnCalendar generation for weekly on Monday."""
-        result = scheduler._generate_oncalendar(
-            ScheduleFrequency.WEEKLY, "02:00", day_of_week=0
-        )
+        result = scheduler._generate_oncalendar(ScheduleFrequency.WEEKLY, "02:00", day_of_week=0)
         assert result == "Mon *-*-* 02:00:00"
 
     def test_generate_oncalendar_weekly_friday(self, scheduler):
         """Test OnCalendar generation for weekly on Friday."""
-        result = scheduler._generate_oncalendar(
-            ScheduleFrequency.WEEKLY, "03:00", day_of_week=4
-        )
+        result = scheduler._generate_oncalendar(ScheduleFrequency.WEEKLY, "03:00", day_of_week=4)
         assert result == "Fri *-*-* 03:00:00"
 
     def test_generate_oncalendar_weekly_sunday(self, scheduler):
         """Test OnCalendar generation for weekly on Sunday."""
-        result = scheduler._generate_oncalendar(
-            ScheduleFrequency.WEEKLY, "08:00", day_of_week=6
-        )
+        result = scheduler._generate_oncalendar(ScheduleFrequency.WEEKLY, "08:00", day_of_week=6)
         assert result == "Sun *-*-* 08:00:00"
 
     def test_generate_oncalendar_monthly_first(self, scheduler):
         """Test OnCalendar generation for monthly on 1st."""
-        result = scheduler._generate_oncalendar(
-            ScheduleFrequency.MONTHLY, "02:00", day_of_month=1
-        )
+        result = scheduler._generate_oncalendar(ScheduleFrequency.MONTHLY, "02:00", day_of_month=1)
         assert result == "*-*-01 02:00:00"
 
     def test_generate_oncalendar_monthly_fifteenth(self, scheduler):
         """Test OnCalendar generation for monthly on 15th."""
-        result = scheduler._generate_oncalendar(
-            ScheduleFrequency.MONTHLY, "04:00", day_of_month=15
-        )
+        result = scheduler._generate_oncalendar(ScheduleFrequency.MONTHLY, "04:00", day_of_month=15)
         assert result == "*-*-15 04:00:00"
 
     def test_generate_oncalendar_monthly_clamps_day(self, scheduler):
         """Test OnCalendar clamps day_of_month to 1-28 range."""
         # Day 31 should be clamped to 28
-        result = scheduler._generate_oncalendar(
-            ScheduleFrequency.MONTHLY, "02:00", day_of_month=31
-        )
+        result = scheduler._generate_oncalendar(ScheduleFrequency.MONTHLY, "02:00", day_of_month=31)
         assert result == "*-*-28 02:00:00"
 
         # Day 0 should be clamped to 1
-        result = scheduler._generate_oncalendar(
-            ScheduleFrequency.MONTHLY, "02:00", day_of_month=0
-        )
+        result = scheduler._generate_oncalendar(ScheduleFrequency.MONTHLY, "02:00", day_of_month=0)
         assert result == "*-*-01 02:00:00"
 
     def test_generate_oncalendar_invalid_time(self, scheduler):
@@ -339,25 +323,19 @@ class TestSchedulerCrontabEntry:
     def test_generate_crontab_weekly_monday(self, scheduler):
         """Test crontab entry for weekly on Monday."""
         # 0=Monday in our format, cron uses 1=Monday
-        result = scheduler._generate_crontab_entry(
-            ScheduleFrequency.WEEKLY, "02:00", day_of_week=0
-        )
+        result = scheduler._generate_crontab_entry(ScheduleFrequency.WEEKLY, "02:00", day_of_week=0)
         assert result == "0 2 * * 1"
 
     def test_generate_crontab_weekly_friday(self, scheduler):
         """Test crontab entry for weekly on Friday."""
         # 4=Friday in our format, cron uses 5=Friday
-        result = scheduler._generate_crontab_entry(
-            ScheduleFrequency.WEEKLY, "03:00", day_of_week=4
-        )
+        result = scheduler._generate_crontab_entry(ScheduleFrequency.WEEKLY, "03:00", day_of_week=4)
         assert result == "0 3 * * 5"
 
     def test_generate_crontab_weekly_sunday(self, scheduler):
         """Test crontab entry for weekly on Sunday."""
         # 6=Sunday in our format, cron uses 0=Sunday
-        result = scheduler._generate_crontab_entry(
-            ScheduleFrequency.WEEKLY, "08:00", day_of_week=6
-        )
+        result = scheduler._generate_crontab_entry(ScheduleFrequency.WEEKLY, "08:00", day_of_week=6)
         assert result == "0 8 * * 0"
 
     def test_generate_crontab_monthly(self, scheduler):
@@ -608,9 +586,7 @@ class TestSchedulerSystemdIntegration:
 
             if success:
                 # Check that service file was created
-                service_path = (
-                    scheduler._systemd_dir / f"{scheduler.SERVICE_NAME}.service"
-                )
+                service_path = scheduler._systemd_dir / f"{scheduler.SERVICE_NAME}.service"
                 assert service_path.exists()
 
                 # Check that timer file was created
@@ -641,9 +617,7 @@ class TestSchedulerCronIntegration:
         entry = scheduler._generate_crontab_entry(ScheduleFrequency.DAILY, "02:00")
         assert entry == "0 2 * * *"
 
-        entry = scheduler._generate_crontab_entry(
-            ScheduleFrequency.WEEKLY, "14:30", day_of_week=2
-        )
+        entry = scheduler._generate_crontab_entry(ScheduleFrequency.WEEKLY, "14:30", day_of_week=2)
         # Wednesday is 2 in our format, 3 in cron format
         assert entry == "30 14 * * 3"
 
@@ -813,9 +787,7 @@ class TestGetCliCommandPath:
                     "_get_venv_paths",
                     return_value=[Path(tmpdir) / "clamui" / "venv"],
                 ):
-                    with mock.patch(
-                        "src.core.scheduler.is_flatpak", return_value=False
-                    ):
+                    with mock.patch("src.core.scheduler.is_flatpak", return_value=False):
                         result = scheduler._get_cli_command_path()
 
                         assert result == str(cli_script)
@@ -836,9 +808,7 @@ class TestGetCliCommandPath:
                     "_get_venv_paths",
                     return_value=[Path(tmpdir) / "clamui" / "venv"],
                 ):
-                    with mock.patch(
-                        "src.core.scheduler.is_flatpak", return_value=False
-                    ):
+                    with mock.patch("src.core.scheduler.is_flatpak", return_value=False):
                         result = scheduler._get_cli_command_path()
 
                         assert str(python_bin) in result
@@ -849,23 +819,18 @@ class TestGetCliCommandPath:
         with mock.patch("src.core.scheduler.is_flatpak", return_value=False):
             with mock.patch("src.core.scheduler.which_host_command") as mock_which:
                 # Nothing in PATH
-                mock_which.side_effect = lambda x: (
-                    "/usr/bin/python3" if x == "python3" else None
-                )
+                mock_which.side_effect = lambda x: ("/usr/bin/python3" if x == "python3" else None)
 
                 # No venvs exist
                 with mock.patch.object(scheduler, "_get_venv_paths", return_value=[]):
-                    with mock.patch.object(
-                        scheduler, "_check_path_exists", return_value=False
-                    ):
+                    with mock.patch.object(scheduler, "_check_path_exists", return_value=False):
                         result = scheduler._get_cli_command_path()
 
                         # Should use correct module path
                         assert "src.cli.scheduled_scan" in result
                         # Should NOT use the old buggy path
                         assert (
-                            "src.scheduled_scan" not in result
-                            or "src.cli.scheduled_scan" in result
+                            "src.scheduled_scan" not in result or "src.cli.scheduled_scan" in result
                         )
 
     def test_prefers_entry_point_over_module(self, scheduler):
@@ -887,9 +852,7 @@ class TestGetCliCommandPath:
                     "_get_venv_paths",
                     return_value=[Path(tmpdir) / "clamui" / "venv"],
                 ):
-                    with mock.patch(
-                        "src.core.scheduler.is_flatpak", return_value=False
-                    ):
+                    with mock.patch("src.core.scheduler.is_flatpak", return_value=False):
                         result = scheduler._get_cli_command_path()
 
                     # Should return entry point, not module execution
@@ -908,9 +871,7 @@ class TestGetCliCommandPath:
     def test_flatpak_returns_flatpak_run_command(self, scheduler):
         """Test that Flatpak mode returns 'flatpak run' command for host systemd."""
         with mock.patch("src.core.scheduler.is_flatpak", return_value=True):
-            with mock.patch.dict(
-                "os.environ", {"FLATPAK_ID": "io.github.linx_systems.ClamUI"}
-            ):
+            with mock.patch.dict("os.environ", {"FLATPAK_ID": "io.github.linx_systems.ClamUI"}):
                 result = scheduler._get_cli_command_path()
 
                 # Should return flatpak run command with --command= syntax
@@ -923,9 +884,7 @@ class TestGetCliCommandPath:
         """Test that Flatpak mode uses default app ID if FLATPAK_ID not set."""
         with mock.patch("src.core.scheduler.is_flatpak", return_value=True):
             # Remove FLATPAK_ID from environment if present
-            env_without_flatpak_id = {
-                k: v for k, v in os.environ.items() if k != "FLATPAK_ID"
-            }
+            env_without_flatpak_id = {k: v for k, v in os.environ.items() if k != "FLATPAK_ID"}
             with mock.patch.dict("os.environ", env_without_flatpak_id, clear=True):
                 result = scheduler._get_cli_command_path()
 

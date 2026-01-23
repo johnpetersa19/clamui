@@ -2139,3 +2139,64 @@ class TestScannerCancelFlagReset:
                         result = scanner.scan_sync(str(test_file))
 
         assert result.status == ScanStatus.CLEAN
+
+
+class TestScannerBackendSelection:
+    """Tests for Scanner._get_backend method and Flatpak backend support."""
+
+    def test_get_backend_returns_auto_by_default(self):
+        """Test _get_backend returns 'auto' when no settings manager."""
+        scanner = Scanner()
+        assert scanner._get_backend() == "auto"
+
+    def test_get_backend_returns_settings_value(self):
+        """Test _get_backend returns the configured backend from settings."""
+        mock_settings = mock.MagicMock()
+        mock_settings.get.return_value = "daemon"
+
+        scanner = Scanner(settings_manager=mock_settings)
+        assert scanner._get_backend() == "daemon"
+        mock_settings.get.assert_called_with("scan_backend", "auto")
+
+    def test_get_backend_returns_clamscan_setting(self):
+        """Test _get_backend returns 'clamscan' when configured."""
+        mock_settings = mock.MagicMock()
+        mock_settings.get.return_value = "clamscan"
+
+        scanner = Scanner(settings_manager=mock_settings)
+        assert scanner._get_backend() == "clamscan"
+
+    def test_get_backend_allows_daemon_regardless_of_flatpak(self):
+        """Test _get_backend returns daemon setting regardless of environment.
+
+        Previously, Flatpak mode forced 'clamscan' backend. Now daemon
+        backend is available because clamdscan runs on the host via
+        flatpak-spawn --host. The _get_backend() method no longer checks
+        is_flatpak() at all - it simply returns the configured setting.
+        """
+        mock_settings = mock.MagicMock()
+        mock_settings.get.return_value = "daemon"
+
+        scanner = Scanner(settings_manager=mock_settings)
+
+        # No need to mock is_flatpak - _get_backend() doesn't check it
+        backend = scanner._get_backend()
+
+        # Backend should be "daemon" (not forced to "clamscan")
+        assert backend == "daemon"
+
+    def test_get_backend_allows_auto_regardless_of_flatpak(self):
+        """Test _get_backend returns 'auto' regardless of environment.
+
+        Auto mode works in both native and Flatpak because daemon availability
+        is checked at scan time, and clamdscan runs on the host via flatpak-spawn.
+        """
+        mock_settings = mock.MagicMock()
+        mock_settings.get.return_value = "auto"
+
+        scanner = Scanner(settings_manager=mock_settings)
+
+        # No need to mock is_flatpak - _get_backend() doesn't check it
+        backend = scanner._get_backend()
+
+        assert backend == "auto"

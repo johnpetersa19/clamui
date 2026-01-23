@@ -782,9 +782,7 @@ class StatisticsView(Gtk.Box):
             self._status_badge.set_label("At Risk")
             set_status_class(self._status_badge, StatusLevel.WARNING)
         elif status.level == ProtectionLevel.UNPROTECTED.value:
-            self._protection_row_icon.set_from_icon_name(
-                resolve_icon_name("dialog-error-symbolic")
-            )
+            self._protection_row_icon.set_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
             self._status_badge.set_label("Unprotected")
             set_status_class(self._status_badge, StatusLevel.ERROR)
         else:
@@ -927,9 +925,7 @@ class StatisticsView(Gtk.Box):
         self._threats_label.remove_css_class("error")
 
         self._protection_row.set_subtitle("Unable to determine status")
-        self._protection_row_icon.set_from_icon_name(
-            resolve_icon_name("dialog-error-symbolic")
-        )
+        self._protection_row_icon.set_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
         self._status_badge.set_label("Error")
         set_status_class(self._status_badge, StatusLevel.ERROR)
 

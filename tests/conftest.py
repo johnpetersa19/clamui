@@ -246,9 +246,7 @@ def mock_gi_modules():
     mock_adw.SwitchRow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.EntryRow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.SpinRow = MagicMock()
-    mock_adw.SpinRow.new_with_range = MagicMock(
-        side_effect=lambda *args, **kwargs: MagicMock()
-    )
+    mock_adw.SpinRow.new_with_range = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     # Container widgets - tests may set return_value to control what's returned
     mock_adw.PreferencesGroup = MagicMock()
     mock_adw.PreferencesPage = MagicMock()

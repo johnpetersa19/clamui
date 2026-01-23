@@ -128,37 +128,49 @@ def check_clamdscan_installed() -> tuple[bool, str | None]:
         - (True, version_string) if clamdscan is installed
         - (False, error_message) if clamdscan is not found or inaccessible
     """
-    # First check if clamdscan exists in PATH (checking host if in Flatpak)
+    # First try to find clamdscan using which (works reliably in Flatpak)
+    # This uses flatpak-spawn --host which clamdscan, which has full PATH access
     clamdscan_path = which_host_command("clamdscan")
 
-    if clamdscan_path is None:
+    if clamdscan_path:
+        # Found via which - use the full path
+        cmd = wrap_host_command([clamdscan_path, "--version"])
+    else:
+        # Fallback: try common paths directly (for edge cases where which fails)
+        for path in ["/usr/bin/clamdscan", "/usr/sbin/clamdscan", "clamdscan"]:
+            cmd = wrap_host_command([path, "--version"])
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    return (True, result.stdout.strip())
+            except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError):
+                continue
         return (
             False,
             "clamdscan is not installed. Please install it with: sudo apt install clamav-daemon",
         )
 
-    # Try to get version to verify it's working
+    # Execute with found path
     try:
-        result = subprocess.run(
-            wrap_host_command(["clamdscan", "--version"]),
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
 
         if result.returncode == 0:
             version = result.stdout.strip()
             return (True, version)
         else:
+            error = result.stderr.strip() or result.stdout.strip()
             return (
                 False,
-                f"clamdscan found but returned error: {result.stderr.strip()}",
+                f"clamdscan returned error: {error}",
             )
 
     except subprocess.TimeoutExpired:
         return (False, "clamdscan check timed out")
     except FileNotFoundError:
-        return (False, "clamdscan executable not found")
+        return (
+            False,
+            "clamdscan is not installed. Please install it with: sudo apt install clamav-daemon",
+        )
     except PermissionError:
         return (False, "Permission denied when accessing clamdscan")
     except Exception as e:

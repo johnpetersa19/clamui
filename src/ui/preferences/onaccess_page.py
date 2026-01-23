@@ -277,9 +277,7 @@ class OnAccessPage(PreferencesPageMixin):
         warning_row.set_subtitle("Exclude clamav user or UID to prevent scan loops")
         warning_row.add_css_class("warning")
         # Add warning icon as prefix
-        warning_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("dialog-warning-symbolic")
-        )
+        warning_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
         warning_icon.set_margin_start(6)
         warning_row.add_prefix(warning_icon)
         group.add(warning_row)
@@ -290,9 +288,7 @@ class OnAccessPage(PreferencesPageMixin):
         exclude_uname_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         exclude_uname_row.set_show_apply_button(False)
         # Add user icon as prefix
-        user_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("avatar-default-symbolic")
-        )
+        user_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("avatar-default-symbolic"))
         user_icon.set_margin_start(6)
         exclude_uname_row.add_prefix(user_icon)
         widgets_dict["OnAccessExcludeUname"] = exclude_uname_row

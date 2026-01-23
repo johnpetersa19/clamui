@@ -33,7 +33,6 @@ from .threat_classifier import (
 from .utils import (
     check_clamd_connection,
     check_clamdscan_installed,
-    is_flatpak,
     validate_path,
     which_host_command,
     wrap_host_command,
@@ -51,7 +50,9 @@ class DaemonScanner:
     """
 
     def __init__(
-        self, log_manager: LogManager | None = None, settings_manager: SettingsManager | None = None
+        self,
+        log_manager: LogManager | None = None,
+        settings_manager: SettingsManager | None = None,
     ):
         """
         Initialize the daemon scanner.
@@ -271,14 +272,11 @@ class DaemonScanner:
         clamdscan = which_host_command("clamdscan") or "clamdscan"
         cmd = [clamdscan]
 
-        # Use multiscan and fdpass for better performance
-        # In Flatpak: use --stream instead (clamdscan reads file and streams to clamd)
-        # This avoids permission issues where clamd can't access files created by Flatpak
-        if is_flatpak():
-            cmd.append("--stream")
-        else:
-            cmd.append("--multiscan")
-            cmd.append("--fdpass")
+        # Use multiscan and fdpass for optimal performance
+        # In Flatpak: wrap_host_command() ensures clamdscan runs on the host
+        # via flatpak-spawn --host, where it can access clamd socket and use fdpass
+        cmd.append("--multiscan")
+        cmd.append("--fdpass")
 
         # Show infected files only
         cmd.append("-i")

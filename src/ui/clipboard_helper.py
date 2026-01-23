@@ -179,8 +179,7 @@ class ClipboardHelper:
         # Generate message if not provided
         if too_large_message is None:
             too_large_message = (
-                f"Content too large ({format_size(size_bytes)}). "
-                "Use export to save to file."
+                f"Content too large ({format_size(size_bytes)}). Use export to save to file."
             )
 
         self._show_toast(too_large_message)

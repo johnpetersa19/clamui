@@ -48,9 +48,7 @@ class TestCheckFileManagerAvailable:
             return_value=Path("/home/user/.local/share"),
         ):
             with mock.patch.object(Path, "exists", return_value=True):
-                result = file_manager_integration._check_file_manager_available(
-                    FileManager.NEMO
-                )
+                result = file_manager_integration._check_file_manager_available(FileManager.NEMO)
                 assert result is True
 
     def test_check_nautilus_available_dir_exists(self):
@@ -74,9 +72,7 @@ class TestCheckFileManagerAvailable:
             return_value=Path("/home/user/.local/share"),
         ):
             with mock.patch.object(Path, "exists", return_value=True):
-                result = file_manager_integration._check_file_manager_available(
-                    FileManager.DOLPHIN
-                )
+                result = file_manager_integration._check_file_manager_available(FileManager.DOLPHIN)
                 assert result is True
 
 
@@ -91,9 +87,7 @@ class TestCheckIntegrationInstalled:
             return_value=Path("/home/user/.local/share"),
         ):
             with mock.patch.object(Path, "exists", return_value=True):
-                result = file_manager_integration._check_integration_installed(
-                    FileManager.NEMO
-                )
+                result = file_manager_integration._check_integration_installed(FileManager.NEMO)
                 assert result is True
 
     def test_check_nemo_integration_not_installed(self):
@@ -104,9 +98,7 @@ class TestCheckIntegrationInstalled:
             return_value=Path("/home/user/.local/share"),
         ):
             with mock.patch.object(Path, "exists", return_value=False):
-                result = file_manager_integration._check_integration_installed(
-                    FileManager.NEMO
-                )
+                result = file_manager_integration._check_integration_installed(FileManager.NEMO)
                 assert result is False
 
 
@@ -115,26 +107,20 @@ class TestGetAvailableIntegrations:
 
     def test_get_available_integrations_not_flatpak(self):
         """Test returns empty list when not in Flatpak."""
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=False
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=False):
             result = get_available_integrations()
             assert result == []
 
     def test_get_available_integrations_no_source_dir(self):
         """Test returns empty list when integration source dir missing."""
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
             with mock.patch("pathlib.Path.exists", return_value=False):
                 result = get_available_integrations()
                 assert result == []
 
     def test_get_available_integrations_returns_all_managers(self):
         """Test returns info for all file managers."""
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
             with mock.patch("pathlib.Path.exists", return_value=True):
                 with mock.patch.object(
                     file_manager_integration,
@@ -149,12 +135,8 @@ class TestGetAvailableIntegrations:
                         result = get_available_integrations()
                         assert len(result) == 3
                         assert any(i.file_manager == FileManager.NEMO for i in result)
-                        assert any(
-                            i.file_manager == FileManager.NAUTILUS for i in result
-                        )
-                        assert any(
-                            i.file_manager == FileManager.DOLPHIN for i in result
-                        )
+                        assert any(i.file_manager == FileManager.NAUTILUS for i in result)
+                        assert any(i.file_manager == FileManager.DOLPHIN for i in result)
 
 
 class TestInstallIntegration:
@@ -162,18 +144,14 @@ class TestInstallIntegration:
 
     def test_install_integration_not_flatpak(self):
         """Test returns error when not in Flatpak."""
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=False
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=False):
             success, error = install_integration(FileManager.NEMO)
             assert success is False
             assert "Not running as Flatpak" in error
 
     def test_install_integration_no_source_dir(self):
         """Test returns error when integration source dir missing."""
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
             with mock.patch("pathlib.Path.exists", return_value=False):
                 success, error = install_integration(FileManager.NEMO)
                 assert success is False
@@ -189,12 +167,8 @@ class TestInstallIntegration:
 
         dest_dir = tmp_path / "dest"
 
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
-            with mock.patch.object(
-                file_manager_integration, "INTEGRATIONS_SOURCE_DIR", source_dir
-            ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
+            with mock.patch.object(file_manager_integration, "INTEGRATIONS_SOURCE_DIR", source_dir):
                 with mock.patch.object(
                     file_manager_integration,
                     "_get_local_share_dir",
@@ -212,20 +186,14 @@ class TestInstallIntegration:
         source_file = source_dir / "io.github.linx_systems.ClamUI.nemo_action"
         source_file.write_text("[Nemo Action]\nName=Test")
 
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
-            with mock.patch.object(
-                file_manager_integration, "INTEGRATIONS_SOURCE_DIR", source_dir
-            ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
+            with mock.patch.object(file_manager_integration, "INTEGRATIONS_SOURCE_DIR", source_dir):
                 with mock.patch.object(
                     file_manager_integration,
                     "_get_local_share_dir",
                     return_value=Path("/nonexistent/readonly"),
                 ):
-                    with mock.patch(
-                        "shutil.copy2", side_effect=PermissionError("Access denied")
-                    ):
+                    with mock.patch("shutil.copy2", side_effect=PermissionError("Access denied")):
                         with mock.patch("pathlib.Path.mkdir"):
                             success, error = install_integration(FileManager.NEMO)
                             assert success is False
@@ -294,9 +262,7 @@ class TestInstallAllAvailable:
             "get_available_integrations",
             return_value=[mock_integration],
         ):
-            with mock.patch.object(
-                file_manager_integration, "install_integration"
-            ) as mock_install:
+            with mock.patch.object(file_manager_integration, "install_integration") as mock_install:
                 result = install_all_available()
                 mock_install.assert_not_called()
                 assert result == {}
@@ -307,9 +273,7 @@ class TestCheckAnyAvailable:
 
     def test_check_any_available_not_flatpak(self):
         """Test returns False when not in Flatpak."""
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=False
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=False):
             result = check_any_available()
             assert result is False
 
@@ -324,9 +288,7 @@ class TestCheckAnyAvailable:
             is_available=True,
         )
 
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
             with mock.patch.object(
                 file_manager_integration,
                 "get_available_integrations",
@@ -346,9 +308,7 @@ class TestCheckAnyAvailable:
             is_available=False,
         )
 
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
             with mock.patch.object(
                 file_manager_integration,
                 "get_available_integrations",
@@ -363,9 +323,7 @@ class TestCheckAnyNotInstalled:
 
     def test_check_any_not_installed_not_flatpak(self):
         """Test returns False when not in Flatpak."""
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=False
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=False):
             result = check_any_not_installed()
             assert result is False
 
@@ -380,9 +338,7 @@ class TestCheckAnyNotInstalled:
             is_available=True,
         )
 
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
             with mock.patch.object(
                 file_manager_integration,
                 "get_available_integrations",
@@ -402,9 +358,7 @@ class TestCheckAnyNotInstalled:
             is_available=True,
         )
 
-        with mock.patch.object(
-            file_manager_integration, "is_flatpak", return_value=True
-        ):
+        with mock.patch.object(file_manager_integration, "is_flatpak", return_value=True):
             with mock.patch.object(
                 file_manager_integration,
                 "get_available_integrations",

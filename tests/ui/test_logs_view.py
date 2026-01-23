@@ -217,9 +217,7 @@ class TestLogsViewInitialization:
 class TestLogsViewLoadingState:
     """Tests for loading state management."""
 
-    def test_set_loading_state_true_shows_spinner(
-        self, logs_view_class, mock_log_manager
-    ):
+    def test_set_loading_state_true_shows_spinner(self, logs_view_class, mock_log_manager):
         """Test that setting loading True shows spinner."""
         view = object.__new__(logs_view_class)
         view._is_loading = False
@@ -237,9 +235,7 @@ class TestLogsViewLoadingState:
         view._refresh_button.set_sensitive.assert_called_with(False)
         view._clear_button.set_sensitive.assert_called_with(False)
 
-    def test_set_loading_state_false_hides_spinner(
-        self, logs_view_class, mock_log_manager
-    ):
+    def test_set_loading_state_false_hides_spinner(self, logs_view_class, mock_log_manager):
         """Test that setting loading False hides spinner."""
         view = object.__new__(logs_view_class)
         view._is_loading = True
@@ -255,9 +251,7 @@ class TestLogsViewLoadingState:
         view._logs_spinner.set_visible.assert_called_with(False)
         view._refresh_button.set_sensitive.assert_called_with(True)
 
-    def test_load_logs_async_prevents_double_load(
-        self, logs_view_class, mock_log_manager
-    ):
+    def test_load_logs_async_prevents_double_load(self, logs_view_class, mock_log_manager):
         """Test that async load prevents loading when already loading."""
         view = object.__new__(logs_view_class)
         view._is_loading = True
@@ -319,9 +313,7 @@ class TestLogsViewLogSelection:
         view._export_detail_json_button.set_sensitive.assert_called_with(True)
         view._display_log_details.assert_called_once_with(mock_log_entry)
 
-    def test_on_log_selected_returns_when_entry_not_found(
-        self, logs_view_class, mock_log_manager
-    ):
+    def test_on_log_selected_returns_when_entry_not_found(self, logs_view_class, mock_log_manager):
         """Test that selecting a log that doesn't exist returns early."""
         view = object.__new__(logs_view_class)
         view._selected_log = None
@@ -376,9 +368,7 @@ class TestLogsViewPagination:
 
         assert view._all_log_entries == logs
 
-    def test_display_log_batch_delegates_to_pagination(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_display_log_batch_delegates_to_pagination(self, logs_view_class, mock_log_entry):
         """Test that displaying logs delegates to pagination controller."""
         view = object.__new__(logs_view_class)
         view._pagination = mock.MagicMock()
@@ -413,9 +403,7 @@ class TestLogsViewPagination:
 class TestLogsViewLogRowCreation:
     """Tests for log row creation."""
 
-    def test_create_log_row_sets_scan_icon(
-        self, logs_view_class, mock_log_entry, mock_gi_modules
-    ):
+    def test_create_log_row_sets_scan_icon(self, logs_view_class, mock_log_entry, mock_gi_modules):
         """Test that scan logs get folder icon via add_prefix."""
         view = object.__new__(logs_view_class)
         mock_log_entry.type = "scan"
@@ -444,9 +432,7 @@ class TestLogsViewLogRowCreation:
         # Icon is added via add_prefix with a Gtk.Image (modern pattern)
         mock_row.add_prefix.assert_called()
 
-    def test_create_log_row_sets_name_to_id(
-        self, logs_view_class, mock_log_entry, mock_gi_modules
-    ):
+    def test_create_log_row_sets_name_to_id(self, logs_view_class, mock_log_entry, mock_gi_modules):
         """Test that row name is set to entry ID."""
         view = object.__new__(logs_view_class)
 
@@ -480,9 +466,7 @@ class TestLogsViewDaemonStatus:
 
         assert result is False
         view._daemon_status_row.set_subtitle.assert_called_with("Running")
-        view._daemon_status_icon.set_from_icon_name.assert_called_with(
-            "object-select-symbolic"
-        )
+        view._daemon_status_icon.set_from_icon_name.assert_called_with("object-select-symbolic")
         view._live_toggle.set_sensitive.assert_called_with(True)
 
     def test_check_daemon_status_stopped(self, logs_view_class, mock_log_manager):
@@ -619,18 +603,14 @@ class TestLogsViewRefreshDaemonLogs:
 
         result = view._refresh_daemon_logs()
 
-        mock_buffer.set_text.assert_called_with(
-            "Error loading daemon logs:\n\nPermission denied"
-        )
+        mock_buffer.set_text.assert_called_with("Error loading daemon logs:\n\nPermission denied")
         assert result is False
 
 
 class TestLogsViewClearLogs:
     """Tests for clear logs functionality."""
 
-    def test_on_clear_dialog_response_clears_logs(
-        self, logs_view_class, mock_log_manager
-    ):
+    def test_on_clear_dialog_response_clears_logs(self, logs_view_class, mock_log_manager):
         """Test that clear response clears logs."""
         view = object.__new__(logs_view_class)
         view._log_manager = mock_log_manager
@@ -657,9 +637,7 @@ class TestLogsViewClearLogs:
         assert view._selected_log is None
         view._copy_detail_button.set_sensitive.assert_called_with(False)
 
-    def test_on_clear_dialog_response_cancel_does_nothing(
-        self, logs_view_class, mock_log_manager
-    ):
+    def test_on_clear_dialog_response_cancel_does_nothing(self, logs_view_class, mock_log_manager):
         """Test that cancel response does nothing."""
         view = object.__new__(logs_view_class)
         view._log_manager = mock_log_manager
@@ -740,9 +718,7 @@ class TestLogsViewDisplayLogDetails:
 class TestLogsViewStatisticsSummary:
     """Tests for statistics summary in log detail display."""
 
-    def test_statistics_summary_shown_for_scan_with_data(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_shown_for_scan_with_data(self, logs_view_class, mock_log_entry):
         """Test that statistics summary appears in scan log detail when data is available."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -772,9 +748,7 @@ class TestLogsViewStatisticsSummary:
         assert "Duration:" in call_args
         mock_stats_calc.extract_entry_statistics.assert_called_once_with(mock_log_entry)
 
-    def test_statistics_summary_absent_for_update_log(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_absent_for_update_log(self, logs_view_class, mock_log_entry):
         """Test that statistics summary does not appear for update logs."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -799,9 +773,7 @@ class TestLogsViewStatisticsSummary:
         # Statistics calculator should not be called for update logs
         mock_stats_calc.extract_entry_statistics.assert_not_called()
 
-    def test_statistics_summary_absent_when_no_data(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_absent_when_no_data(self, logs_view_class, mock_log_entry):
         """Test that statistics summary is not shown when all values are zero."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -827,9 +799,7 @@ class TestLogsViewStatisticsSummary:
         call_args = mock_buffer.set_text.call_args[0][0]
         assert "Statistics Summary:" not in call_args
 
-    def test_statistics_summary_duration_formatting_seconds(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_duration_formatting_seconds(self, logs_view_class, mock_log_entry):
         """Test that duration under 60 seconds is formatted correctly."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -855,9 +825,7 @@ class TestLogsViewStatisticsSummary:
         call_args = mock_buffer.set_text.call_args[0][0]
         assert "Duration: 45.50 seconds" in call_args
 
-    def test_statistics_summary_duration_formatting_minutes(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_duration_formatting_minutes(self, logs_view_class, mock_log_entry):
         """Test that duration between 60 and 3600 seconds is formatted as minutes."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -883,9 +851,7 @@ class TestLogsViewStatisticsSummary:
         call_args = mock_buffer.set_text.call_args[0][0]
         assert "Duration: 2m 5s" in call_args
 
-    def test_statistics_summary_duration_formatting_hours(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_duration_formatting_hours(self, logs_view_class, mock_log_entry):
         """Test that duration over 3600 seconds is formatted as hours."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -940,9 +906,7 @@ class TestLogsViewStatisticsSummary:
         # Directories and duration should not appear (zero values)
         assert "Directories Scanned: 0" not in call_args
 
-    def test_statistics_summary_with_thousands_separator(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_statistics_summary_with_thousands_separator(self, logs_view_class, mock_log_entry):
         """Test that large numbers use thousands separator."""
         view = object.__new__(logs_view_class)
         view._detail_text = mock.MagicMock()
@@ -983,9 +947,7 @@ class TestLogsViewCopyExport:
             view._on_copy_detail_clicked(mock.MagicMock())
             mock_helper.assert_not_called()
 
-    def test_on_copy_detail_clicked_copies_content(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_on_copy_detail_clicked_copies_content(self, logs_view_class, mock_log_entry):
         """Test that copy copies content to clipboard via ClipboardHelper."""
         view = object.__new__(logs_view_class)
         view._selected_log = mock_log_entry
@@ -1044,9 +1006,7 @@ class TestLogsViewCSVFormatting:
         assert mock_log_entry.type in result
         assert mock_log_entry.status in result
 
-    def test_format_log_entry_as_csv_escapes_special_chars(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_format_log_entry_as_csv_escapes_special_chars(self, logs_view_class, mock_log_entry):
         """Test CSV formatting with special characters."""
         view = object.__new__(logs_view_class)
         mock_log_entry.summary = 'Summary with "quotes" and, commas'
@@ -1056,9 +1016,7 @@ class TestLogsViewCSVFormatting:
         # CSV should properly escape quotes
         assert result is not None
 
-    def test_format_log_entry_as_csv_handles_no_path(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_format_log_entry_as_csv_handles_no_path(self, logs_view_class, mock_log_entry):
         """Test CSV formatting when path is None."""
         view = object.__new__(logs_view_class)
         mock_log_entry.path = None
@@ -1068,9 +1026,7 @@ class TestLogsViewCSVFormatting:
         # Should not raise an error
         assert result is not None
 
-    def test_format_log_entry_as_csv_handles_zero_duration(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_format_log_entry_as_csv_handles_zero_duration(self, logs_view_class, mock_log_entry):
         """Test CSV formatting with zero duration."""
         view = object.__new__(logs_view_class)
         mock_log_entry.duration = 0
@@ -1084,9 +1040,7 @@ class TestLogsViewCSVFormatting:
 class TestLogsViewLogManagerProperty:
     """Tests for log_manager property."""
 
-    def test_log_manager_property_returns_manager(
-        self, mock_logs_view, mock_log_manager
-    ):
+    def test_log_manager_property_returns_manager(self, mock_logs_view, mock_log_manager):
         """Test that log_manager property returns the internal manager."""
         result = mock_logs_view.log_manager
 
@@ -1142,9 +1096,7 @@ class TestLogsViewExportButtonState:
         view._export_all_csv_button.set_sensitive.assert_called_with(False)
         view._export_all_json_button.set_sensitive.assert_called_with(False)
 
-    def test_export_buttons_enabled_when_logs_loaded(
-        self, logs_view_class, mock_log_entry
-    ):
+    def test_export_buttons_enabled_when_logs_loaded(self, logs_view_class, mock_log_entry):
         """Test that export all buttons are enabled when logs are loaded."""
         view = object.__new__(logs_view_class)
         view._is_loading = True
@@ -1187,9 +1139,7 @@ class TestLogsViewExportButtonState:
 class TestLogsViewExportAllCSVHandler:
     """Tests for export all to CSV handler."""
 
-    def test_on_export_all_csv_clicked_returns_when_no_logs(
-        self, logs_view_class, mock_gi_modules
-    ):
+    def test_on_export_all_csv_clicked_returns_when_no_logs(self, logs_view_class, mock_gi_modules):
         """Test that export all CSV returns early when no logs."""
         view = object.__new__(logs_view_class)
         view._all_log_entries = []

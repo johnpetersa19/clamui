@@ -131,7 +131,9 @@ class ComponentsView(Gtk.Box):
         # Info row explaining the view
         info_row = Adw.ActionRow()
         info_row.set_title("Component Status")
-        info_row.set_subtitle("View installation status and setup guides for ClamAV tools")
+        info_row.set_subtitle(
+            "View installation status and setup guides for ClamAV tools"
+        )
         add_row_icon(info_row, "applications-system-symbolic")
 
         info_group.add(info_row)
@@ -150,11 +152,13 @@ class ComponentsView(Gtk.Box):
         # Set description based on whether running in Flatpak
         if is_flatpak():
             components_group.set_description(
-                "clamscan and freshclam are bundled with the Flatpak package. "
-                "Daemon components are not available in Flatpak."
+                "clamscan and freshclam are bundled with the Flatpak. "
+                "Daemon components run on the host system via flatpak-spawn."
             )
         else:
-            components_group.set_description("Expand each component for installation instructions")
+            components_group.set_description(
+                "Expand each component for installation instructions"
+            )
         self._components_group = components_group
 
         # Add refresh button to the header
@@ -171,18 +175,17 @@ class ComponentsView(Gtk.Box):
             "software-update-available-symbolic",
         )
 
-        # Only show daemon-related components for native installations
-        # In Flatpak, the daemon cannot be accessed from inside the sandbox
-        if not is_flatpak():
-            self._create_component_row(
-                components_group,
-                "clamdscan",
-                "Daemon Scanner Client",
-                "network-server-symbolic",
-            )
-            self._create_component_row(
-                components_group, "clamd", "Scanner Daemon", "system-run-symbolic"
-            )
+        # Daemon components are shown for both native and Flatpak installations
+        # In Flatpak, daemon commands run on the host via flatpak-spawn --host
+        self._create_component_row(
+            components_group,
+            "clamdscan",
+            "Daemon Scanner Client",
+            "network-server-symbolic",
+        )
+        self._create_component_row(
+            components_group, "clamd", "Scanner Daemon", "system-run-symbolic"
+        )
 
         scrolled.set_child(components_group)
         self.append(scrolled)
@@ -266,7 +269,9 @@ class ComponentsView(Gtk.Box):
                 notes_box.set_margin_top(6)
 
                 notes_label = Gtk.Label()
-                notes_label.set_markup(f"<small><i>{GLib.markup_escape_text(notes)}</i></small>")
+                notes_label.set_markup(
+                    f"<small><i>{GLib.markup_escape_text(notes)}</i></small>"
+                )
                 notes_label.set_wrap(True)
                 notes_label.set_xalign(0)
                 notes_label.add_css_class("dim-label")
@@ -454,23 +459,22 @@ class ComponentsView(Gtk.Box):
         is_installed, version_or_error = check_freshclam_installed()
         self._update_component_status("freshclam", is_installed, version_or_error)
 
-        # Only check daemon-related components for native installations
-        # In Flatpak, the daemon cannot be accessed from inside the sandbox
-        if not is_flatpak():
-            # Check clamdscan
-            is_installed, version_or_error = check_clamdscan_installed()
-            self._update_component_status("clamdscan", is_installed, version_or_error)
+        # Check clamdscan (runs on host via flatpak-spawn in Flatpak mode)
+        is_installed, version_or_error = check_clamdscan_installed()
+        self._update_component_status("clamdscan", is_installed, version_or_error)
 
-            # Check clamd daemon
-            daemon_status, daemon_message = self._log_manager.get_daemon_status()
-            self._update_daemon_status("clamd", daemon_status, daemon_message)
+        # Check clamd daemon (runs on host via flatpak-spawn in Flatpak mode)
+        daemon_status, daemon_message = self._log_manager.get_daemon_status()
+        self._update_daemon_status("clamd", daemon_status, daemon_message)
 
         # Reset checking state
         self._set_checking_state(False)
 
         return False  # Don't repeat
 
-    def _update_component_status(self, component_id: str, is_installed: bool, message: str):
+    def _update_component_status(
+        self, component_id: str, is_installed: bool, message: str
+    ):
         """
         Update the status display for a component.
 
@@ -510,13 +514,19 @@ class ComponentsView(Gtk.Box):
         else:
             # In Flatpak, bundled components should always be available
             if is_flatpak_bundled:
-                status_icon.set_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
+                status_icon.set_from_icon_name(
+                    resolve_icon_name("dialog-error-symbolic")
+                )
                 set_status_class(status_icon, StatusLevel.ERROR)
                 status_label.set_text("Unavailable")
-                expander.set_subtitle("Flatpak package issue - component should be bundled")
+                expander.set_subtitle(
+                    "Flatpak package issue - component should be bundled"
+                )
                 expander.set_enable_expansion(False)
             else:
-                status_icon.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
+                status_icon.set_from_icon_name(
+                    resolve_icon_name("dialog-warning-symbolic")
+                )
                 set_status_class(status_icon, StatusLevel.WARNING)
                 status_label.set_text("Not installed")
                 expander.set_subtitle("Not installed - expand for setup instructions")
@@ -527,7 +537,9 @@ class ComponentsView(Gtk.Box):
                     guide_row.set_visible(True)
                 expander.set_enable_expansion(True)
 
-    def _update_daemon_status(self, component_id: str, status: DaemonStatus, message: str):
+    def _update_daemon_status(
+        self, component_id: str, status: DaemonStatus, message: str
+    ):
         """
         Update the status display for the clamd daemon.
 
@@ -558,7 +570,9 @@ class ComponentsView(Gtk.Box):
                 guide_row.set_visible(False)
             expander.set_enable_expansion(False)
         elif status == DaemonStatus.STOPPED:
-            status_icon.set_from_icon_name(resolve_icon_name("media-playback-stop-symbolic"))
+            status_icon.set_from_icon_name(
+                resolve_icon_name("media-playback-stop-symbolic")
+            )
             set_status_class(status_icon, StatusLevel.WARNING)
             status_label.set_text("Stopped")
             expander.set_subtitle("Daemon is installed but not running")
@@ -576,7 +590,9 @@ class ComponentsView(Gtk.Box):
                 guide_row.set_visible(True)
             expander.set_enable_expansion(True)
         else:  # UNKNOWN
-            status_icon.set_from_icon_name(resolve_icon_name("dialog-question-symbolic"))
+            status_icon.set_from_icon_name(
+                resolve_icon_name("dialog-question-symbolic")
+            )
             status_label.set_text("Unknown")
             expander.set_subtitle(message or "Unable to determine status")
             # Show guide and enable expansion for unknown status

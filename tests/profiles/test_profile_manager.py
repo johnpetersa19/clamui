@@ -260,9 +260,7 @@ class TestProfileManagerCircularExclusions:
         """Create a ProfileManager with a temporary directory."""
         return ProfileManager(config_dir=temp_config_dir)
 
-    def test_check_circular_exclusions_warns_when_all_excluded(
-        self, manager, temp_config_dir
-    ):
+    def test_check_circular_exclusions_warns_when_all_excluded(self, manager, temp_config_dir):
         """Test that warning is added when exclusion would exclude all targets."""
         warnings: list[str] = []
         # Create a target inside the temp dir
@@ -279,9 +277,7 @@ class TestProfileManagerCircularExclusions:
         assert len(warnings) > 0
         assert "exclude all" in warnings[0].lower()
 
-    def test_check_circular_exclusions_no_warning_when_partial(
-        self, manager, temp_config_dir
-    ):
+    def test_check_circular_exclusions_no_warning_when_partial(self, manager, temp_config_dir):
         """Test that no warning when exclusion doesn't cover all targets."""
         warnings: list[str] = []
         target1 = Path(temp_config_dir) / "target1"
@@ -1035,9 +1031,7 @@ class TestProfileManagerThreadSafety:
                 with lock:
                     errors.append(e)
 
-        threads = [
-            threading.Thread(target=create_profile, args=(i,)) for i in range(10)
-        ]
+        threads = [threading.Thread(target=create_profile, args=(i,)) for i in range(10)]
 
         for t in threads:
             t.start()
@@ -1249,13 +1243,8 @@ class TestProfileManagerPathCaching:
 
         # Verify caches have entries
         cache_info = ProfileManager.get_cache_info()
-        assert (
-            cache_info["expanduser"]["currsize"] > 0
-            or cache_info["expanduser"]["misses"] > 0
-        )
-        assert (
-            cache_info["resolve"]["currsize"] > 0 or cache_info["resolve"]["misses"] > 0
-        )
+        assert cache_info["expanduser"]["currsize"] > 0 or cache_info["expanduser"]["misses"] > 0
+        assert cache_info["resolve"]["currsize"] > 0 or cache_info["resolve"]["misses"] > 0
 
         # Clear caches
         ProfileManager.clear_path_cache()
@@ -1343,13 +1332,9 @@ class TestProfileManagerPathCaching:
         # Verify cache usage on second validation
         cache_info2 = ProfileManager.get_cache_info()
         # Should have some cache activity from validation
-        assert (
-            cache_info2["expanduser"]["misses"] + cache_info2["resolve"]["misses"]
-        ) > 0
+        assert (cache_info2["expanduser"]["misses"] + cache_info2["resolve"]["misses"]) > 0
 
-    def test_cache_handles_duplicate_paths_in_validation(
-        self, manager, temp_config_dir
-    ):
+    def test_cache_handles_duplicate_paths_in_validation(self, manager, temp_config_dir):
         """Test that cache efficiently handles duplicate paths in validation."""
         ProfileManager.clear_path_cache()
 
@@ -1484,8 +1469,7 @@ class TestProfileManagerPathCaching:
 
         # Should have cache hits on second call
         assert (
-            cache_info_after_second["resolve"]["hits"]
-            > cache_info_after_first["resolve"]["hits"]
+            cache_info_after_second["resolve"]["hits"] > cache_info_after_first["resolve"]["hits"]
         )
 
 

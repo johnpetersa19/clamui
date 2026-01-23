@@ -160,58 +160,38 @@ class VirusTotalResultsDialog(Adw.Window):
         if self._vt_result.status == VTScanStatus.CLEAN:
             status_row.set_title("No threats detected")
             status_row.set_subtitle("File appears to be safe")
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("object-select-symbolic")
-            )
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
             icon.add_css_class("success")
         elif self._vt_result.status == VTScanStatus.DETECTED:
             ratio = f"{self._vt_result.detections}/{self._vt_result.total_engines}"
-            status_row.set_title(
-                f"{self._vt_result.detections} engines detected threats"
-            )
+            status_row.set_title(f"{self._vt_result.detections} engines detected threats")
             status_row.set_subtitle(f"Detection ratio: {ratio}")
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-warning-symbolic")
-            )
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             icon.add_css_class("warning")
         elif self._vt_result.status == VTScanStatus.NOT_FOUND:
             status_row.set_title("File not in database")
             status_row.set_subtitle("This file has not been scanned before")
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-information-symbolic")
-            )
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
             icon.add_css_class("dim-label")
         elif self._vt_result.status == VTScanStatus.PENDING:
             status_row.set_title("Analysis in progress")
             status_row.set_subtitle("Check back later for results")
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("emblem-synchronizing-symbolic")
-            )
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("emblem-synchronizing-symbolic"))
             icon.add_css_class("dim-label")
         elif self._vt_result.status == VTScanStatus.RATE_LIMITED:
             status_row.set_title("Rate limit exceeded")
-            status_row.set_subtitle(
-                self._vt_result.error_message or "Too many requests"
-            )
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-warning-symbolic")
-            )
+            status_row.set_subtitle(self._vt_result.error_message or "Too many requests")
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             icon.add_css_class("warning")
         elif self._vt_result.status == VTScanStatus.FILE_TOO_LARGE:
             status_row.set_title("File too large")
-            status_row.set_subtitle(
-                self._vt_result.error_message or "Maximum size is 650MB"
-            )
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-error-symbolic")
-            )
+            status_row.set_subtitle(self._vt_result.error_message or "Maximum size is 650MB")
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
             icon.add_css_class("error")
         else:
             status_row.set_title("Scan Error")
             status_row.set_subtitle(self._vt_result.error_message or "Unknown error")
-            icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-error-symbolic")
-            )
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
             icon.add_css_class("error")
 
         status_row.add_prefix(icon)
@@ -262,9 +242,7 @@ class VirusTotalResultsDialog(Adw.Window):
             copy_path_btn.connect("clicked", self._on_copy_path_clicked)
             path_row.add_suffix(copy_path_btn)
 
-            file_icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("text-x-generic-symbolic")
-            )
+            file_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("text-x-generic-symbolic"))
             file_icon.add_css_class("dim-label")
             path_row.add_prefix(file_icon)
 
@@ -275,9 +253,7 @@ class VirusTotalResultsDialog(Adw.Window):
             hash_row = Adw.ActionRow()
             hash_row.set_title("SHA256")
             # Show truncated hash in subtitle
-            truncated_hash = (
-                f"{self._vt_result.sha256[:16]}...{self._vt_result.sha256[-16:]}"
-            )
+            truncated_hash = f"{self._vt_result.sha256[:16]}...{self._vt_result.sha256[-16:]}"
             hash_row.set_subtitle(truncated_hash)
             hash_row.set_tooltip_text(self._vt_result.sha256)
 
@@ -290,9 +266,7 @@ class VirusTotalResultsDialog(Adw.Window):
             copy_hash_btn.connect("clicked", self._on_copy_hash_clicked)
             hash_row.add_suffix(copy_hash_btn)
 
-            hash_icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-password-symbolic")
-            )
+            hash_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-password-symbolic"))
             hash_icon.add_css_class("dim-label")
             hash_row.add_prefix(hash_icon)
 

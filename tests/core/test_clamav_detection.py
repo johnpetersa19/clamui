@@ -226,8 +226,8 @@ class TestCheckFreshclamInstalled:
 class TestCheckClamdscanInstalled:
     """Tests for check_clamdscan_installed() function."""
 
-    def test_check_clamdscan_installed_found_and_working(self):
-        """Test check_clamdscan_installed returns (True, version) when installed."""
+    def test_check_clamdscan_installed_found_via_which(self):
+        """Test check_clamdscan_installed returns (True, version) when found via which."""
         with mock.patch.object(
             clamav_detection, "which_host_command", return_value="/usr/bin/clamdscan"
         ):
@@ -241,14 +241,17 @@ class TestCheckClamdscanInstalled:
                 assert installed is True
                 assert "ClamAV" in version
 
-    def test_check_clamdscan_not_installed(self):
-        """Test check_clamdscan_installed returns (False, message) when not installed."""
+    def test_check_clamdscan_not_installed_which_fails(self):
+        """Test check_clamdscan_installed when which returns None and fallback fails."""
         with mock.patch.object(
             clamav_detection, "which_host_command", return_value=None
         ):
-            installed, message = clamav_detection.check_clamdscan_installed()
-            assert installed is False
-            assert "not installed" in message.lower()
+            with mock.patch("subprocess.run") as mock_run:
+                # All fallback paths fail
+                mock_run.side_effect = FileNotFoundError("not found")
+                installed, message = clamav_detection.check_clamdscan_installed()
+                assert installed is False
+                assert "not installed" in message.lower()
 
     def test_check_clamdscan_timeout(self):
         """Test check_clamdscan_installed handles timeout gracefully."""
@@ -274,8 +277,8 @@ class TestCheckClamdscanInstalled:
                 assert installed is False
                 assert "permission denied" in message.lower()
 
-    def test_check_clamdscan_file_not_found(self):
-        """Test check_clamdscan_installed handles FileNotFoundError gracefully."""
+    def test_check_clamdscan_file_not_found_after_which(self):
+        """Test check_clamdscan_installed handles FileNotFoundError after which succeeds."""
         with mock.patch.object(
             clamav_detection, "which_host_command", return_value="/usr/bin/clamdscan"
         ):
@@ -283,7 +286,7 @@ class TestCheckClamdscanInstalled:
                 mock_run.side_effect = FileNotFoundError("File not found")
                 installed, message = clamav_detection.check_clamdscan_installed()
                 assert installed is False
-                assert "not found" in message.lower()
+                assert "not installed" in message.lower()
 
     def test_check_clamdscan_returns_error(self):
         """Test check_clamdscan_installed when command returns non-zero exit code."""
@@ -311,6 +314,22 @@ class TestCheckClamdscanInstalled:
                 assert installed is False
                 assert "error" in message.lower()
 
+    def test_check_clamdscan_fallback_paths_work(self):
+        """Test check_clamdscan_installed uses fallback paths when which returns None."""
+        with mock.patch.object(
+            clamav_detection, "which_host_command", return_value=None
+        ):
+            with mock.patch("subprocess.run") as mock_run:
+                # First two paths fail, third succeeds
+                mock_run.side_effect = [
+                    FileNotFoundError("not found"),
+                    FileNotFoundError("not found"),
+                    mock.Mock(returncode=0, stdout="ClamAV 1.2.3\n", stderr=""),
+                ]
+                installed, version = clamav_detection.check_clamdscan_installed()
+                assert installed is True
+                assert "ClamAV" in version
+
     def test_check_clamdscan_uses_wrap_host_command(self):
         """Test check_clamdscan_installed uses wrap_host_command for Flatpak support."""
         with mock.patch.object(
@@ -319,7 +338,7 @@ class TestCheckClamdscanInstalled:
             with mock.patch.object(
                 clamav_detection,
                 "wrap_host_command",
-                return_value=["clamdscan", "--version"],
+                return_value=["/usr/bin/clamdscan", "--version"],
             ) as mock_wrap:
                 with mock.patch("subprocess.run") as mock_run:
                     mock_run.return_value = mock.Mock(
@@ -328,7 +347,9 @@ class TestCheckClamdscanInstalled:
                         stderr="",
                     )
                     clamav_detection.check_clamdscan_installed()
-                    mock_wrap.assert_called_once_with(["clamdscan", "--version"])
+                    mock_wrap.assert_called_once_with(
+                        ["/usr/bin/clamdscan", "--version"]
+                    )
 
 
 class TestGetClamdSocketPath:

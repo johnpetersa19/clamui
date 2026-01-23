@@ -93,9 +93,7 @@ class DatabaseMissingDialog(Adw.Window):
         icon_title_box.set_halign(Gtk.Align.CENTER)
 
         # Warning icon
-        warning_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("dialog-warning-symbolic")
-        )
+        warning_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
         warning_icon.set_pixel_size(48)
         warning_icon.add_css_class("warning")
         icon_title_box.append(warning_icon)

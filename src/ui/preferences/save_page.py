@@ -204,9 +204,7 @@ class SavePage(PreferencesPageMixin):
         auto_save_row = Adw.ActionRow()
         auto_save_row.set_title("Auto-Saved")
         auto_save_row.set_subtitle("Scan Backend, Exclusions")
-        auto_save_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("emblem-default-symbolic")
-        )
+        auto_save_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("emblem-default-symbolic"))
         auto_save_icon.add_css_class("success")
         auto_save_row.add_prefix(auto_save_icon)
         info_group.add(auto_save_row)
@@ -215,13 +213,9 @@ class SavePage(PreferencesPageMixin):
         manual_save_row = Adw.ActionRow()
         manual_save_row.set_title("Manual Save Required")
         manual_save_row.set_title_lines(1)
-        manual_save_row.set_subtitle(
-            "Database Updates, Scanner, On-Access, Scheduled Scans"
-        )
+        manual_save_row.set_subtitle("Database Updates, Scanner, On-Access, Scheduled Scans")
         manual_save_row.set_subtitle_lines(1)
-        lock_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("system-lock-screen-symbolic")
-        )
+        lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-lock-screen-symbolic"))
         lock_icon.add_css_class("warning")
         manual_save_row.add_prefix(lock_icon)
         info_group.add(manual_save_row)
@@ -270,12 +264,8 @@ class SavePage(PreferencesPageMixin):
 
         # Collect form data from all pages
         freshclam_updates = DatabasePage.collect_data(self._freshclam_widgets)
-        clamd_updates = ScannerPage.collect_data(
-            self._clamd_widgets, self._clamd_available
-        )
-        onaccess_updates = OnAccessPage.collect_data(
-            self._onaccess_widgets, self._clamd_available
-        )
+        clamd_updates = ScannerPage.collect_data(self._clamd_widgets, self._clamd_available)
+        onaccess_updates = OnAccessPage.collect_data(self._onaccess_widgets, self._clamd_available)
         scheduled_updates = ScheduledPage.collect_data(self._scheduled_widgets)
 
         # Validate configurations
@@ -366,9 +356,7 @@ class SavePage(PreferencesPageMixin):
                 for key, value in freshclam_updates.items():
                     self._window._freshclam_config.set_value(key, value)
 
-                success, error = write_config_with_elevation(
-                    self._window._freshclam_config
-                )
+                success, error = write_config_with_elevation(self._window._freshclam_config)
                 if not success:
                     raise Exception(f"Failed to save freshclam.conf: {error}")
 

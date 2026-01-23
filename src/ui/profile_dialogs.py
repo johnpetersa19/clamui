@@ -251,9 +251,7 @@ class ProfileDialog(Adw.Window):
         # Placeholder for empty list
         self._exclusions_placeholder = Adw.ActionRow()
         self._exclusions_placeholder.set_title("No exclusions added")
-        self._exclusions_placeholder.set_subtitle(
-            "Add paths or patterns to exclude from scanning"
-        )
+        self._exclusions_placeholder.set_subtitle("Add paths or patterns to exclude from scanning")
         add_row_icon(self._exclusions_placeholder, "action-unavailable-symbolic")
         self._exclusions_placeholder.add_css_class("dim-label")
         self._exclusions_listbox.append(self._exclusions_placeholder)
@@ -289,9 +287,7 @@ class ProfileDialog(Adw.Window):
             self._show_validation_error("Profile name is required")
             self._save_button.set_sensitive(False)
         elif len(name) > self.MAX_NAME_LENGTH:
-            self._show_validation_error(
-                f"Name must be {self.MAX_NAME_LENGTH} characters or less"
-            )
+            self._show_validation_error(f"Name must be {self.MAX_NAME_LENGTH} characters or less")
             self._save_button.set_sensitive(False)
         else:
             self._hide_validation_error()
@@ -722,9 +718,7 @@ class PatternEntryDialog(Adw.Window):
         self._pattern_row = Adw.EntryRow()
         self._pattern_row.set_title("Pattern")
         self._pattern_row.connect("changed", self._on_pattern_changed)
-        self._pattern_row.connect(
-            "entry-activated", lambda r: self._on_add_clicked(None)
-        )
+        self._pattern_row.connect("entry-activated", lambda r: self._on_add_clicked(None))
         pattern_group.add(self._pattern_row)
 
         content_box.append(pattern_group)
@@ -818,9 +812,7 @@ class DeleteProfileDialog(Adw.Window):
         content_box.set_margin_bottom(24)
 
         # Warning icon
-        warning_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("dialog-warning-symbolic")
-        )
+        warning_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
         warning_icon.set_pixel_size(48)
         warning_icon.add_css_class("warning")
         warning_icon.set_halign(Gtk.Align.CENTER)
@@ -959,9 +951,7 @@ class ProfileListDialog(Adw.Window):
         # Profiles group
         self._profiles_group = Adw.PreferencesGroup()
         self._profiles_group.set_title("Scan Profiles")
-        self._profiles_group.set_description(
-            "Select a profile to edit or use for scanning"
-        )
+        self._profiles_group.set_description("Select a profile to edit or use for scanning")
 
         # Profiles list box
         self._profiles_listbox = Gtk.ListBox()
@@ -971,9 +961,7 @@ class ProfileListDialog(Adw.Window):
         # Placeholder for empty list
         self._profiles_placeholder = Adw.ActionRow()
         self._profiles_placeholder.set_title("No profiles available")
-        self._profiles_placeholder.set_subtitle(
-            "Click the + button to create a new profile"
-        )
+        self._profiles_placeholder.set_subtitle("Click the + button to create a new profile")
         add_row_icon(self._profiles_placeholder, "document-new-symbolic")
         self._profiles_placeholder.add_css_class("dim-label")
 
@@ -1049,9 +1037,7 @@ class ProfileListDialog(Adw.Window):
         use_button.set_tooltip_text("Use this profile")
         use_button.add_css_class("flat")
         use_button.add_css_class("success")
-        use_button.connect(
-            "clicked", lambda btn, p=profile: self._on_use_profile_clicked(p)
-        )
+        use_button.connect("clicked", lambda btn, p=profile: self._on_use_profile_clicked(p))
         button_box.append(use_button)
 
         # Edit button
@@ -1059,9 +1045,7 @@ class ProfileListDialog(Adw.Window):
         edit_button.set_icon_name(resolve_icon_name("document-edit-symbolic"))
         edit_button.set_tooltip_text("Edit profile")
         edit_button.add_css_class("flat")
-        edit_button.connect(
-            "clicked", lambda btn, p=profile: self._on_edit_profile_clicked(p)
-        )
+        edit_button.connect("clicked", lambda btn, p=profile: self._on_edit_profile_clicked(p))
         button_box.append(edit_button)
 
         # Delete button (disabled for default profiles)
@@ -1084,9 +1068,7 @@ class ProfileListDialog(Adw.Window):
         export_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
         export_button.set_tooltip_text("Export profile")
         export_button.add_css_class("flat")
-        export_button.connect(
-            "clicked", lambda btn, p=profile: self._on_export_profile_clicked(p)
-        )
+        export_button.connect("clicked", lambda btn, p=profile: self._on_export_profile_clicked(p))
         button_box.append(export_button)
 
         row.add_suffix(button_box)
@@ -1126,9 +1108,7 @@ class ProfileListDialog(Adw.Window):
             profile: The profile to delete
         """
         dialog = DeleteProfileDialog(profile_name=profile.name)
-        dialog.connect(
-            "response", lambda d, r, p=profile: self._on_delete_response(r, p)
-        )
+        dialog.connect("response", lambda d, r, p=profile: self._on_delete_response(r, p))
         dialog.set_transient_for(self)
         dialog.present()
 
@@ -1174,9 +1154,7 @@ class ProfileListDialog(Adw.Window):
         dialog.set_title("Export Profile")
 
         # Generate default filename from profile name
-        safe_name = "".join(
-            c if c.isalnum() or c in ("-", "_") else "_" for c in profile.name
-        )
+        safe_name = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in profile.name)
         dialog.set_initial_name(f"{safe_name}.json")
 
         # Set up file filter for JSON files
@@ -1225,9 +1203,7 @@ class ProfileListDialog(Adw.Window):
             # Export the profile
             from pathlib import Path
 
-            self._profile_manager.export_profile(
-                self._exporting_profile_id, Path(file_path)
-            )
+            self._profile_manager.export_profile(self._exporting_profile_id, Path(file_path))
 
         except GLib.Error:
             # User cancelled the dialog

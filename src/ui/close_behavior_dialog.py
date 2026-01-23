@@ -101,9 +101,7 @@ class CloseBehaviorDialog(Adw.Window):
         # Minimize to tray option
         self._minimize_row = Adw.ActionRow()
         self._minimize_row.set_title("Minimize to tray")
-        self._minimize_row.set_subtitle(
-            "Hide the window but keep ClamUI running in the background"
-        )
+        self._minimize_row.set_subtitle("Hide the window but keep ClamUI running in the background")
         self._minimize_row.set_activatable(True)
 
         minimize_check = Gtk.CheckButton()
@@ -168,9 +166,7 @@ class CloseBehaviorDialog(Adw.Window):
 
     def _on_option_toggled(self, button):
         """Handle option toggle - enable confirm button when an option is selected."""
-        has_selection = (
-            self._minimize_check.get_active() or self._quit_check.get_active()
-        )
+        has_selection = self._minimize_check.get_active() or self._quit_check.get_active()
         self._confirm_button.set_sensitive(has_selection)
 
     def _on_cancel_clicked(self, button):

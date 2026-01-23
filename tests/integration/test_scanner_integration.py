@@ -20,9 +20,7 @@ import pytest
 
 def _clear_src_modules():
     """Clear all cached src.* modules to ensure clean imports."""
-    modules_to_remove = [
-        mod for mod in list(sys.modules.keys()) if mod.startswith("src.")
-    ]
+    modules_to_remove = [mod for mod in list(sys.modules.keys()) if mod.startswith("src.")]
     for mod in modules_to_remove:
         del sys.modules[mod]
 
@@ -100,13 +98,9 @@ Data read: 0.01 MB
 Time: 0.100 sec (0 m 0 s)
 """
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -166,13 +160,9 @@ Data scanned: 0.01 MB
 Time: 0.100 sec (0 m 0 s)
 """
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -180,9 +170,7 @@ Time: 0.100 sec (0 m 0 s)
                         with mock.patch("subprocess.Popen") as mock_popen:
                             mock_process = mock.MagicMock()
                             mock_process.communicate.return_value = (mock_stdout, "")
-                            mock_process.returncode = (
-                                1  # ClamAV exit code 1 = virus found
-                            )
+                            mock_process.returncode = 1  # ClamAV exit code 1 = virus found
                             mock_popen.return_value = mock_process
 
                             result = scanner.scan_sync(str(test_file))
@@ -237,13 +225,9 @@ Data scanned: 0.01 MB
 Time: 0.200 sec (0 m 0 s)
 """
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -281,13 +265,9 @@ Time: 0.200 sec (0 m 0 s)
 
         mock_stderr = "ERROR: Can't open database file"
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -337,13 +317,9 @@ Time: 0.200 sec (0 m 0 s)
 
         scanner = Scanner()
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     # Mock check_clamd_connection to force clamscan path (in "auto" mode,
                     # daemon is tried first if available)
                     with mock.patch(
@@ -400,13 +376,9 @@ Scanned files: 4
 Infected files: 4
 """
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -476,13 +448,9 @@ Data read: 0.01 MB
 Time: 0.100 sec (0 m 0 s)
 """
 
-    with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+    with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.2.3"),
@@ -517,12 +485,8 @@ Time: 0.100 sec (0 m 0 s)
     # EICAR test files must be classified as:
     # - category='Test' (not a real threat category)
     # - severity='low' (minimal risk since it's just a test file)
-    assert (
-        threat.category == "Test"
-    ), f"EICAR category should be 'Test', got '{threat.category}'"
-    assert (
-        threat.severity == "low"
-    ), f"EICAR severity should be 'low', got '{threat.severity}'"
+    assert threat.category == "Test", f"EICAR category should be 'Test', got '{threat.category}'"
+    assert threat.severity == "low", f"EICAR severity should be 'low', got '{threat.severity}'"
 
 
 @pytest.mark.integration
@@ -581,13 +545,9 @@ Time: 0.100 sec (0 m 0 s)
             # Immediately invoke the callback (simulates GTK main loop)
             return callback_func(*args)
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -616,9 +576,7 @@ Time: 0.100 sec (0 m 0 s)
         # Verify GLib.idle_add was used for main thread scheduling
         assert len(glib_idle_add_calls) == 1, "GLib.idle_add should be called once"
         idle_callback, idle_args = glib_idle_add_calls[0]
-        assert (
-            idle_callback == test_callback
-        ), "GLib.idle_add should schedule our callback"
+        assert idle_callback == test_callback, "GLib.idle_add should schedule our callback"
 
         # Step 5: Verify ScanResult structure
         result = callback_results[0]
@@ -677,13 +635,9 @@ Time: 0.100 sec (0 m 0 s)
         def mock_glib_idle_add(callback_func, *args):
             return callback_func(*args)
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -691,9 +645,7 @@ Time: 0.100 sec (0 m 0 s)
                         with mock.patch("subprocess.Popen") as mock_popen:
                             mock_process = mock.MagicMock()
                             mock_process.communicate.return_value = (mock_stdout, "")
-                            mock_process.returncode = (
-                                1  # ClamAV exit code 1 = virus found
-                            )
+                            mock_process.returncode = 1  # ClamAV exit code 1 = virus found
                             mock_popen.return_value = mock_process
 
                             with mock.patch(
@@ -744,13 +696,9 @@ Time: 0.100 sec (0 m 0 s)
         def mock_glib_idle_add(callback_func, *args):
             return callback_func(*args)
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -808,13 +756,9 @@ Time: 0.100 sec (0 m 0 s)
             scan_thread_ids.append(threading.current_thread().ident)
             return (mock_stdout, "")
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -846,9 +790,7 @@ Time: 0.100 sec (0 m 0 s)
 
         # Verify scan executed in a different thread than main
         assert len(scan_thread_ids) == 1
-        assert (
-            scan_thread_ids[0] != main_thread_id
-        ), "Scan should run in background thread"
+        assert scan_thread_ids[0] != main_thread_id, "Scan should run in background thread"
 
     def test_scanner_async_workflow_with_recursive_directory(self, tmp_path):
         """
@@ -890,13 +832,9 @@ Time: 0.200 sec (0 m 0 s)
         def mock_glib_idle_add(callback_func, *args):
             return callback_func(*args)
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -912,9 +850,7 @@ Time: 0.200 sec (0 m 0 s)
                                 side_effect=mock_glib_idle_add,
                             ):
                                 # Scan directory with recursive=True
-                                scanner.scan_async(
-                                    str(scan_dir), test_callback, recursive=True
-                                )
+                                scanner.scan_async(str(scan_dir), test_callback, recursive=True)
                                 callback_received = callback_event.wait(timeout=5.0)
 
         assert callback_received, "Callback was not invoked within timeout"
@@ -961,13 +897,9 @@ Infected files: 4
         def mock_glib_idle_add(callback_func, *args):
             return callback_func(*args)
 
-        with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-            ):
-                with mock.patch(
-                    "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                ):
+        with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+            with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+                with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                     with mock.patch(
                         "src.core.scanner.check_clamav_installed",
                         return_value=(True, "1.2.3"),
@@ -982,9 +914,7 @@ Infected files: 4
                                 "src.core.scanner.GLib.idle_add",
                                 side_effect=mock_glib_idle_add,
                             ):
-                                scanner.scan_async(
-                                    str(scan_dir), test_callback, recursive=True
-                                )
+                                scanner.scan_async(str(scan_dir), test_callback, recursive=True)
                                 callback_received = callback_event.wait(timeout=5.0)
 
         assert callback_received, "Callback was not invoked within timeout"
@@ -1059,13 +989,9 @@ def test_scan_cancellation(tmp_path):
         # Second call: return output after termination
         return ("", "")
 
-    with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+    with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.2.3"),
@@ -1095,9 +1021,9 @@ def test_scan_cancellation(tmp_path):
     assert isinstance(result, ScanResult)
 
     # CRITICAL: Verify ScanStatus.CANCELLED
-    assert (
-        result.status == ScanStatus.CANCELLED
-    ), f"Expected ScanStatus.CANCELLED, got {result.status}"
+    assert result.status == ScanStatus.CANCELLED, (
+        f"Expected ScanStatus.CANCELLED, got {result.status}"
+    )
 
     # Verify cancellation properties
     assert result.path == str(test_file)
@@ -1175,13 +1101,9 @@ def test_scan_cancellation_via_cancel_method(tmp_path):
         # Second call: return output after termination
         return ("", "")
 
-    with mock.patch("src.core.scanner.is_flatpak", return_value=False):
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+    with mock.patch("src.core.flatpak.is_flatpak", return_value=False):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.2.3"),
@@ -1216,9 +1138,9 @@ def test_scan_cancellation_via_cancel_method(tmp_path):
 
     # Verify cancellation result
     result = callback_results[0]
-    assert (
-        result.status == ScanStatus.CANCELLED
-    ), f"Expected ScanStatus.CANCELLED, got {result.status}"
+    assert result.status == ScanStatus.CANCELLED, (
+        f"Expected ScanStatus.CANCELLED, got {result.status}"
+    )
 
     # Verify cancel() was effective
     assert scanner._cancel_event.is_set() is True

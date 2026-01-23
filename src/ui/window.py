@@ -265,9 +265,7 @@ class MainWindow(Adw.ApplicationWindow):
         dialog.set_transient_for(self)
         dialog.present()
 
-    def _on_close_behavior_dialog_response(
-        self, choice: str | None, remember: bool
-    ) -> None:
+    def _on_close_behavior_dialog_response(self, choice: str | None, remember: bool) -> None:
         """
         Handle the close behavior dialog response.
 
@@ -371,45 +369,35 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Database update button
         self._database_button = Gtk.ToggleButton()
-        self._database_button.set_icon_name(
-            resolve_icon_name("software-update-available-symbolic")
-        )
+        self._database_button.set_icon_name(resolve_icon_name("software-update-available-symbolic"))
         self._database_button.set_tooltip_text("Update Database (Ctrl+2)")
         self._database_button.set_action_name("app.show-update")
         nav_box.append(self._database_button)
 
         # Logs button
         self._logs_button = Gtk.ToggleButton()
-        self._logs_button.set_icon_name(
-            resolve_icon_name("document-open-recent-symbolic")
-        )
+        self._logs_button.set_icon_name(resolve_icon_name("document-open-recent-symbolic"))
         self._logs_button.set_tooltip_text("View Logs (Ctrl+3)")
         self._logs_button.set_action_name("app.show-logs")
         nav_box.append(self._logs_button)
 
         # Components button
         self._components_button = Gtk.ToggleButton()
-        self._components_button.set_icon_name(
-            resolve_icon_name("applications-system-symbolic")
-        )
+        self._components_button.set_icon_name(resolve_icon_name("applications-system-symbolic"))
         self._components_button.set_tooltip_text("ClamAV Components (Ctrl+4)")
         self._components_button.set_action_name("app.show-components")
         nav_box.append(self._components_button)
 
         # Quarantine button
         self._quarantine_button = Gtk.ToggleButton()
-        self._quarantine_button.set_icon_name(
-            resolve_icon_name("security-medium-symbolic")
-        )
+        self._quarantine_button.set_icon_name(resolve_icon_name("security-medium-symbolic"))
         self._quarantine_button.set_tooltip_text("Quarantine (Ctrl+5)")
         self._quarantine_button.set_action_name("app.show-quarantine")
         nav_box.append(self._quarantine_button)
 
         # Statistics button
         self._statistics_button = Gtk.ToggleButton()
-        self._statistics_button.set_icon_name(
-            resolve_icon_name("applications-science-symbolic")
-        )
+        self._statistics_button.set_icon_name(resolve_icon_name("applications-science-symbolic"))
         self._statistics_button.set_tooltip_text("Statistics Dashboard (Ctrl+6)")
         self._statistics_button.set_action_name("app.show-statistics")
         nav_box.append(self._statistics_button)

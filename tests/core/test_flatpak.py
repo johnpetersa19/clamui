@@ -132,9 +132,7 @@ class TestWhichHostCommand:
     def test_which_host_command_not_in_flatpak_found(self):
         """Test which_host_command uses shutil.which when not in Flatpak."""
         with mock.patch.object(flatpak, "is_flatpak", return_value=False):
-            with mock.patch(
-                "shutil.which", return_value="/usr/bin/clamscan"
-            ) as mock_which:
+            with mock.patch("shutil.which", return_value="/usr/bin/clamscan") as mock_which:
                 result = flatpak.which_host_command("clamscan")
                 assert result == "/usr/bin/clamscan"
                 mock_which.assert_called_once_with("clamscan")
@@ -186,9 +184,7 @@ class TestWhichHostCommand:
     def test_which_host_command_in_flatpak_exception(self):
         """Test which_host_command handles exceptions gracefully."""
         with mock.patch.object(flatpak, "is_flatpak", return_value=True):
-            with mock.patch(
-                "subprocess.run", side_effect=Exception("Unexpected error")
-            ):
+            with mock.patch("subprocess.run", side_effect=Exception("Unexpected error")):
                 result = flatpak.which_host_command("clamscan")
                 assert result is None
 
@@ -202,9 +198,7 @@ class TestResolvePortalPathViaXattr:
         mock_xattr.getxattr.return_value = b"/home/user/Documents/file.txt\x00"
 
         with mock.patch.dict("sys.modules", {"xattr": mock_xattr}):
-            result = flatpak._resolve_portal_path_via_xattr(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_xattr("/run/user/1000/doc/abc123/file.txt")
             assert result == "/home/user/Documents/file.txt"
 
     def test_resolve_portal_path_via_xattr_tries_multiple_attrs(self):
@@ -218,9 +212,7 @@ class TestResolvePortalPathViaXattr:
         ]
 
         with mock.patch.dict("sys.modules", {"xattr": mock_xattr}):
-            result = flatpak._resolve_portal_path_via_xattr(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_xattr("/run/user/1000/doc/abc123/file.txt")
             assert result == "/home/user/file.txt"
 
     def test_resolve_portal_path_via_xattr_not_found(self):
@@ -229,9 +221,7 @@ class TestResolvePortalPathViaXattr:
         mock_xattr.getxattr.side_effect = OSError()
 
         with mock.patch.dict("sys.modules", {"xattr": mock_xattr}):
-            result = flatpak._resolve_portal_path_via_xattr(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_xattr("/run/user/1000/doc/abc123/file.txt")
             assert result is None
 
     def test_resolve_portal_path_via_xattr_no_xattr_module(self):
@@ -249,9 +239,7 @@ class TestResolvePortalPathViaXattr:
         mock_xattr.getxattr.side_effect = Exception("Unexpected error")
 
         with mock.patch.dict("sys.modules", {"xattr": mock_xattr}):
-            result = flatpak._resolve_portal_path_via_xattr(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_xattr("/run/user/1000/doc/abc123/file.txt")
             assert result is None
 
 
@@ -264,9 +252,7 @@ class TestResolvePortalPathViaGio:
         mock_gfile = mock.MagicMock()
         mock_info = mock.MagicMock()
         mock_info.get_attribute_string.side_effect = lambda attr: (
-            "file:///home/user/Documents/file.txt"
-            if attr == "standard::target-uri"
-            else None
+            "file:///home/user/Documents/file.txt" if attr == "standard::target-uri" else None
         )
 
         mock_gio.File.new_for_path.return_value = mock_gfile
@@ -275,9 +261,7 @@ class TestResolvePortalPathViaGio:
         mock_gi_repository = mock.MagicMock()
         mock_gi_repository.Gio = mock_gio
         with mock.patch.dict("sys.modules", {"gi.repository": mock_gi_repository}):
-            result = flatpak._resolve_portal_path_via_gio(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_gio("/run/user/1000/doc/abc123/file.txt")
             assert result == "/home/user/Documents/file.txt"
 
     def test_resolve_portal_path_via_gio_symlink_target(self):
@@ -300,9 +284,7 @@ class TestResolvePortalPathViaGio:
         mock_gi_repository = mock.MagicMock()
         mock_gi_repository.Gio = mock_gio
         with mock.patch.dict("sys.modules", {"gi.repository": mock_gi_repository}):
-            result = flatpak._resolve_portal_path_via_gio(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_gio("/run/user/1000/doc/abc123/file.txt")
             assert result == "/home/user/Documents/file.txt"
 
     def test_resolve_portal_path_via_gio_skips_run_symlink(self):
@@ -325,18 +307,14 @@ class TestResolvePortalPathViaGio:
         mock_gi_repository = mock.MagicMock()
         mock_gi_repository.Gio = mock_gio
         with mock.patch.dict("sys.modules", {"gi.repository": mock_gi_repository}):
-            result = flatpak._resolve_portal_path_via_gio(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_gio("/run/user/1000/doc/abc123/file.txt")
             assert result is None
 
     def test_resolve_portal_path_via_gio_exception(self):
         """Test _resolve_portal_path_via_gio handles exceptions gracefully."""
         with mock.patch.dict("sys.modules", {"gi.repository": None}):
             with mock.patch("builtins.__import__", side_effect=ImportError()):
-                result = flatpak._resolve_portal_path_via_gio(
-                    "/run/user/1000/doc/abc123/file.txt"
-                )
+                result = flatpak._resolve_portal_path_via_gio("/run/user/1000/doc/abc123/file.txt")
                 assert result is None
 
 
@@ -358,9 +336,7 @@ class TestResolvePortalPathViaDBus:
         mock_gi_repository.Gio = mock_gio
         mock_gi_repository.GLib = mock_glib
         with mock.patch.dict("sys.modules", {"gi.repository": mock_gi_repository}):
-            result = flatpak._resolve_portal_path_via_dbus(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_dbus("/run/user/1000/doc/abc123/file.txt")
             assert result == "/home/user/Documents/file.txt"
 
     def test_resolve_portal_path_via_dbus_flatpak_doc(self):
@@ -378,9 +354,7 @@ class TestResolvePortalPathViaDBus:
         mock_gi_repository.Gio = mock_gio
         mock_gi_repository.GLib = mock_glib
         with mock.patch.dict("sys.modules", {"gi.repository": mock_gi_repository}):
-            result = flatpak._resolve_portal_path_via_dbus(
-                "/run/flatpak/doc/def456/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_dbus("/run/flatpak/doc/def456/file.txt")
             assert result == "/home/user/file.txt"
 
     def test_resolve_portal_path_via_dbus_list_of_bytes(self):
@@ -400,9 +374,7 @@ class TestResolvePortalPathViaDBus:
         mock_gi_repository.Gio = mock_gio
         mock_gi_repository.GLib = mock_glib
         with mock.patch.dict("sys.modules", {"gi.repository": mock_gi_repository}):
-            result = flatpak._resolve_portal_path_via_dbus(
-                "/run/user/1000/doc/abc123/file.txt"
-            )
+            result = flatpak._resolve_portal_path_via_dbus("/run/user/1000/doc/abc123/file.txt")
             assert result == "/home/user/file.txt"
 
     def test_resolve_portal_path_via_dbus_invalid_path(self):
@@ -417,9 +389,7 @@ class TestResolvePortalPathViaDBus:
         """Test _resolve_portal_path_via_dbus handles exceptions gracefully."""
         with mock.patch.dict("sys.modules", {"gi.repository": None}):
             with mock.patch("builtins.__import__", side_effect=ImportError()):
-                result = flatpak._resolve_portal_path_via_dbus(
-                    "/run/user/1000/doc/abc123/file.txt"
-                )
+                result = flatpak._resolve_portal_path_via_dbus("/run/user/1000/doc/abc123/file.txt")
                 assert result is None
 
 
@@ -428,9 +398,7 @@ class TestFormatFlatpakPortalPath:
 
     def test_format_flatpak_portal_path_home_subdir_downloads(self):
         """Test format_flatpak_portal_path formats Downloads path."""
-        result = flatpak.format_flatpak_portal_path(
-            "/run/user/1000/doc/abc123/Downloads/file.txt"
-        )
+        result = flatpak.format_flatpak_portal_path("/run/user/1000/doc/abc123/Downloads/file.txt")
         assert result == "~/Downloads/file.txt"
 
     def test_format_flatpak_portal_path_home_subdir_documents(self):
@@ -442,9 +410,7 @@ class TestFormatFlatpakPortalPath:
 
     def test_format_flatpak_portal_path_home_username(self):
         """Test format_flatpak_portal_path formats home/username paths."""
-        result = flatpak.format_flatpak_portal_path(
-            "/run/user/1000/doc/abc123/home/john/file.txt"
-        )
+        result = flatpak.format_flatpak_portal_path("/run/user/1000/doc/abc123/home/john/file.txt")
         assert result == "~/file.txt"
 
     def test_format_flatpak_portal_path_media(self):
@@ -456,23 +422,15 @@ class TestFormatFlatpakPortalPath:
 
     def test_format_flatpak_portal_path_mnt(self):
         """Test format_flatpak_portal_path formats /mnt paths."""
-        result = flatpak.format_flatpak_portal_path(
-            "/run/flatpak/doc/def456/mnt/storage/file.txt"
-        )
+        result = flatpak.format_flatpak_portal_path("/run/flatpak/doc/def456/mnt/storage/file.txt")
         assert result == "/mnt/storage/file.txt"
 
     def test_format_flatpak_portal_path_flatpak_doc(self):
         """Test format_flatpak_portal_path handles /run/flatpak/doc/ paths."""
         # Patch resolution methods to prevent actual resolution attempts
-        with mock.patch.object(
-            flatpak, "_resolve_portal_path_via_xattr", return_value=None
-        ):
-            with mock.patch.object(
-                flatpak, "_resolve_portal_path_via_gio", return_value=None
-            ):
-                with mock.patch.object(
-                    flatpak, "_resolve_portal_path_via_dbus", return_value=None
-                ):
+        with mock.patch.object(flatpak, "_resolve_portal_path_via_xattr", return_value=None):
+            with mock.patch.object(flatpak, "_resolve_portal_path_via_gio", return_value=None):
+                with mock.patch.object(flatpak, "_resolve_portal_path_via_dbus", return_value=None):
                     result = flatpak.format_flatpak_portal_path(
                         "/run/flatpak/doc/def789/Downloads/file.txt"
                     )
@@ -487,20 +445,14 @@ class TestFormatFlatpakPortalPath:
     def test_format_flatpak_portal_path_with_dbus_resolution(self):
         """Test format_flatpak_portal_path uses D-Bus resolution as fallback."""
         # Mock resolution methods - D-Bus returns resolved path, others return None
-        with mock.patch.object(
-            flatpak, "_resolve_portal_path_via_xattr", return_value=None
-        ):
-            with mock.patch.object(
-                flatpak, "_resolve_portal_path_via_gio", return_value=None
-            ):
+        with mock.patch.object(flatpak, "_resolve_portal_path_via_xattr", return_value=None):
+            with mock.patch.object(flatpak, "_resolve_portal_path_via_gio", return_value=None):
                 with mock.patch.object(
                     flatpak,
                     "_resolve_portal_path_via_dbus",
                     return_value="/home/user/CustomFolder/file.txt",
                 ):
-                    with mock.patch(
-                        "src.core.flatpak.Path.home", return_value=Path("/home/user")
-                    ):
+                    with mock.patch("src.core.flatpak.Path.home", return_value=Path("/home/user")):
                         result = flatpak.format_flatpak_portal_path(
                             "/run/user/1000/doc/abc123/CustomFolder/file.txt"
                         )
@@ -508,15 +460,9 @@ class TestFormatFlatpakPortalPath:
 
     def test_format_flatpak_portal_path_fallback_to_portal_indicator(self):
         """Test format_flatpak_portal_path shows [Portal] when resolution fails."""
-        with mock.patch.object(
-            flatpak, "_resolve_portal_path_via_xattr", return_value=None
-        ):
-            with mock.patch.object(
-                flatpak, "_resolve_portal_path_via_gio", return_value=None
-            ):
-                with mock.patch.object(
-                    flatpak, "_resolve_portal_path_via_dbus", return_value=None
-                ):
+        with mock.patch.object(flatpak, "_resolve_portal_path_via_xattr", return_value=None):
+            with mock.patch.object(flatpak, "_resolve_portal_path_via_gio", return_value=None):
+                with mock.patch.object(flatpak, "_resolve_portal_path_via_dbus", return_value=None):
                     result = flatpak.format_flatpak_portal_path(
                         "/run/user/1000/doc/abc123/UnknownFolder/file.txt"
                     )
@@ -554,12 +500,8 @@ class TestFormatFlatpakPortalPath:
 
     def test_format_flatpak_portal_path_resolved_absolute_path(self):
         """Test format_flatpak_portal_path handles resolved absolute paths."""
-        with mock.patch.object(
-            flatpak, "_resolve_portal_path_via_xattr", return_value=None
-        ):
-            with mock.patch.object(
-                flatpak, "_resolve_portal_path_via_gio", return_value=None
-            ):
+        with mock.patch.object(flatpak, "_resolve_portal_path_via_xattr", return_value=None):
+            with mock.patch.object(flatpak, "_resolve_portal_path_via_gio", return_value=None):
                 with mock.patch.object(
                     flatpak,
                     "_resolve_portal_path_via_dbus",
@@ -627,9 +569,7 @@ class TestGetXdgUserDir:
     def test_get_xdg_user_dir_timeout(self):
         """Test get_xdg_user_dir returns None on timeout."""
         with mock.patch.object(flatpak, "is_flatpak", return_value=False):
-            with mock.patch(
-                "subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 5)
-            ):
+            with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 5)):
                 result = flatpak.get_xdg_user_dir("DOWNLOAD")
                 assert result is None
 
