@@ -6,6 +6,7 @@ Scan interface component for ClamUI with folder picker, scan button, and results
 import logging
 import os
 import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import gi
@@ -35,7 +36,9 @@ logger = logging.getLogger(__name__)
 
 # EICAR test string - industry-standard antivirus test pattern
 # This is NOT malware - it's a safe test string recognized by all AV software
-EICAR_TEST_STRING = r"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+EICAR_TEST_STRING = (
+    r"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+)
 
 
 class ScanView(Gtk.Box):
@@ -317,7 +320,9 @@ class ScanView(Gtk.Box):
 
         # Reject drops during active scan
         if self._is_scanning:
-            self._show_drop_error("Scan in progress - please wait until the current scan completes")
+            self._show_drop_error(
+                "Scan in progress - please wait until the current scan completes"
+            )
             return False
 
         # Extract files from Gdk.FileList
@@ -500,7 +505,9 @@ class ScanView(Gtk.Box):
             return
 
         # Store current selection to restore if possible
-        current_selection = self._profile_dropdown.get_selected() if self._profile_dropdown else 0
+        current_selection = (
+            self._profile_dropdown.get_selected() if self._profile_dropdown else 0
+        )
         current_profile_id = None
         if current_selection > 0 and current_selection - 1 < len(self._profile_list):
             current_profile_id = self._profile_list[current_selection - 1].id
@@ -525,7 +532,9 @@ class ScanView(Gtk.Box):
         if current_profile_id:
             for i, profile in enumerate(self._profile_list):
                 if profile.id == current_profile_id:
-                    self._profile_dropdown.set_selected(i + 1)  # +1 for "No Profile" option
+                    self._profile_dropdown.set_selected(
+                        i + 1
+                    )  # +1 for "No Profile" option
                     return
 
         # Default to "No Profile"
@@ -555,7 +564,11 @@ class ScanView(Gtk.Box):
                     valid_count = 0
                     for target in self._selected_profile.targets:
                         # Expand ~ in paths
-                        expanded = os.path.expanduser(target) if target.startswith("~") else target
+                        expanded = (
+                            os.path.expanduser(target)
+                            if target.startswith("~")
+                            else target
+                        )
                         if os.path.exists(expanded):
                             self._add_path(expanded)
                             valid_count += 1
@@ -643,7 +656,9 @@ class ScanView(Gtk.Box):
 
         # Clear All button (visible when multiple paths exist)
         self._clear_all_button = Gtk.Button()
-        self._clear_all_button.set_icon_name(resolve_icon_name("edit-clear-all-symbolic"))
+        self._clear_all_button.set_icon_name(
+            resolve_icon_name("edit-clear-all-symbolic")
+        )
         self._clear_all_button.set_tooltip_text("Clear all")
         self._clear_all_button.add_css_class("flat")
         self._clear_all_button.connect("clicked", self._on_clear_all_clicked)
@@ -660,7 +675,9 @@ class ScanView(Gtk.Box):
         # Placeholder row for empty list
         self._paths_placeholder = Adw.ActionRow()
         self._paths_placeholder.set_title("No targets added")
-        self._paths_placeholder.set_subtitle("Drop files here or click Add Files/Folders")
+        self._paths_placeholder.set_subtitle(
+            "Drop files here or click Add Files/Folders"
+        )
         add_row_icon(self._paths_placeholder, "folder-symbolic")
         self._paths_placeholder.add_css_class("dim-label")
         self._paths_listbox.append(self._paths_placeholder)
@@ -688,7 +705,9 @@ class ScanView(Gtk.Box):
         row.set_tooltip_text(path)
 
         # Choose icon based on path type
-        icon_name = "folder-symbolic" if os.path.isdir(path) else "text-x-generic-symbolic"
+        icon_name = (
+            "folder-symbolic" if os.path.isdir(path) else "text-x-generic-symbolic"
+        )
         add_row_icon(row, icon_name)
 
         # Remove button
@@ -698,7 +717,9 @@ class ScanView(Gtk.Box):
         remove_btn.add_css_class("flat")
         remove_btn.add_css_class("error")
         remove_btn.set_valign(Gtk.Align.CENTER)
-        remove_btn.connect("clicked", lambda btn: self._on_remove_path_clicked(path, row))
+        remove_btn.connect(
+            "clicked", lambda btn: self._on_remove_path_clicked(path, row)
+        )
 
         row.add_suffix(remove_btn)
 
@@ -740,7 +761,11 @@ class ScanView(Gtk.Box):
         # Set initial folder if a path is already selected
         if self._selected_paths:
             first_path = self._selected_paths[0]
-            parent_dir = os.path.dirname(first_path) if os.path.isfile(first_path) else first_path
+            parent_dir = (
+                os.path.dirname(first_path)
+                if os.path.isfile(first_path)
+                else first_path
+            )
             if os.path.isdir(parent_dir):
                 dialog.set_initial_folder(Gio.File.new_for_path(parent_dir))
 
@@ -779,7 +804,9 @@ class ScanView(Gtk.Box):
         # Set initial folder if a path is already selected
         if self._selected_paths:
             first_path = self._selected_paths[0]
-            initial_dir = first_path if os.path.isdir(first_path) else os.path.dirname(first_path)
+            initial_dir = (
+                first_path if os.path.isdir(first_path) else os.path.dirname(first_path)
+            )
             if os.path.isdir(initial_dir):
                 dialog.set_initial_folder(Gio.File.new_for_path(initial_dir))
 
@@ -862,7 +889,10 @@ class ScanView(Gtk.Box):
                 while child:
                     next_child = child.get_next_sibling()
                     # Check if this is a path row (not the placeholder)
-                    if hasattr(child, "path") and os.path.normpath(child.path) == normalized:
+                    if (
+                        hasattr(child, "path")
+                        and os.path.normpath(child.path) == normalized
+                    ):
                         self._paths_listbox.remove(child)
                         break
                     child = next_child
@@ -966,7 +996,9 @@ class ScanView(Gtk.Box):
 
     def _create_progress_section(self):
         """Create the progress bar section (initially hidden)."""
-        self._progress_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self._progress_section = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, spacing=6
+        )
         self._progress_section.add_css_class("progress-section")
         self._progress_section.set_margin_start(12)
         self._progress_section.set_margin_end(12)
@@ -1032,7 +1064,9 @@ class ScanView(Gtk.Box):
             return
 
         if threat_count > 0:
-            self._view_results_button.set_label(f"View Results ({threat_count} Threats)")
+            self._view_results_button.set_label(
+                f"View Results ({threat_count} Threats)"
+            )
             self._view_results_button.remove_css_class("suggested-action")
             self._view_results_button.add_css_class("destructive-action")
         else:
@@ -1134,9 +1168,16 @@ class ScanView(Gtk.Box):
             return
 
         try:
-            # Create EICAR test file in system temp directory
-            # In Flatpak, use /tmp explicitly so the host's clamdscan can access it
-            temp_dir = "/tmp" if is_flatpak() else None
+            # Create EICAR test file
+            # In Flatpak, /tmp is sandboxed and NOT accessible to host commands.
+            # Use ~/.cache/clamui/ which is accessible from both Flatpak AND host
+            # via the --filesystem=host permission.
+            if is_flatpak():
+                cache_dir = Path.home() / ".cache" / "clamui"
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                temp_dir = str(cache_dir)
+            else:
+                temp_dir = None  # Use system default
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 suffix=".txt",
@@ -1253,12 +1294,16 @@ class ScanView(Gtk.Box):
             for idx, target_path in enumerate(self._selected_paths, start=1):
                 # Check if cancel all was requested before starting next target
                 if self._cancel_all_requested:
-                    logger.info(f"Cancel all requested, skipping target {idx}/{target_count}")
+                    logger.info(
+                        f"Cancel all requested, skipping target {idx}/{target_count}"
+                    )
                     final_status = ScanStatus.CANCELLED
                     break
 
                 # Update progress to show current target
-                GLib.idle_add(self._update_scan_progress, idx, target_count, target_path)
+                GLib.idle_add(
+                    self._update_scan_progress, idx, target_count, target_path
+                )
 
                 # Scan this target
                 result = self._scanner.scan_sync(target_path)
@@ -1301,11 +1346,17 @@ class ScanView(Gtk.Box):
             aggregated_result = ScanResult(
                 status=final_status,
                 path=(
-                    ", ".join(self._selected_paths) if target_count > 1 else self._selected_paths[0]
+                    ", ".join(self._selected_paths)
+                    if target_count > 1
+                    else self._selected_paths[0]
                 ),
                 stdout="\n\n".join(all_stdout),
                 stderr="\n\n".join(all_stderr),
-                exit_code=(1 if final_status == ScanStatus.INFECTED else (2 if has_errors else 0)),
+                exit_code=(
+                    1
+                    if final_status == ScanStatus.INFECTED
+                    else (2 if has_errors else 0)
+                ),
                 infected_files=all_infected_files,
                 scanned_files=total_scanned_files,
                 scanned_dirs=total_scanned_dirs,
@@ -1320,7 +1371,9 @@ class ScanView(Gtk.Box):
             logger.error(f"Scan error: {e}")
             GLib.idle_add(self._on_scan_error, str(e))
 
-    def _update_scan_progress(self, current_idx: int, total_count: int, current_path: str):
+    def _update_scan_progress(
+        self, current_idx: int, total_count: int, current_path: str
+    ):
         """
         Update the progress display with current scan target.
 
@@ -1405,7 +1458,9 @@ class ScanView(Gtk.Box):
             )
         else:
             self._show_view_results(0)
-            self._status_banner.set_title(f"Scan completed with status: {result.status.value}")
+            self._status_banner.set_title(
+                f"Scan completed with status: {result.status.value}"
+            )
             set_status_class(self._status_banner, StatusLevel.WARNING)
             self._status_banner.set_revealed(True)
 

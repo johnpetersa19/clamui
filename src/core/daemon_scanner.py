@@ -15,6 +15,7 @@ from pathlib import Path
 
 from gi.repository import GLib
 
+from .flatpak import wrap_host_command
 from .log_manager import LogManager
 from .scanner_base import (
     cleanup_process,
@@ -34,8 +35,6 @@ from .utils import (
     check_clamd_connection,
     check_clamdscan_installed,
     validate_path,
-    which_host_command,
-    wrap_host_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -269,12 +268,13 @@ class DaemonScanner:
         Returns:
             List of command arguments (wrapped with flatpak-spawn if in Flatpak)
         """
-        clamdscan = which_host_command("clamdscan") or "clamdscan"
-        cmd = [clamdscan]
+        # Use binary name only - don't use which_host_command() because it would
+        # return the bundled /app/bin/clamdscan which can't talk to the host daemon
+        cmd = ["clamdscan"]
 
         # Use multiscan and fdpass for optimal performance
-        # In Flatpak: wrap_host_command() ensures clamdscan runs on the host
-        # via flatpak-spawn --host, where it can access clamd socket and use fdpass
+        # force_host=True ensures clamdscan runs on the HOST where clamd runs,
+        # not the bundled version inside the Flatpak sandbox
         cmd.append("--multiscan")
         cmd.append("--fdpass")
 
@@ -286,7 +286,7 @@ class DaemonScanner:
         # performed post-scan in _filter_excluded_threats() instead.
 
         cmd.append(path)
-        return wrap_host_command(cmd)
+        return wrap_host_command(cmd, force_host=True)
 
     def _count_scan_targets(
         self, path: str, profile_exclusions: dict | None = None

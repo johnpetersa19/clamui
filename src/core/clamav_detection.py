@@ -128,31 +128,25 @@ def check_clamdscan_installed() -> tuple[bool, str | None]:
         - (True, version_string) if clamdscan is installed
         - (False, error_message) if clamdscan is not found or inaccessible
     """
-    # First try to find clamdscan using which (works reliably in Flatpak)
-    # This uses flatpak-spawn --host which clamdscan, which has full PATH access
+    # First check if clamdscan exists in PATH (checking host if in Flatpak)
     clamdscan_path = which_host_command("clamdscan")
 
-    if clamdscan_path:
-        # Found via which - use the full path
-        cmd = wrap_host_command([clamdscan_path, "--version"])
-    else:
-        # Fallback: try common paths directly (for edge cases where which fails)
-        for path in ["/usr/bin/clamdscan", "/usr/sbin/clamdscan", "clamdscan"]:
-            cmd = wrap_host_command([path, "--version"])
-            try:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                if result.returncode == 0:
-                    return (True, result.stdout.strip())
-            except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError):
-                continue
+    if clamdscan_path is None:
         return (
             False,
             "clamdscan is not installed. Please install it with: sudo apt install clamav-daemon",
         )
 
-    # Execute with found path
+    # Try to get version to verify it's working
+    # Use force_host=True because clamdscan must communicate with the HOST's clamd
+    # daemon. The bundled clamdscan in Flatpak can't talk to the host daemon.
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            wrap_host_command(["clamdscan", "--version"], force_host=True),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
 
         if result.returncode == 0:
             version = result.stdout.strip()
@@ -228,17 +222,17 @@ def check_clamd_connection(socket_path: str | None = None) -> tuple[bool, str | 
             return (False, "Could not find clamd socket. Is clamav-daemon installed?")
 
     # Try to ping the daemon (--ping requires a timeout argument in seconds)
+    # Use force_host=True because the clamd daemon runs on the HOST, not in the
+    # Flatpak sandbox. The bundled clamdscan can't communicate with the host daemon.
     try:
-        cmd = wrap_host_command(["clamdscan", "--ping", "3"])
+        cmd = wrap_host_command(["clamdscan", "--ping", "3"], force_host=True)
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
 
         if result.returncode == 0 and "PONG" in result.stdout:
             return (True, "PONG")
         else:
             # Check stderr and stdout for error messages
-            error_msg = (
-                result.stderr.strip() or result.stdout.strip() or "Unknown error"
-            )
+            error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
             return (False, f"Daemon not responding: {error_msg}")
 
     except subprocess.TimeoutExpired:

@@ -208,17 +208,20 @@ Foreground yes
         return None
 
 
-def wrap_host_command(command: list[str]) -> list[str]:
+def wrap_host_command(command: list[str], force_host: bool = False) -> list[str]:
     """
     Wrap a command with flatpak-spawn --host if needed in Flatpak.
 
     When running inside a Flatpak sandbox:
-    - Commands using bundled binaries (/app/bin/*) run directly
+    - Commands using bundled binaries (/app/bin/*) run directly (unless force_host=True)
     - Commands using host binaries are prefixed with 'flatpak-spawn --host'
 
     Args:
         command: The command to wrap as a list of strings
                  (e.g., ['clamscan', '--version'])
+        force_host: If True, always use flatpak-spawn --host even if a bundled
+                    binary exists. Use this for commands that must interact with
+                    host services (e.g., clamdscan communicating with host clamd).
 
     Returns:
         The command, potentially wrapped for host execution if in Flatpak
@@ -232,12 +235,22 @@ def wrap_host_command(command: list[str]) -> list[str]:
 
         >>> wrap_host_command(['clamscan', '--version'])
         ['flatpak-spawn', '--host', 'clamscan', '--version']  # Host binary in Flatpak
+
+        >>> wrap_host_command(['clamdscan', '--ping'], force_host=True)
+        ['flatpak-spawn', '--host', 'clamdscan', '--ping']  # Forced host execution
     """
     if not command:
         return command
 
     if is_flatpak():
         binary = command[0]
+
+        # If force_host is set, always use the host binary (skip bundled check)
+        # This is needed for commands like clamdscan that must communicate with
+        # the host's clamd daemon, not a bundled daemon
+        if force_host:
+            return ["flatpak-spawn", "--host"] + list(command)
+
         # Check if it's a bundled Flatpak binary (absolute path in /app/)
         if binary.startswith("/app/"):
             return list(command)

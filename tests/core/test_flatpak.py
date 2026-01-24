@@ -125,6 +125,41 @@ class TestWrapHostCommand:
                 "--max-filesize=100M",
             ]
 
+    def test_wrap_host_command_force_host_skips_bundled_check(self):
+        """Test wrap_host_command with force_host=True always uses host binary."""
+        with mock.patch.object(flatpak, "is_flatpak", return_value=True):
+            # Even if a bundled binary exists at /app/bin/clamdscan,
+            # force_host=True should use flatpak-spawn --host
+            with mock.patch("os.path.isfile", return_value=True):
+                with mock.patch("os.access", return_value=True):
+                    command = ["clamdscan", "--ping", "3"]
+                    result = flatpak.wrap_host_command(command, force_host=True)
+                    assert result == [
+                        "flatpak-spawn",
+                        "--host",
+                        "clamdscan",
+                        "--ping",
+                        "3",
+                    ]
+
+    def test_wrap_host_command_force_host_not_in_flatpak(self):
+        """Test wrap_host_command with force_host=True returns original when not in Flatpak."""
+        with mock.patch.object(flatpak, "is_flatpak", return_value=False):
+            command = ["clamdscan", "--ping", "3"]
+            result = flatpak.wrap_host_command(command, force_host=True)
+            # Not in Flatpak, so just return the original command
+            assert result == ["clamdscan", "--ping", "3"]
+
+    def test_wrap_host_command_uses_bundled_binary_when_available(self):
+        """Test wrap_host_command uses bundled binary when available in /app/bin/."""
+        with mock.patch.object(flatpak, "is_flatpak", return_value=True):
+            with mock.patch("os.path.isfile", return_value=True):
+                with mock.patch("os.access", return_value=True):
+                    command = ["clamscan", "--version"]
+                    result = flatpak.wrap_host_command(command)
+                    # Should use the bundled binary
+                    assert result == ["/app/bin/clamscan", "--version"]
+
 
 class TestWhichHostCommand:
     """Tests for which_host_command() function."""
