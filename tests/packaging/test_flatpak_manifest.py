@@ -1,0 +1,220 @@
+# ClamUI Flatpak Manifest Tests
+"""
+Tests for Flatpak manifest and configuration.
+
+Tests cover:
+- Manifest YAML validity
+- App ID consistency
+- Runtime and SDK versions
+- Required permissions
+- Build commands and sources
+- Generated dependency files
+
+These tests prevent Flatpak build failures.
+"""
+
+import json
+from pathlib import Path
+
+import pytest
+
+# Get project root
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+
+@pytest.fixture
+def yaml_parser():
+    """Get YAML parser if available."""
+    try:
+        import yaml
+
+        return yaml
+    except ImportError:
+        pytest.skip("PyYAML not installed")
+
+
+class TestManifestValidity:
+    """Tests for manifest YAML validity."""
+
+    def test_manifest_exists(self):
+        """Test that Flatpak manifest exists."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        assert manifest.exists(), "Flatpak manifest not found"
+
+    def test_manifest_is_valid_yaml(self, yaml_parser):
+        """Test manifest is valid YAML."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        content = manifest.read_text()
+
+        # Should parse without error
+        try:
+            data = yaml_parser.safe_load(content)
+            assert data is not None, "Manifest parsed to None"
+        except yaml_parser.YAMLError as e:
+            pytest.fail(f"Invalid YAML: {e}")
+
+    def test_manifest_has_app_id(self, yaml_parser):
+        """Test manifest has app-id field."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        assert "app-id" in data, "Missing app-id field"
+        assert data["app-id"] == "io.github.linx_systems.ClamUI"
+
+
+class TestAppIdConsistency:
+    """Tests for App ID consistency across files."""
+
+    def test_manifest_and_desktop_file_match(self, yaml_parser):
+        """Test app-id matches desktop file name."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        desktop = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.desktop"
+
+        data = yaml_parser.safe_load(manifest.read_text())
+        app_id = data.get("app-id", "")
+
+        assert desktop.exists(), "Desktop file not found in flathub/"
+        assert app_id in desktop.name, "App ID doesn't match desktop file name"
+
+    def test_desktop_file_exec_line(self):
+        """Test desktop file Exec line is correct."""
+        desktop = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.desktop"
+        content = desktop.read_text()
+
+        assert "Exec=clamui" in content, "Desktop Exec should be 'clamui'"
+
+
+class TestRuntimeConfiguration:
+    """Tests for runtime and SDK configuration."""
+
+    def test_runtime_specified(self, yaml_parser):
+        """Test runtime is specified."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        assert "runtime" in data, "Missing runtime field"
+        assert "org.gnome." in data["runtime"], "Should use GNOME runtime"
+
+    def test_runtime_version_specified(self, yaml_parser):
+        """Test runtime-version is specified."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        assert "runtime-version" in data, "Missing runtime-version field"
+
+    def test_sdk_specified(self, yaml_parser):
+        """Test SDK is specified."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        assert "sdk" in data, "Missing sdk field"
+        assert "org.gnome.Sdk" in data["sdk"], "Should use GNOME SDK"
+
+
+class TestRequiredPermissions:
+    """Tests for required Flatpak permissions."""
+
+    def test_has_finish_args(self, yaml_parser):
+        """Test manifest has finish-args section."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        assert "finish-args" in data, "Missing finish-args section"
+
+    def test_has_filesystem_permission(self, yaml_parser):
+        """Test has filesystem permission (required for scanning)."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        finish_args = data.get("finish-args", [])
+        filesystem_args = [arg for arg in finish_args if "--filesystem" in arg]
+
+        assert len(filesystem_args) > 0, "Missing filesystem permission"
+
+    def test_has_talk_permissions(self, yaml_parser):
+        """Test has D-Bus talk permissions for tray."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        finish_args = data.get("finish-args", [])
+        talk_args = [
+            arg for arg in finish_args if "--talk-name" in arg or "--own-name" in arg
+        ]
+
+        # Should have some D-Bus permissions for tray
+        assert len(talk_args) > 0, "Missing D-Bus talk permissions"
+
+
+class TestModulesSection:
+    """Tests for modules section."""
+
+    def test_has_modules(self, yaml_parser):
+        """Test manifest has modules section."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        assert "modules" in data, "Missing modules section"
+        assert len(data["modules"]) > 0, "No modules defined"
+
+    def test_has_clamui_module(self, yaml_parser):
+        """Test has clamui module in modules."""
+        manifest = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.yml"
+        data = yaml_parser.safe_load(manifest.read_text())
+
+        modules = data.get("modules", [])
+        module_names = [m.get("name", "") for m in modules if isinstance(m, dict)]
+
+        # Should have clamui or main application module
+        has_clamui = any("clamui" in name.lower() for name in module_names)
+        assert has_clamui, "Missing clamui module"
+
+
+class TestGeneratedDependencies:
+    """Tests for generated dependency files."""
+
+    def test_runtime_deps_json_exists(self):
+        """Test runtime dependencies JSON exists."""
+        deps_file = PROJECT_ROOT / "flathub" / "python3-runtime-deps.json"
+        assert deps_file.exists(), "python3-runtime-deps.json not found"
+
+    def test_runtime_deps_json_valid(self):
+        """Test runtime dependencies JSON is valid."""
+        deps_file = PROJECT_ROOT / "flathub" / "python3-runtime-deps.json"
+        content = deps_file.read_text()
+
+        try:
+            data = json.loads(content)
+            assert isinstance(data, (list, dict)), "Dependencies should be list or dict"
+        except json.JSONDecodeError as e:
+            pytest.fail(f"Invalid JSON: {e}")
+
+    def test_build_deps_json_exists(self):
+        """Test build dependencies JSON exists."""
+        deps_file = PROJECT_ROOT / "flathub" / "python3-build-deps.json"
+        assert deps_file.exists(), "python3-build-deps.json not found"
+
+    def test_build_deps_json_valid(self):
+        """Test build dependencies JSON is valid."""
+        deps_file = PROJECT_ROOT / "flathub" / "python3-build-deps.json"
+        content = deps_file.read_text()
+
+        try:
+            data = json.loads(content)
+            assert isinstance(data, (list, dict)), "Dependencies should be list or dict"
+        except json.JSONDecodeError as e:
+            pytest.fail(f"Invalid JSON: {e}")
+
+    def test_requirements_files_exist(self):
+        """Test requirements files exist for dependency generation."""
+        flathub_dir = PROJECT_ROOT / "flathub"
+
+        required_files = [
+            "requirements-build.txt",
+            "requirements-runtime.txt",
+            "requirements-runtime-pinned.txt",
+        ]
+
+        for filename in required_files:
+            assert (
+                flathub_dir / filename
+            ).exists(), f"{filename} not found in flathub/"

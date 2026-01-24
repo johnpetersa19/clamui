@@ -35,15 +35,6 @@ class TestBackwardsCompatibilityImports:
         assert hasattr(utils, "_resolve_portal_path_via_gio")
         assert hasattr(utils, "_resolve_portal_path_via_dbus")
 
-        # Verify they are callable
-        assert callable(utils.is_flatpak)
-        assert callable(utils.wrap_host_command)
-        assert callable(utils.which_host_command)
-        assert callable(utils.format_flatpak_portal_path)
-        assert callable(utils._resolve_portal_path_via_xattr)
-        assert callable(utils._resolve_portal_path_via_gio)
-        assert callable(utils._resolve_portal_path_via_dbus)
-
     def test_import_clamav_detection_functions(self):
         """Test that all ClamAV detection functions can be imported from utils."""
         from src.core import utils
@@ -57,15 +48,6 @@ class TestBackwardsCompatibilityImports:
         assert hasattr(utils, "get_clamav_path")
         assert hasattr(utils, "get_freshclam_path")
 
-        # Verify they are callable
-        assert callable(utils.check_clamav_installed)
-        assert callable(utils.check_freshclam_installed)
-        assert callable(utils.check_clamdscan_installed)
-        assert callable(utils.get_clamd_socket_path)
-        assert callable(utils.check_clamd_connection)
-        assert callable(utils.get_clamav_path)
-        assert callable(utils.get_freshclam_path)
-
     def test_import_path_validation_functions(self):
         """Test that all path validation functions can be imported from utils."""
         from src.core import utils
@@ -77,13 +59,6 @@ class TestBackwardsCompatibilityImports:
         assert hasattr(utils, "format_scan_path")
         assert hasattr(utils, "get_path_info")
 
-        # Verify they are callable
-        assert callable(utils.check_symlink_safety)
-        assert callable(utils.validate_path)
-        assert callable(utils.validate_dropped_files)
-        assert callable(utils.format_scan_path)
-        assert callable(utils.get_path_info)
-
     def test_import_result_formatter_functions(self):
         """Test that all result formatter functions can be imported from utils."""
         from src.core import utils
@@ -92,10 +67,6 @@ class TestBackwardsCompatibilityImports:
         assert hasattr(utils, "format_results_as_text")
         assert hasattr(utils, "format_results_as_csv")
 
-        # Verify they are callable
-        assert callable(utils.format_results_as_text)
-        assert callable(utils.format_results_as_csv)
-
     def test_import_clipboard_functions(self):
         """Test that clipboard functions can be imported from utils."""
         from src.core import utils
@@ -103,13 +74,11 @@ class TestBackwardsCompatibilityImports:
         # Verify clipboard function is accessible
         assert hasattr(utils, "copy_to_clipboard")
 
-        # Verify it is callable
-        assert callable(utils.copy_to_clipboard)
-
     def test_import_using_from_statement(self):
         """Test that functions can be imported using 'from src.core.utils import' syntax."""
         # This is the most common backwards compatibility import pattern
-        from src.core.utils import (
+        # If this import fails, backwards compatibility is broken
+        from src.core.utils import (  # noqa: F401
             check_clamav_installed,
             check_clamdscan_installed,
             check_freshclam_installed,
@@ -124,20 +93,6 @@ class TestBackwardsCompatibilityImports:
             wrap_host_command,
         )
 
-        # Verify all imports are callable
-        assert callable(check_clamav_installed)
-        assert callable(check_freshclam_installed)
-        assert callable(check_clamdscan_installed)
-        assert callable(format_results_as_text)
-        assert callable(format_results_as_csv)
-        assert callable(validate_path)
-        assert callable(validate_dropped_files)
-        assert callable(format_scan_path)
-        assert callable(get_path_info)
-        assert callable(is_flatpak)
-        assert callable(wrap_host_command)
-        assert callable(copy_to_clipboard)
-
 
 class TestReExportCorrectness:
     """Test that re-exported functions are the same as the original functions from focused modules."""
@@ -151,9 +106,16 @@ class TestReExportCorrectness:
         assert utils.wrap_host_command is flatpak.wrap_host_command
         assert utils.which_host_command is flatpak.which_host_command
         assert utils.format_flatpak_portal_path is flatpak.format_flatpak_portal_path
-        assert utils._resolve_portal_path_via_xattr is flatpak._resolve_portal_path_via_xattr
-        assert utils._resolve_portal_path_via_gio is flatpak._resolve_portal_path_via_gio
-        assert utils._resolve_portal_path_via_dbus is flatpak._resolve_portal_path_via_dbus
+        assert (
+            utils._resolve_portal_path_via_xattr
+            is flatpak._resolve_portal_path_via_xattr
+        )
+        assert (
+            utils._resolve_portal_path_via_gio is flatpak._resolve_portal_path_via_gio
+        )
+        assert (
+            utils._resolve_portal_path_via_dbus is flatpak._resolve_portal_path_via_dbus
+        )
 
     def test_clamav_detection_functions_are_same_objects(self):
         """Test that ClamAV detection functions from utils are the same as from clamav_detection module."""
@@ -161,8 +123,14 @@ class TestReExportCorrectness:
 
         # Verify re-exported functions are the same objects
         assert utils.check_clamav_installed is clamav_detection.check_clamav_installed
-        assert utils.check_freshclam_installed is clamav_detection.check_freshclam_installed
-        assert utils.check_clamdscan_installed is clamav_detection.check_clamdscan_installed
+        assert (
+            utils.check_freshclam_installed
+            is clamav_detection.check_freshclam_installed
+        )
+        assert (
+            utils.check_clamdscan_installed
+            is clamav_detection.check_clamdscan_installed
+        )
         assert utils.get_clamd_socket_path is clamav_detection.get_clamd_socket_path
         assert utils.check_clamd_connection is clamav_detection.check_clamd_connection
         assert utils.get_clamav_path is clamav_detection.get_clamav_path
@@ -240,14 +208,18 @@ class TestUtilsModuleAPI:
         ]
 
         for function_name in expected_functions:
-            assert function_name in utils.__all__, f"{function_name} not in utils.__all__"
+            assert (
+                function_name in utils.__all__
+            ), f"{function_name} not in utils.__all__"
 
     def test_all_functions_in_all_are_accessible(self):
         """Test that all functions listed in __all__ are actually accessible."""
         from src.core import utils
 
         for function_name in utils.__all__:
-            assert hasattr(utils, function_name), f"{function_name} in __all__ but not accessible"
+            assert hasattr(
+                utils, function_name
+            ), f"{function_name} in __all__ but not accessible"
             attr = getattr(utils, function_name)
             assert callable(attr), f"{function_name} is not callable"
 
@@ -259,11 +231,15 @@ class TestUtilsModuleAPI:
         public_attrs = [name for name in dir(utils) if not name.startswith("_")]
 
         # Filter to only callables (functions)
-        public_functions = [name for name in public_attrs if callable(getattr(utils, name))]
+        public_functions = [
+            name for name in public_attrs if callable(getattr(utils, name))
+        ]
 
         # All public functions should be in __all__
         for function_name in public_functions:
-            assert function_name in utils.__all__, f"{function_name} is public but not in __all__"
+            assert (
+                function_name in utils.__all__
+            ), f"{function_name} is public but not in __all__"
 
 
 class TestReExportFunctionality:
@@ -321,7 +297,8 @@ class TestReExportFunctionality:
 
         # Mock which_host_command to return a path
         with mock.patch(
-            "src.core.clamav_detection.which_host_command", return_value="/usr/bin/clamscan"
+            "src.core.clamav_detection.which_host_command",
+            return_value="/usr/bin/clamscan",
         ):
             path = get_clamav_path()
             assert path == "/usr/bin/clamscan"
@@ -331,7 +308,9 @@ class TestReExportFunctionality:
         from src.core.utils import get_freshclam_path
 
         # Mock which_host_command to return None (not found)
-        with mock.patch("src.core.clamav_detection.which_host_command", return_value=None):
+        with mock.patch(
+            "src.core.clamav_detection.which_host_command", return_value=None
+        ):
             path = get_freshclam_path()
             assert path is None
 
