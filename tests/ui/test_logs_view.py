@@ -119,6 +119,7 @@ def mock_logs_view(logs_view_class, mock_log_manager):
     view._daemon_status_row = mock.MagicMock()
     view._live_toggle = mock.MagicMock()
     view._fullscreen_daemon_button = mock.MagicMock()
+    view._export_daemon_button = mock.MagicMock()
 
     # Mock internal methods
     view._setup_ui = mock.MagicMock()
@@ -605,6 +606,90 @@ class TestLogsViewRefreshDaemonLogs:
 
         mock_buffer.set_text.assert_called_with("Error loading daemon logs:\n\nPermission denied")
         assert result is False
+
+
+class TestLogsViewExportDaemonLogs:
+    """Tests for daemon logs export functionality."""
+
+    def test_export_daemon_button_exists(self, mock_logs_view):
+        """Test that export daemon logs button exists."""
+        assert hasattr(mock_logs_view, "_export_daemon_button")
+        assert mock_logs_view._export_daemon_button is not None
+
+    def test_export_daemon_logs_skips_placeholder(self, logs_view_class):
+        """Test that export skips placeholder text."""
+        view = object.__new__(logs_view_class)
+        view._daemon_text = mock.MagicMock()
+        mock_buffer = mock.MagicMock()
+        mock_buffer.get_start_iter.return_value = mock.MagicMock()
+        mock_buffer.get_end_iter.return_value = mock.MagicMock()
+        mock_buffer.get_text.return_value = (
+            "Daemon logs will appear here.\n\nClick the play button to start live updates."
+        )
+        view._daemon_text.get_buffer.return_value = mock_buffer
+        view.get_root = mock.MagicMock(return_value=None)
+
+        # Should return early without creating FileExportHelper
+        with mock.patch("src.ui.logs_view.FileExportHelper") as mock_helper:
+            view._on_export_daemon_logs_clicked(mock.MagicMock())
+            mock_helper.assert_not_called()
+
+    def test_export_daemon_logs_creates_helper(self, logs_view_class, mock_gi_modules):
+        """Test that export daemon logs creates FileExportHelper and shows dialog."""
+        view = object.__new__(logs_view_class)
+        view._daemon_text = mock.MagicMock()
+        mock_buffer = mock.MagicMock()
+        mock_buffer.get_start_iter.return_value = mock.MagicMock()
+        mock_buffer.get_end_iter.return_value = mock.MagicMock()
+        mock_buffer.get_text.return_value = "Jan 26 10:30:00 clamd[1234]: LibClamAV info"
+        view._daemon_text.get_buffer.return_value = mock_buffer
+        view.get_root = mock.MagicMock(return_value=mock.MagicMock())
+
+        mock_dialog = mock.MagicMock()
+        mock_gi_modules["gtk"].FileDialog.return_value = mock_dialog
+
+        view._on_export_daemon_logs_clicked(mock.MagicMock())
+
+        # FileExportHelper should create dialog via show_save_dialog
+        mock_gi_modules["gtk"].FileDialog.assert_called_once()
+        mock_dialog.set_title.assert_called_with("Export Daemon Logs")
+        # Initial filename should contain clamd_logs and .txt extension
+        assert mock_dialog.set_initial_name.called
+        initial_name = mock_dialog.set_initial_name.call_args[0][0]
+        assert initial_name.startswith("clamd_logs_")
+        assert initial_name.endswith(".txt")
+        mock_dialog.save.assert_called_once()
+
+    def test_export_button_enabled_on_successful_refresh(self, logs_view_class, mock_log_manager):
+        """Test that export button is enabled when logs are successfully loaded."""
+        view = object.__new__(logs_view_class)
+        view._log_manager = mock_log_manager
+        view._log_manager.read_daemon_logs.return_value = (True, "log content here")
+        view._daemon_text = mock.MagicMock()
+        mock_buffer = mock.MagicMock()
+        mock_buffer.get_end_iter.return_value = mock.MagicMock()
+        view._daemon_text.get_buffer.return_value = mock_buffer
+        view._daemon_refresh_id = 123
+        view._export_daemon_button = mock.MagicMock()
+
+        view._refresh_daemon_logs()
+
+        view._export_daemon_button.set_sensitive.assert_called_with(True)
+
+    def test_export_button_disabled_on_failed_refresh(self, logs_view_class, mock_log_manager):
+        """Test that export button is disabled when logs fail to load."""
+        view = object.__new__(logs_view_class)
+        view._log_manager = mock_log_manager
+        view._log_manager.read_daemon_logs.return_value = (False, "Permission denied")
+        view._daemon_text = mock.MagicMock()
+        mock_buffer = mock.MagicMock()
+        view._daemon_text.get_buffer.return_value = mock_buffer
+        view._daemon_refresh_id = None
+        view._export_daemon_button = mock.MagicMock()
+
+        view._refresh_daemon_logs()
+
+        view._export_daemon_button.set_sensitive.assert_called_with(False)
 
 
 class TestLogsViewClearLogs:

@@ -473,9 +473,18 @@ class LogsView(Gtk.Box):
         daemon_group.set_description("Live logs from the clamd daemon")
         self._daemon_group = daemon_group
 
-        # Header box with fullscreen button
+        # Header box with export and fullscreen buttons
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         header_box.set_halign(Gtk.Align.END)
+
+        # Export button
+        export_button = Gtk.Button()
+        export_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
+        export_button.set_tooltip_text("Export daemon logs to file")
+        export_button.add_css_class("flat")
+        export_button.set_sensitive(False)  # Disabled until logs are loaded
+        export_button.connect("clicked", self._on_export_daemon_logs_clicked)
+        self._export_daemon_button = export_button
 
         # Fullscreen button
         fullscreen_button = Gtk.Button()
@@ -485,6 +494,7 @@ class LogsView(Gtk.Box):
         fullscreen_button.connect("clicked", self._on_fullscreen_daemon_clicked)
         self._fullscreen_daemon_button = fullscreen_button
 
+        header_box.append(export_button)
         header_box.append(fullscreen_button)
         daemon_group.set_header_suffix(header_box)
 
@@ -1057,6 +1067,28 @@ class LogsView(Gtk.Box):
         dialog.set_transient_for(self.get_root())
         dialog.present()
 
+    def _on_export_daemon_logs_clicked(self, button: Gtk.Button):
+        """Handle export daemon logs button click."""
+        # Get current content from daemon text view
+        buffer = self._daemon_text.get_buffer()
+        start = buffer.get_start_iter()
+        end = buffer.get_end_iter()
+        content = buffer.get_text(start, end, False)
+
+        # Don't export placeholder text
+        if "will appear here" in content:
+            return
+
+        helper = FileExportHelper(
+            parent_widget=self,
+            dialog_title="Export Daemon Logs",
+            filename_prefix="clamd_logs",
+            file_filter=TEXT_FILTER,
+            content_generator=lambda: content,
+            success_message="Exported daemon logs",
+        )
+        helper.show_save_dialog()
+
     def _on_export_all_csv_clicked(self, button: Gtk.Button):
         """
         Handle export all logs to CSV button click.
@@ -1250,8 +1282,12 @@ class LogsView(Gtk.Box):
             # Scroll to bottom
             end_iter = buffer.get_end_iter()
             self._daemon_text.scroll_to_iter(end_iter, 0.0, False, 0.0, 0.0)
+            # Enable export button when logs are available
+            self._export_daemon_button.set_sensitive(True)
         else:
             buffer.set_text(f"Error loading daemon logs:\n\n{content}")
+            # Disable export button on error
+            self._export_daemon_button.set_sensitive(False)
 
         # Return True to continue periodic refresh, False otherwise
         return self._daemon_refresh_id is not None
