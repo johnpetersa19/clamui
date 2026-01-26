@@ -478,6 +478,16 @@ class ClamUIApp(Adw.Application):
         self.add_action(start_update_action)
         self.set_accels_for_action("app.start-update", ["F6"])
 
+        # Scan file action - open file picker from header bar
+        scan_file_action = Gio.SimpleAction.new("scan-file", None)
+        scan_file_action.connect("activate", self._on_scan_file)
+        self.add_action(scan_file_action)
+
+        # Scan system action - quick scan from header bar
+        scan_system_action = Gio.SimpleAction.new("scan-system", None)
+        scan_system_action.connect("activate", self._on_scan_system)
+        self.add_action(scan_system_action)
+
     def _setup_tray_indicator(self):
         """Initialize the system tray indicator subprocess."""
         try:
@@ -667,6 +677,60 @@ class ClamUIApp(Adw.Application):
                 and not self.update_view._is_updating
             ):
                 self.update_view._start_update()
+
+    def _on_scan_file(self, action, param):
+        """
+        Handle scan-file action - open file picker from header bar.
+
+        Switches to scan view and opens the file selection dialog.
+        """
+        win = self.props.active_window
+        if win:
+            # Switch to scan view if not already there
+            if self._current_view != "scan":
+                win.set_content_view(self.scan_view)
+                win.set_active_view("scan")
+                self._current_view = "scan"
+
+            # Open file picker via scan view's public method
+            self.scan_view.show_file_picker()
+
+    def _on_scan_system(self, action, param):
+        """
+        Handle scan-system action - quick scan from header bar.
+
+        Switches to scan view, applies Quick Scan profile, and starts scan.
+        Falls back to common locations (Downloads, Documents, tmp) if profile not found.
+        """
+        win = self.props.active_window
+        if win:
+            # Switch to scan view
+            win.set_content_view(self.scan_view)
+            win.set_active_view("scan")
+            self._current_view = "scan"
+
+            # Try to use Quick Scan profile
+            quick_scan_profile = self._get_quick_scan_profile()
+            if quick_scan_profile:
+                # Refresh profiles to ensure list is up to date
+                self.scan_view.refresh_profiles()
+                # Apply the Quick Scan profile
+                self.scan_view.set_selected_profile(quick_scan_profile.id)
+                # Start the scan
+                self.scan_view._start_scan()
+                logger.info(
+                    f"System scan started with Quick Scan profile "
+                    f"(profile_id={quick_scan_profile.id})"
+                )
+            else:
+                # Fallback to home directory if profile not found
+                home_dir = os.path.expanduser("~")
+                self.scan_view._set_selected_path(home_dir)
+                self.scan_view._start_scan()
+                logger.warning(
+                    f"Quick Scan profile not found, falling back to home directory "
+                    f"(path={home_dir})"
+                )
 
     def _on_statistics_quick_scan(self):
         """

@@ -146,7 +146,9 @@ class VirusTotalSetupDialog(Adw.Window):
         chevron.add_css_class("dim-label")
         link_row.add_suffix(chevron)
 
-        info_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("network-server-symbolic"))
+        info_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("network-server-symbolic")
+        )
         info_icon.add_css_class("dim-label")
         link_row.add_prefix(info_icon)
 
@@ -159,8 +161,10 @@ class VirusTotalSetupDialog(Adw.Window):
         api_key_group.set_title("Enter API Key")
 
         # Password entry row for API key
-        self._api_key_row = Adw.PasswordEntryRow()
-        self._api_key_row.set_title("API Key")
+        # Using compatible helper for libadwaita 1.0+
+        from .preferences.base import create_password_entry_row
+
+        self._api_key_row = create_password_entry_row("API Key")
         self._api_key_row.connect("changed", self._on_api_key_changed)
         self._api_key_row.connect("entry-activated", self._on_save_and_scan_clicked)
         api_key_group.add(self._api_key_row)
@@ -197,11 +201,15 @@ class VirusTotalSetupDialog(Adw.Window):
         # Open website option
         website_row = Adw.ActionRow()
         website_row.set_title("Upload file manually")
-        website_row.set_subtitle("Open VirusTotal website to upload files without API key")
+        website_row.set_subtitle(
+            "Open VirusTotal website to upload files without API key"
+        )
         website_row.set_activatable(True)
         website_row.connect("activated", self._on_open_website_clicked)
 
-        website_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("web-browser-symbolic"))
+        website_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("web-browser-symbolic")
+        )
         website_icon.add_css_class("dim-label")
         website_row.add_prefix(website_icon)
 
@@ -214,7 +222,9 @@ class VirusTotalSetupDialog(Adw.Window):
         # Remember decision option
         self._remember_switch = Adw.SwitchRow()
         self._remember_switch.set_title("Remember my choice")
-        self._remember_switch.set_subtitle("Don't ask again when scanning without API key")
+        self._remember_switch.set_subtitle(
+            "Don't ask again when scanning without API key"
+        )
         self._remember_switch.set_active(False)
 
         remember_icon = Gtk.Image.new_from_icon_name(
@@ -280,13 +290,17 @@ class VirusTotalSetupDialog(Adw.Window):
             if self._on_key_saved:
                 self._on_key_saved(api_key)
         else:
-            self._show_toast(f"Failed to save: {error}" if error else "Failed to save API key")
+            self._show_toast(
+                f"Failed to save: {error}" if error else "Failed to save API key"
+            )
 
     def _on_open_website_clicked(self, row: Adw.ActionRow):
         """Open VirusTotal upload page."""
         # Save remember preference if enabled
         if self._remember_switch.get_active() and self._settings_manager:
-            self._settings_manager.set("virustotal_remember_no_key_action", "open_website")
+            self._settings_manager.set(
+                "virustotal_remember_no_key_action", "open_website"
+            )
 
         try:
             webbrowser.open(VT_UPLOAD_URL)

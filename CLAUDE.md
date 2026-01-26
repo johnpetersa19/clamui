@@ -348,12 +348,14 @@ Additional Flatpak utilities in `flatpak.py`:
 
 ClamUI targets **libadwaita 1.0+** for broad distribution compatibility (Ubuntu 22.04, Pop!\_OS 22.04, etc.).
 
-**Important:** Do NOT use APIs introduced in libadwaita 1.5+:
+**Important:** Do NOT use APIs introduced after libadwaita 1.1:
 
-| Avoid (1.5+)      | Use Instead (1.0+)               |
-| ----------------- | -------------------------------- |
-| `Adw.Dialog`      | `Adw.Window`                     |
-| `Adw.AlertDialog` | `Adw.Window` with custom content |
+| Avoid (1.2+)             | Use Instead (1.0+)                           |
+| ------------------------ | -------------------------------------------- |
+| `Adw.PasswordEntryRow`   | `create_password_entry_row()` from `base.py` |
+| `Adw.SpinRow`            | `create_spin_row()` from `base.py`           |
+| `Adw.Dialog` (1.5+)      | `Adw.Window`                                 |
+| `Adw.AlertDialog` (1.5+) | `Adw.Window` with custom content             |
 
 **libadwaita versions by distribution:**
 
@@ -404,6 +406,30 @@ dialog.present()
 | `set_can_close(bool)`   | `set_deletable(bool)`                  |
 | `present(parent)`       | `set_transient_for(parent); present()` |
 | `connect("closed", cb)` | `connect("close-request", cb)`         |
+
+**Compatibility Helper Functions (src/ui/preferences/base.py):**
+
+```python
+from .base import create_password_entry_row, create_spin_row
+
+# Password entry (replaces Adw.PasswordEntryRow)
+api_key_row = create_password_entry_row("API Key")
+api_key_row.connect("changed", on_changed)
+value = api_key_row.get_text()
+
+# Spin row (replaces Adw.SpinRow)
+# Returns tuple: (row, spin_button) - store spin_button for get/set_value()
+row, spin_button = create_spin_row(
+    title="Max File Size (MB)",
+    subtitle="Maximum file size to scan",
+    min_val=0,
+    max_val=4000,
+    step=1,
+)
+widgets_dict["MaxFileSize"] = spin_button  # Store SpinButton, not row
+group.add(row)
+value = spin_button.get_value()
+```
 
 ### Icon Usage (Adwaita Only)
 

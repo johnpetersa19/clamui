@@ -54,7 +54,9 @@ class TestOnAccessPageCreation:
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, True, mock_parent_window
+        )
 
         # Should create a PreferencesPage
         adw.PreferencesPage.assert_called()
@@ -67,7 +69,9 @@ class TestOnAccessPageCreation:
 
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, True, mock_parent_window
+        )
 
         # Should set title and icon_name
         adw.PreferencesPage.assert_called_with(
@@ -81,7 +85,9 @@ class TestOnAccessPageCreation:
         """Test create_page creates all required widgets when clamd is available."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, True, mock_parent_window
+        )
 
         # Check that all expected widgets are in the dict
         expected_widgets = [
@@ -114,7 +120,9 @@ class TestOnAccessPageCreation:
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, False, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, False, mock_parent_window
+        )
 
         # Should not create any onaccess widgets
         assert "OnAccessIncludePath" not in widgets_dict
@@ -131,7 +139,9 @@ class TestOnAccessPageCreation:
         gtk = mock_gi_modules["gtk"]
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, True, mock_parent_window
+        )
 
         # Should create EntryRows for paths and username
         # OnAccessIncludePath, OnAccessExcludePath, OnAccessExcludeUname = 3
@@ -147,26 +157,31 @@ class TestOnAccessPageCreation:
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, True, mock_parent_window
+        )
 
         # Should create SwitchRows for behavior and root exclusion
         # OnAccessPrevention, OnAccessExtraScanning, OnAccessDenyOnError,
         # OnAccessDisableDDD, OnAccessExcludeRootUID = 5
         assert adw.SwitchRow.call_count >= 5
 
-    def test_create_page_creates_spin_rows(
+    def test_create_page_creates_spin_buttons(
         self, mock_gi_modules, mock_config_path, widgets_dict, mock_parent_window
     ):
-        """Test create_page creates SpinRows for numeric settings."""
-        adw = mock_gi_modules["adw"]
+        """Test create_page creates SpinButtons for numeric settings (1.0+ compatible)."""
+        gtk = mock_gi_modules["gtk"]
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, True, mock_parent_window
+        )
 
-        # Should create SpinRows for performance and UID
+        # Should create SpinButtons for performance and UID
         # OnAccessMaxThreads, OnAccessMaxFileSize, OnAccessCurlTimeout,
         # OnAccessRetryAttempts, OnAccessExcludeUID = 5
-        assert adw.SpinRow.new_with_range.call_count >= 5
+        # (using create_spin_row helper which uses Gtk.SpinButton)
+        assert gtk.SpinButton.call_count >= 5
 
     def test_create_page_creates_preference_groups(
         self, mock_gi_modules, mock_config_path, widgets_dict, mock_parent_window
@@ -175,7 +190,9 @@ class TestOnAccessPageCreation:
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, True, mock_parent_window
+        )
 
         # Should create at least 4 PreferencesGroups (Paths, Behavior, Performance, Exclusions)
         assert adw.PreferencesGroup.call_count >= 4
@@ -188,7 +205,9 @@ class TestOnAccessPageCreation:
         gtk = mock_gi_modules["gtk"]
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        OnAccessPage.create_page(mock_config_path, widgets_dict, True, mock_parent_window)
+        OnAccessPage.create_page(
+            mock_config_path, widgets_dict, True, mock_parent_window
+        )
 
         # Should create ActionRow for warning
         # 1 for status message (when clamd unavailable), multiple for warnings
@@ -247,8 +266,12 @@ class TestOnAccessPagePopulateFields:
         OnAccessPage.populate_fields(mock_config, mock_widgets)
 
         # Should call set_text with comma-separated paths
-        mock_widgets["OnAccessIncludePath"].set_text.assert_called_with("/home, /var, /tmp")
-        mock_widgets["OnAccessExcludePath"].set_text.assert_called_with("/home, /var, /tmp")
+        mock_widgets["OnAccessIncludePath"].set_text.assert_called_with(
+            "/home, /var, /tmp"
+        )
+        mock_widgets["OnAccessExcludePath"].set_text.assert_called_with(
+            "/home, /var, /tmp"
+        )
 
     def test_populate_fields_handles_empty_path_list(
         self, mock_gi_modules, mock_config, mock_widgets
@@ -292,7 +315,9 @@ class TestOnAccessPagePopulateFields:
 
         mock_widgets["OnAccessPrevention"].set_active.assert_called_with(False)
 
-    def test_populate_fields_sets_numeric_values(self, mock_gi_modules, mock_config, mock_widgets):
+    def test_populate_fields_sets_numeric_values(
+        self, mock_gi_modules, mock_config, mock_widgets
+    ):
         """Test populate_fields sets numeric spin row values."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -321,7 +346,9 @@ class TestOnAccessPagePopulateFields:
         # Should not call set_value when value is invalid
         # (mocks will still record calls, but real code would skip)
 
-    def test_populate_fields_sets_username_entry(self, mock_gi_modules, mock_config, mock_widgets):
+    def test_populate_fields_sets_username_entry(
+        self, mock_gi_modules, mock_config, mock_widgets
+    ):
         """Test populate_fields sets username entry."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -332,7 +359,9 @@ class TestOnAccessPagePopulateFields:
         # Should call set_text on username entry
         mock_widgets["OnAccessExcludeUname"].set_text.assert_called_with("clamav")
 
-    def test_populate_fields_handles_missing_keys(self, mock_gi_modules, mock_config, mock_widgets):
+    def test_populate_fields_handles_missing_keys(
+        self, mock_gi_modules, mock_config, mock_widgets
+    ):
         """Test populate_fields handles missing config keys."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -424,18 +453,24 @@ class TestOnAccessPageCollectData:
         assert "OnAccessIncludePath" not in result
         assert "OnAccessExcludePath" not in result
 
-    def test_collect_data_handles_paths_with_extra_whitespace(self, mock_gi_modules, mock_widgets):
+    def test_collect_data_handles_paths_with_extra_whitespace(
+        self, mock_gi_modules, mock_widgets
+    ):
         """Test collect_data strips whitespace from paths."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
-        mock_widgets["OnAccessIncludePath"].get_text.return_value = " /home , /var , /tmp "
+        mock_widgets["OnAccessIncludePath"].get_text.return_value = (
+            " /home , /var , /tmp "
+        )
 
         result = OnAccessPage.collect_data(mock_widgets, True)
 
         # Should strip whitespace from each path
         assert result["OnAccessIncludePath"] == ["/home", "/var", "/tmp"]
 
-    def test_collect_data_converts_switches_to_yes_no(self, mock_gi_modules, mock_widgets):
+    def test_collect_data_converts_switches_to_yes_no(
+        self, mock_gi_modules, mock_widgets
+    ):
         """Test collect_data converts switch states to yes/no strings."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -450,7 +485,9 @@ class TestOnAccessPageCollectData:
         assert result["OnAccessExtraScanning"] == "no"
         assert result["OnAccessDisableDDD"] == "no"
 
-    def test_collect_data_converts_numeric_to_string(self, mock_gi_modules, mock_widgets):
+    def test_collect_data_converts_numeric_to_string(
+        self, mock_gi_modules, mock_widgets
+    ):
         """Test collect_data converts numeric values to strings."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -463,7 +500,9 @@ class TestOnAccessPageCollectData:
         assert result["OnAccessRetryAttempts"] == "3"
         assert result["OnAccessExcludeUID"] == "1000"
 
-    def test_collect_data_includes_username_when_not_empty(self, mock_gi_modules, mock_widgets):
+    def test_collect_data_includes_username_when_not_empty(
+        self, mock_gi_modules, mock_widgets
+    ):
         """Test collect_data includes username when provided."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -473,7 +512,9 @@ class TestOnAccessPageCollectData:
 
         assert result["OnAccessExcludeUname"] == "clamav"
 
-    def test_collect_data_excludes_username_when_empty(self, mock_gi_modules, mock_widgets):
+    def test_collect_data_excludes_username_when_empty(
+        self, mock_gi_modules, mock_widgets
+    ):
         """Test collect_data excludes username when empty."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 
@@ -497,7 +538,9 @@ class TestOnAccessPageCollectData:
         assert "OnAccessDisableDDD" in result
         assert "OnAccessExcludeRootUID" in result
 
-    def test_collect_data_includes_all_performance_settings(self, mock_gi_modules, mock_widgets):
+    def test_collect_data_includes_all_performance_settings(
+        self, mock_gi_modules, mock_widgets
+    ):
         """Test collect_data includes all performance settings."""
         from src.ui.preferences.onaccess_page import OnAccessPage
 

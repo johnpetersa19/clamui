@@ -113,15 +113,16 @@ class TestScheduledPageCreation:
         # Should create 2 EntryRows: time, targets
         assert adw.EntryRow.call_count == 2
 
-    def test_create_page_creates_spin_row(self, mock_gi_modules, widgets_dict):
-        """Test create_page creates SpinRow for day of month."""
-        adw = mock_gi_modules["adw"]
+    def test_create_page_creates_spin_button(self, mock_gi_modules, widgets_dict):
+        """Test create_page creates SpinButton for day of month (1.0+ compatible)."""
+        gtk = mock_gi_modules["gtk"]
         from src.ui.preferences.scheduled_page import ScheduledPage
 
         ScheduledPage.create_page(widgets_dict)
 
-        # Should create 1 SpinRow: day_of_month
-        assert adw.SpinRow.call_count == 1
+        # Should create 1 SpinButton: day_of_month
+        # (using create_spin_row helper which uses Gtk.SpinButton)
+        assert gtk.SpinButton.call_count == 1
 
     def test_create_page_sets_default_values(self, mock_gi_modules, widgets_dict):
         """Test create_page sets appropriate default values."""
@@ -147,7 +148,9 @@ class TestScheduledPageCreation:
         # Should create PreferencesGroup
         adw.PreferencesGroup.assert_called()
 
-    def test_create_page_creates_string_list_for_frequency(self, mock_gi_modules, widgets_dict):
+    def test_create_page_creates_string_list_for_frequency(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test create_page creates StringList for frequency options."""
         gtk = mock_gi_modules["gtk"]
         from src.ui.preferences.scheduled_page import ScheduledPage
@@ -157,7 +160,9 @@ class TestScheduledPageCreation:
         # Should create StringList
         assert gtk.StringList.call_count >= 2  # frequency and day_of_week
 
-    def test_create_page_creates_adjustment_for_day_of_month(self, mock_gi_modules, widgets_dict):
+    def test_create_page_creates_adjustment_for_day_of_month(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test create_page creates Gtk.Adjustment for day of month spinner."""
         gtk = mock_gi_modules["gtk"]
         from src.ui.preferences.scheduled_page import ScheduledPage
@@ -244,7 +249,9 @@ class TestScheduledPagePopulateFields:
 
         widgets_dict["frequency"].set_selected.assert_called_with(2)
 
-    def test_populate_fields_sets_frequency_monthly(self, mock_gi_modules, widgets_dict):
+    def test_populate_fields_sets_frequency_monthly(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test populate_fields sets monthly frequency correctly."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -253,7 +260,9 @@ class TestScheduledPagePopulateFields:
 
         widgets_dict["frequency"].set_selected.assert_called_with(3)
 
-    def test_populate_fields_handles_invalid_frequency(self, mock_gi_modules, widgets_dict):
+    def test_populate_fields_handles_invalid_frequency(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test populate_fields handles invalid frequency value."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -272,7 +281,9 @@ class TestScheduledPagePopulateFields:
 
         widgets_dict["time"].set_text.assert_called_with("15:30")
 
-    def test_populate_fields_sets_targets_from_list(self, mock_gi_modules, widgets_dict):
+    def test_populate_fields_sets_targets_from_list(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test populate_fields sets targets from list correctly."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -281,7 +292,9 @@ class TestScheduledPagePopulateFields:
 
         widgets_dict["targets"].set_text.assert_called_with("/home/user, /var/log")
 
-    def test_populate_fields_sets_targets_empty_list_to_home(self, mock_gi_modules, widgets_dict):
+    def test_populate_fields_sets_targets_empty_list_to_home(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test populate_fields sets targets to home directory when empty."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -348,7 +361,9 @@ class TestScheduledPagePopulateFields:
         widgets_dict["enabled"].set_active.assert_called_with(True)
         widgets_dict["frequency"].set_selected.assert_called_with(2)  # weekly
         widgets_dict["time"].set_text.assert_called_with("03:30")
-        widgets_dict["targets"].set_text.assert_called_with("/home/user/Documents, /var/www")
+        widgets_dict["targets"].set_text.assert_called_with(
+            "/home/user/Documents, /var/www"
+        )
         widgets_dict["day_of_week"].set_selected.assert_called_with(5)
         widgets_dict["day_of_month"].set_value.assert_called_with(20)
         widgets_dict["skip_on_battery"].set_active.assert_called_with(False)
@@ -397,7 +412,9 @@ class TestScheduledPageCollectData:
 
         assert result["schedule_frequency"] == "daily"
 
-    def test_collect_data_collects_frequency_hourly(self, mock_gi_modules, widgets_dict):
+    def test_collect_data_collects_frequency_hourly(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test collect_data collects hourly frequency correctly."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -406,7 +423,9 @@ class TestScheduledPageCollectData:
 
         assert result["schedule_frequency"] == "hourly"
 
-    def test_collect_data_collects_frequency_weekly(self, mock_gi_modules, widgets_dict):
+    def test_collect_data_collects_frequency_weekly(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test collect_data collects weekly frequency correctly."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -415,7 +434,9 @@ class TestScheduledPageCollectData:
 
         assert result["schedule_frequency"] == "weekly"
 
-    def test_collect_data_collects_frequency_monthly(self, mock_gi_modules, widgets_dict):
+    def test_collect_data_collects_frequency_monthly(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test collect_data collects monthly frequency correctly."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -424,7 +445,9 @@ class TestScheduledPageCollectData:
 
         assert result["schedule_frequency"] == "monthly"
 
-    def test_collect_data_handles_invalid_frequency_index(self, mock_gi_modules, widgets_dict):
+    def test_collect_data_handles_invalid_frequency_index(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test collect_data handles out-of-range frequency index."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -443,7 +466,9 @@ class TestScheduledPageCollectData:
 
         assert result["schedule_time"] == "15:30"
 
-    def test_collect_data_strips_whitespace_from_time(self, mock_gi_modules, widgets_dict):
+    def test_collect_data_strips_whitespace_from_time(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test collect_data strips whitespace from time."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -452,7 +477,9 @@ class TestScheduledPageCollectData:
 
         assert result["schedule_time"] == "03:45"
 
-    def test_collect_data_defaults_empty_time_to_0200(self, mock_gi_modules, widgets_dict):
+    def test_collect_data_defaults_empty_time_to_0200(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test collect_data defaults empty time to 02:00."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -470,7 +497,9 @@ class TestScheduledPageCollectData:
 
         assert result["schedule_targets"] == ["/home/user", "/var/log", "/etc"]
 
-    def test_collect_data_strips_whitespace_from_targets(self, mock_gi_modules, widgets_dict):
+    def test_collect_data_strips_whitespace_from_targets(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test collect_data strips whitespace from each target."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 
@@ -515,7 +544,9 @@ class TestScheduledPageCollectData:
 
         assert result["schedule_day_of_month"] == 20
 
-    def test_collect_data_converts_day_of_month_to_int(self, mock_gi_modules, widgets_dict):
+    def test_collect_data_converts_day_of_month_to_int(
+        self, mock_gi_modules, widgets_dict
+    ):
         """Test collect_data converts day of month to integer."""
         from src.ui.preferences.scheduled_page import ScheduledPage
 

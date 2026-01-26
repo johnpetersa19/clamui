@@ -83,7 +83,9 @@ class ScheduledPage(PreferencesPageMixin):
         """
         group = Adw.PreferencesGroup()
         group.set_title("Scheduled Scans Configuration")
-        group.set_description("Configure automatic scanning. Save with 'Save &amp; Apply'.")
+        group.set_description(
+            "Configure automatic scanning. Save with 'Save &amp; Apply'."
+        )
 
         # Enable scheduled scans switch
         enable_scheduled_row = Adw.SwitchRow()
@@ -115,7 +117,15 @@ class ScheduledPage(PreferencesPageMixin):
         # Day of week dropdown (for weekly scans)
         day_of_week_row = Adw.ComboRow()
         day_of_week_model = Gtk.StringList()
-        for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+        for day in [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]:
             day_of_week_model.append(day)
         day_of_week_row.set_model(day_of_week_model)
         day_of_week_row.set_selected(0)  # Default to Monday
@@ -125,14 +135,18 @@ class ScheduledPage(PreferencesPageMixin):
         group.add(day_of_week_row)
 
         # Day of month spinner (for monthly scans)
-        day_of_month_row = Adw.SpinRow()
-        day_of_month_row.set_title("Day of Month")
-        day_of_month_row.set_subtitle("For monthly scans (1-28)")
-        adjustment = Gtk.Adjustment(
-            value=1, lower=1, upper=28, step_increment=1, page_increment=5, page_size=0
+        # Using compatible helper for libadwaita 1.0+
+        from .base import create_spin_row
+
+        day_of_month_row, day_of_month_spin = create_spin_row(
+            title="Day of Month",
+            subtitle="For monthly scans (1-28)",
+            min_val=1,
+            max_val=28,
+            step=1,
+            page_step=5,
         )
-        day_of_month_row.set_adjustment(adjustment)
-        widgets_dict["day_of_month"] = day_of_month_row
+        widgets_dict["day_of_month"] = day_of_month_spin
         group.add(day_of_month_row)
 
         # Scan targets entry (schedule_targets)
@@ -200,10 +214,14 @@ class ScheduledPage(PreferencesPageMixin):
         widgets_dict["day_of_month"].set_value(config.get("schedule_day_of_month", 1))
 
         # Skip on battery switch
-        widgets_dict["skip_on_battery"].set_active(config.get("schedule_skip_on_battery", True))
+        widgets_dict["skip_on_battery"].set_active(
+            config.get("schedule_skip_on_battery", True)
+        )
 
         # Auto-quarantine switch
-        widgets_dict["auto_quarantine"].set_active(config.get("schedule_auto_quarantine", False))
+        widgets_dict["auto_quarantine"].set_active(
+            config.get("schedule_auto_quarantine", False)
+        )
 
     @staticmethod
     def collect_data(widgets_dict: dict) -> dict:
@@ -228,9 +246,11 @@ class ScheduledPage(PreferencesPageMixin):
 
         return {
             "scheduled_scans_enabled": widgets_dict["enabled"].get_active(),
-            "schedule_frequency": frequency_map[selected_frequency]
-            if selected_frequency < len(frequency_map)
-            else "daily",
+            "schedule_frequency": (
+                frequency_map[selected_frequency]
+                if selected_frequency < len(frequency_map)
+                else "daily"
+            ),
             "schedule_time": widgets_dict["time"].get_text().strip() or "02:00",
             "schedule_targets": targets,
             "schedule_day_of_week": widgets_dict["day_of_week"].get_selected(),

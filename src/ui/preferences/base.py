@@ -14,12 +14,114 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from ..utils import resolve_icon_name
 
 
-def populate_bool_field(config, widgets_dict: dict, key: str, default: bool = False) -> None:
+def create_password_entry_row(title: str) -> Adw.EntryRow:
+    """
+    Create a password entry row compatible with libadwaita 1.0+.
+
+    Replaces Adw.PasswordEntryRow (1.2+) with Adw.EntryRow configured
+    for password input with visibility toggle button.
+
+    Args:
+        title: The title/label for the entry row
+
+    Returns:
+        Configured Adw.EntryRow with password functionality
+    """
+    row = Adw.EntryRow()
+    row.set_title(title)
+    row.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+    row.set_show_apply_button(False)
+
+    # Add visibility toggle button as suffix
+    toggle_button = Gtk.ToggleButton()
+    toggle_button.set_icon_name("view-conceal-symbolic")
+    toggle_button.set_valign(Gtk.Align.CENTER)
+    toggle_button.add_css_class("flat")
+    toggle_button.set_tooltip_text("Show password")
+
+    def on_toggle(btn):
+        visible = btn.get_active()
+        # EntryRow uses GtkText internally, access via editable delegate
+        editable = row.get_delegate()
+        if editable and hasattr(editable, "set_visibility"):
+            editable.set_visibility(visible)
+        btn.set_icon_name(
+            "view-reveal-symbolic" if visible else "view-conceal-symbolic"
+        )
+        btn.set_tooltip_text("Hide password" if visible else "Show password")
+
+    toggle_button.connect("toggled", on_toggle)
+    row.add_suffix(toggle_button)
+
+    # Start with text hidden (after widget is realized)
+    def hide_text():
+        editable = row.get_delegate()
+        if editable and hasattr(editable, "set_visibility"):
+            editable.set_visibility(False)
+        return False  # Don't repeat
+
+    GLib.idle_add(hide_text)
+
+    return row
+
+
+def create_spin_row(
+    title: str,
+    subtitle: str,
+    min_val: float,
+    max_val: float,
+    step: float = 1,
+    page_step: float = 10,
+) -> tuple[Adw.ActionRow, Gtk.SpinButton]:
+    """
+    Create a spin row compatible with libadwaita 1.0+.
+
+    Replaces Adw.SpinRow (1.2+) with Adw.ActionRow + Gtk.SpinButton suffix.
+
+    Args:
+        title: The title for the row
+        subtitle: The subtitle/description for the row
+        min_val: Minimum value for the spin button
+        max_val: Maximum value for the spin button
+        step: Step increment for up/down buttons (default: 1)
+        page_step: Page increment for larger jumps (default: 10)
+
+    Returns:
+        Tuple of (row, spin_button) - use spin_button for get/set_value()
+    """
+    row = Adw.ActionRow()
+    row.set_title(title)
+    if subtitle:
+        row.set_subtitle(subtitle)
+
+    adjustment = Gtk.Adjustment(
+        value=min_val,
+        lower=min_val,
+        upper=max_val,
+        step_increment=step,
+        page_increment=page_step,
+        page_size=0,
+    )
+
+    spin_button = Gtk.SpinButton()
+    spin_button.set_adjustment(adjustment)
+    spin_button.set_numeric(True)
+    spin_button.set_valign(Gtk.Align.CENTER)
+
+    row.add_suffix(spin_button)
+    row.set_activatable_widget(spin_button)
+
+    return row, spin_button
+
+
+def populate_bool_field(
+    config, widgets_dict: dict, key: str, default: bool = False
+) -> None:
     """
     Populate a boolean switch widget from config.
 
@@ -67,7 +169,9 @@ def populate_text_field(config, widgets_dict: dict, key: str) -> None:
         widgets_dict[key].set_text(config.get_value(key))
 
 
-def populate_multivalue_field(config, widgets_dict: dict, key: str, separator: str = ", ") -> None:
+def populate_multivalue_field(
+    config, widgets_dict: dict, key: str, separator: str = ", "
+) -> None:
     """
     Populate a text entry widget with comma-separated values from config.
 
@@ -115,7 +219,9 @@ class PreferencesPageMixin:
 
         # Create lock icon - using system-lock-screen-symbolic
         # Alternative: changes-allow-symbolic for a shield-style icon
-        lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-lock-screen-symbolic"))
+        lock_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("system-lock-screen-symbolic")
+        )
         lock_icon.add_css_class("dim-label")
         lock_icon.set_tooltip_text("Requires administrator privileges to modify")
 
@@ -145,7 +251,9 @@ class PreferencesPageMixin:
             )
         except Exception as e:
             # Show error dialog if opening fails
-            self._show_simple_dialog("Error Opening Folder", f"Could not open folder: {str(e)}")
+            self._show_simple_dialog(
+                "Error Opening Folder", f"Could not open folder: {str(e)}"
+            )
 
     def _show_simple_dialog(self, title: str, message: str):
         """
@@ -244,7 +352,9 @@ class PreferencesPageMixin:
         path_row.set_subtitle_selectable(True)
 
         # Add folder icon as prefix
-        folder_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("folder-open-symbolic"))
+        folder_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("folder-open-symbolic")
+        )
         folder_icon.set_margin_start(6)
         path_row.add_prefix(folder_icon)
 

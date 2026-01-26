@@ -112,11 +112,15 @@ class VirusTotalPage:
         current_key = get_api_key(settings_manager)
         if current_key:
             status_row.set_subtitle(f"Configured ({mask_api_key(current_key)})")
-            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
+            status_icon = Gtk.Image.new_from_icon_name(
+                resolve_icon_name("object-select-symbolic")
+            )
             status_icon.add_css_class("success")
         else:
             status_row.set_subtitle("Not configured")
-            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
+            status_icon = Gtk.Image.new_from_icon_name(
+                resolve_icon_name("dialog-warning-symbolic")
+            )
             status_icon.add_css_class("warning")
 
         status_row.add_suffix(status_icon)
@@ -124,10 +128,13 @@ class VirusTotalPage:
         page._status_icon = status_icon
         group.add(status_row)
 
-        # API key entry row
-        api_key_row = Adw.PasswordEntryRow()
-        api_key_row.set_title("API Key")
-        api_key_row.connect("changed", lambda row: VirusTotalPage._on_api_key_changed(page, row))
+        # API key entry row (using compatible helper for libadwaita 1.0+)
+        from .base import create_password_entry_row
+
+        api_key_row = create_password_entry_row("API Key")
+        api_key_row.connect(
+            "changed", lambda row: VirusTotalPage._on_api_key_changed(page, row)
+        )
         page._api_key_row = api_key_row
         group.add(api_key_row)
 
@@ -177,9 +184,13 @@ class VirusTotalPage:
         link_row.set_title("Get a free API key")
         link_row.set_subtitle("Create an account at virustotal.com")
         link_row.set_activatable(True)
-        link_row.connect("activated", lambda row: VirusTotalPage._on_get_api_key_clicked())
+        link_row.connect(
+            "activated", lambda row: VirusTotalPage._on_get_api_key_clicked()
+        )
 
-        link_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("network-server-symbolic"))
+        link_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("network-server-symbolic")
+        )
         link_icon.add_css_class("dim-label")
         link_row.add_prefix(link_icon)
 
@@ -220,14 +231,18 @@ class VirusTotalPage:
         no_key_row.set_subtitle("Action to take when scanning without API key")
 
         # Set current selection from settings
-        current_action = settings_manager.get("virustotal_remember_no_key_action", "none")
+        current_action = settings_manager.get(
+            "virustotal_remember_no_key_action", "none"
+        )
         action_map = {"none": 0, "open_website": 1, "prompt": 2}
         no_key_row.set_selected(action_map.get(current_action, 0))
 
         # Connect to selection changes
         no_key_row.connect(
             "notify::selected",
-            lambda row, pspec: VirusTotalPage._on_no_key_action_changed(row, settings_manager),
+            lambda row, pspec: VirusTotalPage._on_no_key_action_changed(
+                row, settings_manager
+            ),
         )
 
         group.add(no_key_row)
@@ -249,7 +264,9 @@ class VirusTotalPage:
         rate_limit_row.set_title("Rate Limit")
         rate_limit_row.set_subtitle("Free tier: 4 requests per minute, 500 per day")
 
-        info_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
+        info_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("dialog-information-symbolic")
+        )
         info_icon.add_css_class("dim-label")
         rate_limit_row.add_prefix(info_icon)
 
@@ -260,7 +277,9 @@ class VirusTotalPage:
         size_limit_row.set_title("Maximum File Size")
         size_limit_row.set_subtitle("Files up to 650 MB can be scanned")
 
-        size_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("drive-harddisk-symbolic"))
+        size_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("drive-harddisk-symbolic")
+        )
         size_icon.add_css_class("dim-label")
         size_limit_row.add_prefix(size_icon)
 
@@ -290,7 +309,9 @@ class VirusTotalPage:
             page._validation_label.set_visible(True)
 
     @staticmethod
-    def _on_save_clicked(page: Adw.PreferencesPage, settings_manager: "SettingsManager"):
+    def _on_save_clicked(
+        page: Adw.PreferencesPage, settings_manager: "SettingsManager"
+    ):
         """Save the API key."""
         api_key = page._api_key_row.get_text().strip()
 
@@ -311,7 +332,9 @@ class VirusTotalPage:
 
             # Update status
             page._status_row.set_subtitle(f"Configured ({mask_api_key(api_key)})")
-            page._status_icon.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
+            page._status_icon.set_from_icon_name(
+                resolve_icon_name("object-select-symbolic")
+            )
             page._status_icon.remove_css_class("warning")
             page._status_icon.add_css_class("success")
 
@@ -320,10 +343,14 @@ class VirusTotalPage:
             page._save_button.set_sensitive(False)
             page._delete_button.set_sensitive(True)
         else:
-            VirusTotalPage._show_toast(page, f"Failed to save: {error}" if error else "Failed")
+            VirusTotalPage._show_toast(
+                page, f"Failed to save: {error}" if error else "Failed"
+            )
 
     @staticmethod
-    def _on_delete_clicked(page: Adw.PreferencesPage, settings_manager: "SettingsManager"):
+    def _on_delete_clicked(
+        page: Adw.PreferencesPage, settings_manager: "SettingsManager"
+    ):
         """Delete the API key after confirmation."""
         # Show confirmation dialog using Adw.Window for libadwaita < 1.5 compatibility
         dialog = Adw.Window()
@@ -374,7 +401,9 @@ class VirusTotalPage:
 
                 # Update status
                 page._status_row.set_subtitle("Not configured")
-                page._status_icon.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
+                page._status_icon.set_from_icon_name(
+                    resolve_icon_name("dialog-warning-symbolic")
+                )
                 page._status_icon.remove_css_class("success")
                 page._status_icon.add_css_class("warning")
 
@@ -395,7 +424,9 @@ class VirusTotalPage:
         dialog.present()
 
     @staticmethod
-    def _on_no_key_action_changed(row: Adw.ComboRow, settings_manager: "SettingsManager"):
+    def _on_no_key_action_changed(
+        row: Adw.ComboRow, settings_manager: "SettingsManager"
+    ):
         """Handle no-key action selection change."""
         action_reverse_map = {0: "none", 1: "open_website", 2: "prompt"}
         selected = row.get_selected()

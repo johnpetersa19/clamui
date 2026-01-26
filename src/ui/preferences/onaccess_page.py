@@ -74,13 +74,19 @@ class OnAccessPage(PreferencesPageMixin):
             OnAccessPage._create_onaccess_paths_group(page, widgets_dict, temp_instance)
 
             # Create behavior settings group
-            OnAccessPage._create_onaccess_behavior_group(page, widgets_dict, temp_instance)
+            OnAccessPage._create_onaccess_behavior_group(
+                page, widgets_dict, temp_instance
+            )
 
             # Create performance settings group
-            OnAccessPage._create_onaccess_performance_group(page, widgets_dict, temp_instance)
+            OnAccessPage._create_onaccess_performance_group(
+                page, widgets_dict, temp_instance
+            )
 
             # Create exclusions group (required to prevent scan loops)
-            OnAccessPage._create_onaccess_exclusions_group(page, widgets_dict, temp_instance)
+            OnAccessPage._create_onaccess_exclusions_group(
+                page, widgets_dict, temp_instance
+            )
         else:
             # Show message that clamd.conf is not available
             group = Adw.PreferencesGroup()
@@ -94,7 +100,9 @@ class OnAccessPage(PreferencesPageMixin):
         return page
 
     @staticmethod
-    def _create_onaccess_paths_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
+    def _create_onaccess_paths_group(
+        page: Adw.PreferencesPage, widgets_dict: dict, helper
+    ):
         """
         Create the On-Access Paths preferences group.
 
@@ -118,7 +126,9 @@ class OnAccessPage(PreferencesPageMixin):
         include_path_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         include_path_row.set_show_apply_button(False)
         # Add folder icon as prefix
-        include_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("folder-symbolic"))
+        include_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("folder-symbolic")
+        )
         include_icon.set_margin_start(6)
         include_path_row.add_prefix(include_icon)
         widgets_dict["OnAccessIncludePath"] = include_path_row
@@ -130,7 +140,9 @@ class OnAccessPage(PreferencesPageMixin):
         exclude_path_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         exclude_path_row.set_show_apply_button(False)
         # Add folder icon as prefix with different style
-        exclude_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("folder-symbolic"))
+        exclude_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("folder-symbolic")
+        )
         exclude_icon.set_margin_start(6)
         exclude_path_row.add_prefix(exclude_icon)
         widgets_dict["OnAccessExcludePath"] = exclude_path_row
@@ -139,7 +151,9 @@ class OnAccessPage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
-    def _create_onaccess_behavior_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
+    def _create_onaccess_behavior_group(
+        page: Adw.PreferencesPage, widgets_dict: dict, helper
+    ):
         """
         Create the On-Access Behavior preferences group.
 
@@ -176,7 +190,9 @@ class OnAccessPage(PreferencesPageMixin):
         # OnAccessDenyOnError switch
         deny_on_error_row = Adw.SwitchRow()
         deny_on_error_row.set_title("Deny on Error")
-        deny_on_error_row.set_subtitle("Deny access when scan fails (requires Prevention)")
+        deny_on_error_row.set_subtitle(
+            "Deny access when scan fails (requires Prevention)"
+        )
         widgets_dict["OnAccessDenyOnError"] = deny_on_error_row
         group.add(deny_on_error_row)
 
@@ -190,7 +206,9 @@ class OnAccessPage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
-    def _create_onaccess_performance_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
+    def _create_onaccess_performance_group(
+        page: Adw.PreferencesPage, widgets_dict: dict, helper
+    ):
         """
         Create the On-Access Performance preferences group.
 
@@ -210,46 +228,59 @@ class OnAccessPage(PreferencesPageMixin):
         group.set_description("Scanning limits and performance")
         group.set_header_suffix(helper._create_permission_indicator())
 
+        # Using compatible helper for libadwaita 1.0+
+        from .base import create_spin_row
+
         # OnAccessMaxThreads spin row (1-64)
-        max_threads_row = Adw.SpinRow.new_with_range(1, 64, 1)
-        max_threads_row.set_title("Max Threads")
-        max_threads_row.set_subtitle("Maximum number of scanning threads")
-        max_threads_row.set_numeric(True)
-        max_threads_row.set_snap_to_ticks(True)
-        widgets_dict["OnAccessMaxThreads"] = max_threads_row
+        max_threads_row, max_threads_spin = create_spin_row(
+            title="Max Threads",
+            subtitle="Maximum number of scanning threads",
+            min_val=1,
+            max_val=64,
+            step=1,
+        )
+        widgets_dict["OnAccessMaxThreads"] = max_threads_spin
         group.add(max_threads_row)
 
         # OnAccessMaxFileSize spin row (in MB, 0-4000)
-        max_file_size_row = Adw.SpinRow.new_with_range(0, 4000, 1)
-        max_file_size_row.set_title("Max File Size (MB)")
-        max_file_size_row.set_subtitle("Maximum file size to scan (0 = unlimited)")
-        max_file_size_row.set_numeric(True)
-        max_file_size_row.set_snap_to_ticks(True)
-        widgets_dict["OnAccessMaxFileSize"] = max_file_size_row
+        max_file_size_row, max_file_size_spin = create_spin_row(
+            title="Max File Size (MB)",
+            subtitle="Maximum file size to scan (0 = unlimited)",
+            min_val=0,
+            max_val=4000,
+            step=1,
+        )
+        widgets_dict["OnAccessMaxFileSize"] = max_file_size_spin
         group.add(max_file_size_row)
 
         # OnAccessCurlTimeout spin row (in seconds, 0-3600)
-        curl_timeout_row = Adw.SpinRow.new_with_range(0, 3600, 1)
-        curl_timeout_row.set_title("Curl Timeout (seconds)")
-        curl_timeout_row.set_subtitle("Timeout for remote scanning operations (0 = disabled)")
-        curl_timeout_row.set_numeric(True)
-        curl_timeout_row.set_snap_to_ticks(True)
-        widgets_dict["OnAccessCurlTimeout"] = curl_timeout_row
+        curl_timeout_row, curl_timeout_spin = create_spin_row(
+            title="Curl Timeout (seconds)",
+            subtitle="Timeout for remote scanning operations (0 = disabled)",
+            min_val=0,
+            max_val=3600,
+            step=1,
+        )
+        widgets_dict["OnAccessCurlTimeout"] = curl_timeout_spin
         group.add(curl_timeout_row)
 
         # OnAccessRetryAttempts spin row (0-10)
-        retry_attempts_row = Adw.SpinRow.new_with_range(0, 10, 1)
-        retry_attempts_row.set_title("Retry Attempts")
-        retry_attempts_row.set_subtitle("Number of retry attempts when scan fails")
-        retry_attempts_row.set_numeric(True)
-        retry_attempts_row.set_snap_to_ticks(True)
-        widgets_dict["OnAccessRetryAttempts"] = retry_attempts_row
+        retry_attempts_row, retry_attempts_spin = create_spin_row(
+            title="Retry Attempts",
+            subtitle="Number of retry attempts when scan fails",
+            min_val=0,
+            max_val=10,
+            step=1,
+        )
+        widgets_dict["OnAccessRetryAttempts"] = retry_attempts_spin
         group.add(retry_attempts_row)
 
         page.add(group)
 
     @staticmethod
-    def _create_onaccess_exclusions_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
+    def _create_onaccess_exclusions_group(
+        page: Adw.PreferencesPage, widgets_dict: dict, helper
+    ):
         """
         Create the On-Access Exclusions preferences group.
 
@@ -277,7 +308,9 @@ class OnAccessPage(PreferencesPageMixin):
         warning_row.set_subtitle("Exclude clamav user or UID to prevent scan loops")
         warning_row.add_css_class("warning")
         # Add warning icon as prefix
-        warning_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
+        warning_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("dialog-warning-symbolic")
+        )
         warning_icon.set_margin_start(6)
         warning_row.add_prefix(warning_icon)
         group.add(warning_row)
@@ -288,19 +321,26 @@ class OnAccessPage(PreferencesPageMixin):
         exclude_uname_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         exclude_uname_row.set_show_apply_button(False)
         # Add user icon as prefix
-        user_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("avatar-default-symbolic"))
+        user_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("avatar-default-symbolic")
+        )
         user_icon.set_margin_start(6)
         exclude_uname_row.add_prefix(user_icon)
         widgets_dict["OnAccessExcludeUname"] = exclude_uname_row
         group.add(exclude_uname_row)
 
         # OnAccessExcludeUID spin row (0-65534)
-        exclude_uid_row = Adw.SpinRow.new_with_range(0, 65534, 1)
-        exclude_uid_row.set_title("Exclude User ID")
-        exclude_uid_row.set_subtitle("User ID to exclude from On-Access scanning")
-        exclude_uid_row.set_numeric(True)
-        exclude_uid_row.set_snap_to_ticks(True)
-        widgets_dict["OnAccessExcludeUID"] = exclude_uid_row
+        # Using compatible helper for libadwaita 1.0+
+        from .base import create_spin_row
+
+        exclude_uid_row, exclude_uid_spin = create_spin_row(
+            title="Exclude User ID",
+            subtitle="User ID to exclude from On-Access scanning",
+            min_val=0,
+            max_val=65534,
+            step=1,
+        )
+        widgets_dict["OnAccessExcludeUID"] = exclude_uid_spin
         group.add(exclude_uid_row)
 
         # OnAccessExcludeRootUID switch
@@ -401,9 +441,15 @@ class OnAccessPage(PreferencesPageMixin):
         )
 
         # Collect performance settings (spin rows)
-        updates["OnAccessMaxThreads"] = str(int(widgets_dict["OnAccessMaxThreads"].get_value()))
-        updates["OnAccessMaxFileSize"] = str(int(widgets_dict["OnAccessMaxFileSize"].get_value()))
-        updates["OnAccessCurlTimeout"] = str(int(widgets_dict["OnAccessCurlTimeout"].get_value()))
+        updates["OnAccessMaxThreads"] = str(
+            int(widgets_dict["OnAccessMaxThreads"].get_value())
+        )
+        updates["OnAccessMaxFileSize"] = str(
+            int(widgets_dict["OnAccessMaxFileSize"].get_value())
+        )
+        updates["OnAccessCurlTimeout"] = str(
+            int(widgets_dict["OnAccessCurlTimeout"].get_value())
+        )
         updates["OnAccessRetryAttempts"] = str(
             int(widgets_dict["OnAccessRetryAttempts"].get_value())
         )
@@ -413,7 +459,9 @@ class OnAccessPage(PreferencesPageMixin):
         if exclude_uname:
             updates["OnAccessExcludeUname"] = exclude_uname
 
-        updates["OnAccessExcludeUID"] = str(int(widgets_dict["OnAccessExcludeUID"].get_value()))
+        updates["OnAccessExcludeUID"] = str(
+            int(widgets_dict["OnAccessExcludeUID"].get_value())
+        )
         updates["OnAccessExcludeRootUID"] = (
             "yes" if widgets_dict["OnAccessExcludeRootUID"].get_active() else "no"
         )

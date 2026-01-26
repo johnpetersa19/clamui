@@ -13,7 +13,12 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 from ..utils import resolve_icon_name
-from .base import PreferencesPageMixin, populate_bool_field, populate_int_field, populate_text_field
+from .base import (
+    PreferencesPageMixin,
+    populate_bool_field,
+    populate_int_field,
+    populate_text_field,
+)
 
 
 class DatabasePage(PreferencesPageMixin):
@@ -110,7 +115,9 @@ class DatabasePage(PreferencesPageMixin):
         log_file_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         log_file_row.set_show_apply_button(False)
         # Add document icon as prefix
-        log_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("text-x-generic-symbolic"))
+        log_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("text-x-generic-symbolic")
+        )
         log_icon.set_margin_start(6)
         log_file_row.add_prefix(log_icon)
         widgets_dict["UpdateLogFile"] = log_file_row
@@ -122,7 +129,9 @@ class DatabasePage(PreferencesPageMixin):
         notify_clamd_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         notify_clamd_row.set_show_apply_button(False)
         # Add settings icon as prefix
-        notify_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("emblem-system-symbolic"))
+        notify_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("emblem-system-symbolic")
+        )
         notify_icon.set_margin_start(6)
         notify_clamd_row.add_prefix(notify_icon)
         widgets_dict["NotifyClamd"] = notify_clamd_row
@@ -164,12 +173,17 @@ class DatabasePage(PreferencesPageMixin):
         group.set_header_suffix(helper._create_permission_indicator())
 
         # Checks spin row (0-50 updates per day)
-        checks_row = Adw.SpinRow.new_with_range(0, 50, 1)
-        checks_row.set_title("Checks Per Day")
-        checks_row.set_subtitle("Number of update checks per day (0 to disable)")
-        checks_row.set_numeric(True)
-        checks_row.set_snap_to_ticks(True)
-        widgets_dict["Checks"] = checks_row
+        # Using compatible helper for libadwaita 1.0+
+        from .base import create_spin_row
+
+        checks_row, checks_spin = create_spin_row(
+            title="Checks Per Day",
+            subtitle="Number of update checks per day (0 to disable)",
+            min_val=0,
+            max_val=50,
+            step=1,
+        )
+        widgets_dict["Checks"] = checks_spin  # Store SpinButton for get/set_value()
         group.add(checks_row)
 
         # DatabaseMirror entry row (primary mirror)
@@ -178,7 +192,9 @@ class DatabasePage(PreferencesPageMixin):
         mirror_row.set_input_purpose(Gtk.InputPurpose.URL)
         mirror_row.set_show_apply_button(False)
         # Add network icon as prefix
-        mirror_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("network-server-symbolic"))
+        mirror_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("network-server-symbolic")
+        )
         mirror_icon.set_margin_start(6)
         mirror_row.add_prefix(mirror_icon)
         widgets_dict["DatabaseMirror"] = mirror_row
@@ -213,19 +229,28 @@ class DatabasePage(PreferencesPageMixin):
         proxy_server_row.set_input_purpose(Gtk.InputPurpose.URL)
         proxy_server_row.set_show_apply_button(False)
         # Add network icon as prefix
-        server_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("network-workgroup-symbolic"))
+        server_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("network-workgroup-symbolic")
+        )
         server_icon.set_margin_start(6)
         proxy_server_row.add_prefix(server_icon)
         widgets_dict["HTTPProxyServer"] = proxy_server_row
         group.add(proxy_server_row)
 
         # HTTPProxyPort spin row (1-65535)
-        proxy_port_row = Adw.SpinRow.new_with_range(0, 65535, 1)
-        proxy_port_row.set_title("Proxy Port")
-        proxy_port_row.set_subtitle("Proxy server port number (0 to disable)")
-        proxy_port_row.set_numeric(True)
-        proxy_port_row.set_snap_to_ticks(True)
-        widgets_dict["HTTPProxyPort"] = proxy_port_row
+        # Using compatible helper for libadwaita 1.0+
+        from .base import create_spin_row
+
+        proxy_port_row, proxy_port_spin = create_spin_row(
+            title="Proxy Port",
+            subtitle="Proxy server port number (0 to disable)",
+            min_val=0,
+            max_val=65535,
+            step=1,
+        )
+        widgets_dict["HTTPProxyPort"] = (
+            proxy_port_spin  # Store SpinButton for get/set_value()
+        )
         group.add(proxy_port_row)
 
         # HTTPProxyUsername entry row
@@ -234,15 +259,19 @@ class DatabasePage(PreferencesPageMixin):
         proxy_user_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         proxy_user_row.set_show_apply_button(False)
         # Add user icon as prefix
-        user_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("avatar-default-symbolic"))
+        user_icon = Gtk.Image.new_from_icon_name(
+            resolve_icon_name("avatar-default-symbolic")
+        )
         user_icon.set_margin_start(6)
         proxy_user_row.add_prefix(user_icon)
         widgets_dict["HTTPProxyUsername"] = proxy_user_row
         group.add(proxy_user_row)
 
         # HTTPProxyPassword entry row (with password input)
-        proxy_pass_row = Adw.PasswordEntryRow()
-        proxy_pass_row.set_title("Proxy Password")
+        # Using compatible helper for libadwaita 1.0+
+        from .base import create_password_entry_row
+
+        proxy_pass_row = create_password_entry_row("Proxy Password")
         widgets_dict["HTTPProxyPassword"] = proxy_pass_row
         group.add(proxy_pass_row)
 
@@ -311,7 +340,9 @@ class DatabasePage(PreferencesPageMixin):
             updates["NotifyClamd"] = notify_clamd
 
         # Collect LogVerbose
-        updates["LogVerbose"] = "yes" if widgets_dict["LogVerbose"].get_active() else "no"
+        updates["LogVerbose"] = (
+            "yes" if widgets_dict["LogVerbose"].get_active() else "no"
+        )
 
         # Collect LogSyslog
         updates["LogSyslog"] = "yes" if widgets_dict["LogSyslog"].get_active() else "no"

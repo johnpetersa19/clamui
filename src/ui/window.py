@@ -1,6 +1,8 @@
 # ClamUI Main Window
 """
 Main application window for ClamUI.
+
+Uses GNOME Settings-style layout with AdwLeaflet for adaptive sidebar navigation.
 """
 
 import logging
@@ -13,6 +15,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .close_behavior_dialog import CloseBehaviorDialog
+from .sidebar import NavigationSidebar
 from .utils import resolve_icon_name
 
 if TYPE_CHECKING:
@@ -25,8 +28,8 @@ class MainWindow(Adw.ApplicationWindow):
     """
     Main application window for ClamUI.
 
-    This window provides the main layout with an Adwaita header bar
-    and a content area for the scan interface.
+    This window provides a GNOME Settings-style layout with an adaptive
+    sidebar navigation using AdwLeaflet for responsive behavior.
     """
 
     def __init__(self, application: Adw.Application, **kwargs):
@@ -44,10 +47,11 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Set window properties
         self.set_title("ClamUI")
-        self.set_default_size(800, 800)
-        self.set_size_request(
-            400, 400
-        )  # Minimum size - height reduced to fix maximize button on Ubuntu
+        self.set_default_size(900, 700)
+        self.set_size_request(400, 400)
+
+        # Track current view for title updates
+        self._current_view_id = "scan"
 
         # Set up minimize-to-tray handling
         self._setup_minimize_to_tray()
@@ -278,9 +282,7 @@ class MainWindow(Adw.ApplicationWindow):
         dialog.set_transient_for(self)
         dialog.present()
 
-    def _on_close_behavior_dialog_response(
-        self, choice: str | None, remember: bool
-    ) -> None:
+    def _on_close_behavior_dialog_response(self, choice: str | None, remember: bool) -> None:
         """
         Handle the close behavior dialog response.
 
@@ -414,23 +416,46 @@ class MainWindow(Adw.ApplicationWindow):
         return False  # Remove from idle queue
 
     def _setup_ui(self):
-        """Set up the window UI layout."""
+        """Set up the window UI layout with AdwLeaflet for adaptive navigation."""
         # Create the header bar
-        header_bar = self._create_header_bar()
+        self._header_bar = self._create_header_bar()
 
-        # Create the content area
+        # Create the content area (where views are displayed)
         self._content_area = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self._content_area.set_vexpand(True)
         self._content_area.set_hexpand(True)
 
+        # Create the navigation sidebar
+        self._sidebar = NavigationSidebar(on_view_selected=self._on_sidebar_selection)
+
+        # Create the leaflet for adaptive layout
+        self._leaflet = Adw.Leaflet()
+        self._leaflet.set_transition_type(Adw.LeafletTransitionType.SLIDE)
+        self._leaflet.set_can_unfold(True)
+
+        # Add sidebar page to leaflet
+        self._sidebar_page = self._leaflet.append(self._sidebar)
+        self._sidebar_page.set_name("sidebar")
+
+        # Add separator (non-navigable so navigation skips directly to content)
+        separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        separator_page = self._leaflet.append(separator)
+        separator_page.set_navigatable(False)
+
+        # Add content page to leaflet
+        self._content_page = self._leaflet.append(self._content_area)
+        self._content_page.set_name("content")
+
+        # Connect to folded state changes for adaptive header
+        self._leaflet.connect("notify::folded", self._on_leaflet_folded_changed)
+
         # Add toast overlay for in-app notifications
         self._toast_overlay = Adw.ToastOverlay()
-        self._toast_overlay.set_child(self._content_area)
+        self._toast_overlay.set_child(self._leaflet)
 
         # Use ToolbarView to properly integrate the HeaderBar as a titlebar
-        # This makes window control buttons (minimize, maximize, close) functional
         toolbar_view = Adw.ToolbarView()
-        toolbar_view.add_top_bar(header_bar)
+        toolbar_view.add_top_bar(self._header_bar)
         toolbar_view.set_content(self._toast_overlay)
 
         self.set_content(toolbar_view)
@@ -447,141 +472,112 @@ class MainWindow(Adw.ApplicationWindow):
         """
         header_bar = Adw.HeaderBar()
 
-        # Enable window control buttons (minimize, maximize, close)
-        # Start buttons for systems with left-side window controls (e.g., Ubuntu)
+        # Enable window control buttons
         header_bar.set_show_start_title_buttons(True)
         header_bar.set_show_end_title_buttons(True)
 
-        # Add title widget
-        title_label = Gtk.Label(label="ClamUI")
-        title_label.add_css_class("title")
-        header_bar.set_title_widget(title_label)
+        # Back button (hidden when not folded)
+        self._back_button = Gtk.Button.new_from_icon_name(resolve_icon_name("go-previous-symbolic"))
+        self._back_button.set_tooltip_text("Back to navigation")
+        self._back_button.connect("clicked", self._on_back_clicked)
+        self._back_button.set_visible(False)  # Hidden initially
+        header_bar.pack_start(self._back_button)
 
-        # Add navigation buttons on the left
-        nav_box = self._create_navigation_buttons()
-        header_bar.pack_start(nav_box)
+        # Title widget
+        self._title_label = Gtk.Label(label="ClamUI")
+        self._title_label.add_css_class("title")
+        header_bar.set_title_widget(self._title_label)
 
-        # Add menu button on the right
+        # Menu button on the right
         menu_button = self._create_menu_button()
         header_bar.pack_end(menu_button)
 
+        # Scan System button (primary action)
+        self._scan_system_button = Gtk.Button()
+        self._scan_system_button.set_icon_name(resolve_icon_name("drive-harddisk-symbolic"))
+        self._scan_system_button.set_tooltip_text("Scan System (Quick Scan)")
+        self._scan_system_button.add_css_class("suggested-action")
+        self._scan_system_button.set_action_name("app.scan-system")
+        header_bar.pack_end(self._scan_system_button)
+
+        # Scan File button
+        self._scan_file_button = Gtk.Button()
+        self._scan_file_button.set_icon_name(resolve_icon_name("document-open-symbolic"))
+        self._scan_file_button.set_tooltip_text("Scan File or Folder")
+        self._scan_file_button.set_action_name("app.scan-file")
+        header_bar.pack_end(self._scan_file_button)
+
         return header_bar
 
-    def _create_navigation_buttons(self) -> Gtk.Box:
+    def _on_leaflet_folded_changed(self, leaflet, pspec) -> None:
         """
-        Create navigation buttons for switching between views.
+        Handle leaflet folded state changes.
 
-        Returns:
-            Gtk.Box containing the navigation toggle buttons
+        Updates the header bar to show/hide back button and update title.
         """
-        # Create a linked button box for navigation
-        nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        nav_box.add_css_class("linked")
+        is_folded = leaflet.get_folded()
 
-        # Scan button (default active)
-        self._scan_button = Gtk.ToggleButton()
-        self._scan_button.set_icon_name(resolve_icon_name("folder-symbolic"))
-        self._scan_button.set_tooltip_text("Scan Files (Ctrl+1)")
-        self._scan_button.set_active(True)
-        self._scan_button.set_action_name("app.show-scan")
-        nav_box.append(self._scan_button)
+        # Show back button only when folded and viewing content
+        visible_child = leaflet.get_visible_child()
+        show_back = is_folded and visible_child == self._content_area
 
-        # Database update button
-        self._database_button = Gtk.ToggleButton()
-        self._database_button.set_icon_name(
-            resolve_icon_name("software-update-available-symbolic")
-        )
-        self._database_button.set_tooltip_text("Update Database (Ctrl+2)")
-        self._database_button.set_action_name("app.show-update")
-        nav_box.append(self._database_button)
+        self._back_button.set_visible(show_back)
 
-        # Logs button
-        self._logs_button = Gtk.ToggleButton()
-        self._logs_button.set_icon_name(
-            resolve_icon_name("document-open-recent-symbolic")
-        )
-        self._logs_button.set_tooltip_text("View Logs (Ctrl+3)")
-        self._logs_button.set_action_name("app.show-logs")
-        nav_box.append(self._logs_button)
+        # Update title based on folded state
+        self._update_title()
 
-        # Components button
-        self._components_button = Gtk.ToggleButton()
-        self._components_button.set_icon_name(
-            resolve_icon_name("applications-system-symbolic")
-        )
-        self._components_button.set_tooltip_text("ClamAV Components (Ctrl+4)")
-        self._components_button.set_action_name("app.show-components")
-        nav_box.append(self._components_button)
+    def _on_back_clicked(self, button) -> None:
+        """Handle back button click - navigate to sidebar."""
+        self._leaflet.navigate(Adw.NavigationDirection.BACK)
+        self._back_button.set_visible(False)
+        self._update_title()
 
-        # Quarantine button
-        self._quarantine_button = Gtk.ToggleButton()
-        self._quarantine_button.set_icon_name(
-            resolve_icon_name("security-medium-symbolic")
-        )
-        self._quarantine_button.set_tooltip_text("Quarantine (Ctrl+5)")
-        self._quarantine_button.set_action_name("app.show-quarantine")
-        nav_box.append(self._quarantine_button)
+    def _on_sidebar_selection(self, view_id: str) -> None:
+        """
+        Handle sidebar view selection.
 
-        # Statistics button
-        self._statistics_button = Gtk.ToggleButton()
-        self._statistics_button.set_icon_name(
-            resolve_icon_name("applications-science-symbolic")
-        )
-        self._statistics_button.set_tooltip_text("Statistics Dashboard (Ctrl+6)")
-        self._statistics_button.set_action_name("app.show-statistics")
-        nav_box.append(self._statistics_button)
+        Args:
+            view_id: The selected view identifier
+        """
+        self._current_view_id = view_id
 
-        return nav_box
+        # Guard against callback during initialization (before leaflet exists)
+        if not hasattr(self, "_leaflet"):
+            return
+
+        # Activate the corresponding app action
+        action_name = f"show-{view_id}"
+        self._application.activate_action(action_name, None)
+
+        # If folded, navigate to content
+        if self._leaflet.get_folded():
+            self._leaflet.navigate(Adw.NavigationDirection.FORWARD)
+            self._back_button.set_visible(True)
+            self._update_title()
+
+    def _update_title(self) -> None:
+        """Update the header title based on current state."""
+        is_folded = self._leaflet.get_folded()
+        visible_child = self._leaflet.get_visible_child()
+
+        if is_folded and visible_child == self._content_area:
+            # Show current view name when folded and viewing content
+            label = self._sidebar.get_view_label(self._current_view_id)
+            self._title_label.set_label(label)
+        else:
+            # Show app name when sidebar is visible
+            self._title_label.set_label("ClamUI")
 
     def set_active_view(self, view_name: str):
         """
-        Update the navigation button states based on the active view.
+        Update the sidebar selection based on the active view.
 
         Args:
-            view_name: The name of the active view ('scan', 'update', 'logs', 'components', 'statistics' or 'quarantine')
+            view_name: The name of the active view
         """
-        if view_name == "scan":
-            self._scan_button.set_active(True)
-            self._database_button.set_active(False)
-            self._logs_button.set_active(False)
-            self._components_button.set_active(False)
-            self._quarantine_button.set_active(False)
-            self._statistics_button.set_active(False)
-        elif view_name == "update":
-            self._scan_button.set_active(False)
-            self._database_button.set_active(True)
-            self._logs_button.set_active(False)
-            self._components_button.set_active(False)
-            self._quarantine_button.set_active(False)
-            self._statistics_button.set_active(False)
-        elif view_name == "logs":
-            self._scan_button.set_active(False)
-            self._database_button.set_active(False)
-            self._logs_button.set_active(True)
-            self._components_button.set_active(False)
-            self._statistics_button.set_active(False)
-            self._quarantine_button.set_active(False)
-        elif view_name == "components":
-            self._scan_button.set_active(False)
-            self._database_button.set_active(False)
-            self._logs_button.set_active(False)
-            self._components_button.set_active(True)
-            self._quarantine_button.set_active(False)
-            self._statistics_button.set_active(False)
-        elif view_name == "quarantine":
-            self._scan_button.set_active(False)
-            self._database_button.set_active(False)
-            self._logs_button.set_active(False)
-            self._components_button.set_active(False)
-            self._quarantine_button.set_active(True)
-            self._statistics_button.set_active(False)
-        elif view_name == "statistics":
-            self._scan_button.set_active(False)
-            self._database_button.set_active(False)
-            self._logs_button.set_active(False)
-            self._components_button.set_active(False)
-            self._statistics_button.set_active(True)
-            self._quarantine_button.set_active(False)
+        self._current_view_id = view_name
+        self._sidebar.select_view(view_name)
+        self._update_title()
 
     def _create_menu_button(self) -> Gtk.MenuButton:
         """
@@ -653,6 +649,16 @@ class MainWindow(Adw.ApplicationWindow):
             The content area Gtk.Box
         """
         return self._content_area
+
+    @property
+    def sidebar(self) -> NavigationSidebar:
+        """
+        Get the navigation sidebar.
+
+        Returns:
+            The NavigationSidebar instance
+        """
+        return self._sidebar
 
     def toggle_visibility(self) -> None:
         """

@@ -826,6 +826,15 @@ class ScanView(Gtk.Box):
 
         dialog.select_multiple_folders(root, None, on_folders_selected)
 
+    def show_file_picker(self) -> None:
+        """
+        Show the file selection dialog.
+
+        Public method for external callers (e.g., header bar buttons) to
+        trigger the file picker. Opens a dialog to select files or folders.
+        """
+        self._on_select_folder_clicked(None)
+
     def _set_selected_path(self, path: str):
         """
         Set a single selected path, replacing any existing selection.

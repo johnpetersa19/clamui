@@ -246,18 +246,44 @@ def mock_gi_modules():
     mock_adw.SwitchRow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.EntryRow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.SpinRow = MagicMock()
-    mock_adw.SpinRow.new_with_range = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_adw.SpinRow.new_with_range = MagicMock(
+        side_effect=lambda *args, **kwargs: MagicMock()
+    )
     # Container widgets - tests may set return_value to control what's returned
     mock_adw.PreferencesGroup = MagicMock()
     mock_adw.PreferencesPage = MagicMock()
     mock_adw.AlertDialog = MagicMock()
 
+    # Leaflet and navigation mocks for sidebar layout
+    mock_adw.Leaflet = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_adw.LeafletTransitionType = MagicMock()
+    mock_adw.LeafletTransitionType.SLIDE = 1
+    mock_adw.NavigationDirection = MagicMock()
+    mock_adw.NavigationDirection.BACK = 0
+    mock_adw.NavigationDirection.FORWARD = 1
+    mock_adw.HeaderBar = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_adw.ToolbarView = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_adw.ToastOverlay = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_adw.StatusPage = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+
     # GTK widget constructors - tests may set return_value
     mock_gtk.Button = MagicMock()
+    mock_gtk.Button.new_from_icon_name = MagicMock(return_value=MagicMock())
     mock_gtk.Image = MagicMock()
     mock_gtk.Image.new_from_icon_name = MagicMock()
     mock_gtk.StringList = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_gtk.Adjustment = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_gtk.Separator = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_gtk.Label = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_gtk.MenuButton = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_gtk.ScrolledWindow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_gtk.SelectionMode = MagicMock()
+    mock_gtk.SelectionMode.SINGLE = 1
+    mock_gtk.IconSize = MagicMock()
+    mock_gtk.IconSize.NORMAL = 1
+    mock_gtk.PolicyType = MagicMock()
+    mock_gtk.PolicyType.NEVER = 0
+    mock_gtk.PolicyType.AUTOMATIC = 1
 
     # GTK version functions - return realistic values (GTK 4.14 for FileDialog support)
     mock_gtk.get_minor_version = MagicMock(return_value=14)
