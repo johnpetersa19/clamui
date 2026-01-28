@@ -15,6 +15,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .close_behavior_dialog import CloseBehaviorDialog
+from .compat import create_toolbar_view
 from .sidebar import NavigationSidebar
 from .utils import resolve_icon_name
 
@@ -454,7 +455,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._toast_overlay.set_child(self._leaflet)
 
         # Use ToolbarView to properly integrate the HeaderBar as a titlebar
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
         toolbar_view.add_top_bar(self._header_bar)
         toolbar_view.set_content(self._toast_overlay)
 

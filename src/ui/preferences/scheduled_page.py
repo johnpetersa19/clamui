@@ -14,6 +14,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ..compat import create_entry_row, create_switch_row
 from ..utils import resolve_icon_name
 from .base import PreferencesPageMixin
 
@@ -83,12 +84,10 @@ class ScheduledPage(PreferencesPageMixin):
         """
         group = Adw.PreferencesGroup()
         group.set_title("Scheduled Scans Configuration")
-        group.set_description(
-            "Configure automatic scanning. Save with 'Save &amp; Apply'."
-        )
+        group.set_description("Configure automatic scanning. Save with 'Save &amp; Apply'.")
 
         # Enable scheduled scans switch
-        enable_scheduled_row = Adw.SwitchRow()
+        enable_scheduled_row = create_switch_row()
         enable_scheduled_row.set_title("Enable Scheduled Scans")
         enable_scheduled_row.set_subtitle("Run automatic scans at specified intervals")
         widgets_dict["enabled"] = enable_scheduled_row
@@ -108,7 +107,7 @@ class ScheduledPage(PreferencesPageMixin):
         group.add(frequency_row)
 
         # Time picker (schedule_time)
-        time_row = Adw.EntryRow()
+        time_row = create_entry_row()
         time_row.set_title("Scan Time (24-hour format, e.g. 02:00)")
         time_row.set_text("02:00")
         widgets_dict["time"] = time_row
@@ -150,14 +149,14 @@ class ScheduledPage(PreferencesPageMixin):
         group.add(day_of_month_row)
 
         # Scan targets entry (schedule_targets)
-        targets_row = Adw.EntryRow()
+        targets_row = create_entry_row()
         targets_row.set_title("Scan Targets (comma-separated paths)")
         targets_row.set_text(str(Path.home()))
         widgets_dict["targets"] = targets_row
         group.add(targets_row)
 
         # Skip on battery switch
-        skip_battery_row = Adw.SwitchRow()
+        skip_battery_row = create_switch_row()
         skip_battery_row.set_title("Skip on Battery")
         skip_battery_row.set_subtitle("Don't run scheduled scans when on battery power")
         skip_battery_row.set_active(True)
@@ -165,7 +164,7 @@ class ScheduledPage(PreferencesPageMixin):
         group.add(skip_battery_row)
 
         # Auto-quarantine switch
-        auto_quarantine_row = Adw.SwitchRow()
+        auto_quarantine_row = create_switch_row()
         auto_quarantine_row.set_title("Auto-Quarantine")
         auto_quarantine_row.set_subtitle("Automatically quarantine detected threats")
         auto_quarantine_row.set_active(False)
@@ -214,14 +213,10 @@ class ScheduledPage(PreferencesPageMixin):
         widgets_dict["day_of_month"].set_value(config.get("schedule_day_of_month", 1))
 
         # Skip on battery switch
-        widgets_dict["skip_on_battery"].set_active(
-            config.get("schedule_skip_on_battery", True)
-        )
+        widgets_dict["skip_on_battery"].set_active(config.get("schedule_skip_on_battery", True))
 
         # Auto-quarantine switch
-        widgets_dict["auto_quarantine"].set_active(
-            config.get("schedule_auto_quarantine", False)
-        )
+        widgets_dict["auto_quarantine"].set_active(config.get("schedule_auto_quarantine", False))
 
     @staticmethod
     def collect_data(widgets_dict: dict) -> dict:

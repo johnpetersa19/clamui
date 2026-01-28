@@ -12,6 +12,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ..compat import create_entry_row, create_switch_row
 from ..utils import resolve_icon_name
 from .base import (
     PreferencesPageMixin,
@@ -74,19 +75,13 @@ class OnAccessPage(PreferencesPageMixin):
             OnAccessPage._create_onaccess_paths_group(page, widgets_dict, temp_instance)
 
             # Create behavior settings group
-            OnAccessPage._create_onaccess_behavior_group(
-                page, widgets_dict, temp_instance
-            )
+            OnAccessPage._create_onaccess_behavior_group(page, widgets_dict, temp_instance)
 
             # Create performance settings group
-            OnAccessPage._create_onaccess_performance_group(
-                page, widgets_dict, temp_instance
-            )
+            OnAccessPage._create_onaccess_performance_group(page, widgets_dict, temp_instance)
 
             # Create exclusions group (required to prevent scan loops)
-            OnAccessPage._create_onaccess_exclusions_group(
-                page, widgets_dict, temp_instance
-            )
+            OnAccessPage._create_onaccess_exclusions_group(page, widgets_dict, temp_instance)
         else:
             # Show message that clamd.conf is not available
             group = Adw.PreferencesGroup()
@@ -100,9 +95,7 @@ class OnAccessPage(PreferencesPageMixin):
         return page
 
     @staticmethod
-    def _create_onaccess_paths_group(
-        page: Adw.PreferencesPage, widgets_dict: dict, helper
-    ):
+    def _create_onaccess_paths_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
         """
         Create the On-Access Paths preferences group.
 
@@ -121,28 +114,24 @@ class OnAccessPage(PreferencesPageMixin):
         group.set_header_suffix(helper._create_permission_indicator())
 
         # OnAccessIncludePath row
-        include_path_row = Adw.EntryRow()
+        include_path_row = create_entry_row()
         include_path_row.set_title("Include Paths")
         include_path_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         include_path_row.set_show_apply_button(False)
         # Add folder icon as prefix
-        include_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("folder-symbolic")
-        )
+        include_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("folder-symbolic"))
         include_icon.set_margin_start(6)
         include_path_row.add_prefix(include_icon)
         widgets_dict["OnAccessIncludePath"] = include_path_row
         group.add(include_path_row)
 
         # OnAccessExcludePath row
-        exclude_path_row = Adw.EntryRow()
+        exclude_path_row = create_entry_row()
         exclude_path_row.set_title("Exclude Paths")
         exclude_path_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         exclude_path_row.set_show_apply_button(False)
         # Add folder icon as prefix with different style
-        exclude_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("folder-symbolic")
-        )
+        exclude_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("folder-symbolic"))
         exclude_icon.set_margin_start(6)
         exclude_path_row.add_prefix(exclude_icon)
         widgets_dict["OnAccessExcludePath"] = exclude_path_row
@@ -151,9 +140,7 @@ class OnAccessPage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
-    def _create_onaccess_behavior_group(
-        page: Adw.PreferencesPage, widgets_dict: dict, helper
-    ):
+    def _create_onaccess_behavior_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
         """
         Create the On-Access Behavior preferences group.
 
@@ -174,30 +161,28 @@ class OnAccessPage(PreferencesPageMixin):
         group.set_header_suffix(helper._create_permission_indicator())
 
         # OnAccessPrevention switch
-        prevention_row = Adw.SwitchRow()
+        prevention_row = create_switch_row()
         prevention_row.set_title("Prevention Mode")
         prevention_row.set_subtitle("Block access to infected files")
         widgets_dict["OnAccessPrevention"] = prevention_row
         group.add(prevention_row)
 
         # OnAccessExtraScanning switch
-        extra_scanning_row = Adw.SwitchRow()
+        extra_scanning_row = create_switch_row()
         extra_scanning_row.set_title("Extra Scanning")
         extra_scanning_row.set_subtitle("Monitor file creation/moves via inotify")
         widgets_dict["OnAccessExtraScanning"] = extra_scanning_row
         group.add(extra_scanning_row)
 
         # OnAccessDenyOnError switch
-        deny_on_error_row = Adw.SwitchRow()
+        deny_on_error_row = create_switch_row()
         deny_on_error_row.set_title("Deny on Error")
-        deny_on_error_row.set_subtitle(
-            "Deny access when scan fails (requires Prevention)"
-        )
+        deny_on_error_row.set_subtitle("Deny access when scan fails (requires Prevention)")
         widgets_dict["OnAccessDenyOnError"] = deny_on_error_row
         group.add(deny_on_error_row)
 
         # OnAccessDisableDDD switch
-        disable_ddd_row = Adw.SwitchRow()
+        disable_ddd_row = create_switch_row()
         disable_ddd_row.set_title("Disable DDD")
         disable_ddd_row.set_subtitle("Disable Directory Descent Detection")
         widgets_dict["OnAccessDisableDDD"] = disable_ddd_row
@@ -206,9 +191,7 @@ class OnAccessPage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
-    def _create_onaccess_performance_group(
-        page: Adw.PreferencesPage, widgets_dict: dict, helper
-    ):
+    def _create_onaccess_performance_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
         """
         Create the On-Access Performance preferences group.
 
@@ -278,9 +261,7 @@ class OnAccessPage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
-    def _create_onaccess_exclusions_group(
-        page: Adw.PreferencesPage, widgets_dict: dict, helper
-    ):
+    def _create_onaccess_exclusions_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
         """
         Create the On-Access Exclusions preferences group.
 
@@ -308,22 +289,18 @@ class OnAccessPage(PreferencesPageMixin):
         warning_row.set_subtitle("Exclude clamav user or UID to prevent scan loops")
         warning_row.add_css_class("warning")
         # Add warning icon as prefix
-        warning_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("dialog-warning-symbolic")
-        )
+        warning_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
         warning_icon.set_margin_start(6)
         warning_row.add_prefix(warning_icon)
         group.add(warning_row)
 
         # OnAccessExcludeUname entry row
-        exclude_uname_row = Adw.EntryRow()
+        exclude_uname_row = create_entry_row()
         exclude_uname_row.set_title("Exclude Username")
         exclude_uname_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         exclude_uname_row.set_show_apply_button(False)
         # Add user icon as prefix
-        user_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("avatar-default-symbolic")
-        )
+        user_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("avatar-default-symbolic"))
         user_icon.set_margin_start(6)
         exclude_uname_row.add_prefix(user_icon)
         widgets_dict["OnAccessExcludeUname"] = exclude_uname_row
@@ -344,7 +321,7 @@ class OnAccessPage(PreferencesPageMixin):
         group.add(exclude_uid_row)
 
         # OnAccessExcludeRootUID switch
-        exclude_root_row = Adw.SwitchRow()
+        exclude_root_row = create_switch_row()
         exclude_root_row.set_title("Exclude Root User")
         exclude_root_row.set_subtitle("Exclude root (UID 0) from On-Access scanning")
         widgets_dict["OnAccessExcludeRootUID"] = exclude_root_row
@@ -441,15 +418,9 @@ class OnAccessPage(PreferencesPageMixin):
         )
 
         # Collect performance settings (spin rows)
-        updates["OnAccessMaxThreads"] = str(
-            int(widgets_dict["OnAccessMaxThreads"].get_value())
-        )
-        updates["OnAccessMaxFileSize"] = str(
-            int(widgets_dict["OnAccessMaxFileSize"].get_value())
-        )
-        updates["OnAccessCurlTimeout"] = str(
-            int(widgets_dict["OnAccessCurlTimeout"].get_value())
-        )
+        updates["OnAccessMaxThreads"] = str(int(widgets_dict["OnAccessMaxThreads"].get_value()))
+        updates["OnAccessMaxFileSize"] = str(int(widgets_dict["OnAccessMaxFileSize"].get_value()))
+        updates["OnAccessCurlTimeout"] = str(int(widgets_dict["OnAccessCurlTimeout"].get_value()))
         updates["OnAccessRetryAttempts"] = str(
             int(widgets_dict["OnAccessRetryAttempts"].get_value())
         )
@@ -459,9 +430,7 @@ class OnAccessPage(PreferencesPageMixin):
         if exclude_uname:
             updates["OnAccessExcludeUname"] = exclude_uname
 
-        updates["OnAccessExcludeUID"] = str(
-            int(widgets_dict["OnAccessExcludeUID"].get_value())
-        )
+        updates["OnAccessExcludeUID"] = str(int(widgets_dict["OnAccessExcludeUID"].get_value()))
         updates["OnAccessExcludeRootUID"] = (
             "yes" if widgets_dict["OnAccessExcludeRootUID"].get_active() else "no"
         )

@@ -20,6 +20,7 @@ from gi.repository import Adw, Gtk
 
 from ..core.clipboard import copy_to_clipboard
 from ..core.virustotal import VTScanResult, VTScanStatus
+from .compat import create_toolbar_view
 from .utils import resolve_icon_name
 
 if TYPE_CHECKING:
@@ -96,7 +97,7 @@ class VirusTotalResultsDialog(Adw.Window):
         self._toast_overlay = Adw.ToastOverlay()
 
         # Main container with toolbar view
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar with actions
         header_bar = Adw.HeaderBar()

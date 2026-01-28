@@ -85,3 +85,6 @@ build-deb-temp/
 pypi_cache
 .tldr
 coverage.json
+build-appimage-tools/
+
+squashfs-root/

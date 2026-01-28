@@ -4,7 +4,6 @@ Unit tests for the navigation sidebar component.
 """
 
 
-
 class TestSidebarRow:
     """Tests for SidebarRow class."""
 

@@ -46,14 +46,12 @@ class TestDebianControlVsPyproject:
         control_content = control.read_text()
 
         # pyproject.toml should have requires-python >= 3.10
-        assert (
-            ">=3.10" in pyproject_content or ">= 3.10" in pyproject_content
-        ), "pyproject.toml should require Python 3.10+"
+        assert ">=3.10" in pyproject_content or ">= 3.10" in pyproject_content, (
+            "pyproject.toml should require Python 3.10+"
+        )
 
         # Debian control should have python3 >= 3.10
-        assert (
-            "python3 (>= 3.10)" in control_content
-        ), "Debian control should require Python 3.10+"
+        assert "python3 (>= 3.10)" in control_content, "Debian control should require Python 3.10+"
 
     def test_requests_version_aligned(self):
         """Test requests library version is aligned."""
@@ -64,12 +62,10 @@ class TestDebianControlVsPyproject:
         control_content = control.read_text()
 
         # Both should have requests dependency
-        assert (
-            "requests" in pyproject_content.lower()
-        ), "pyproject.toml missing requests dependency"
-        assert (
-            "python3-requests" in control_content
-        ), "Debian control missing python3-requests dependency"
+        assert "requests" in pyproject_content.lower(), "pyproject.toml missing requests dependency"
+        assert "python3-requests" in control_content, (
+            "Debian control missing python3-requests dependency"
+        )
 
     def test_keyring_version_aligned(self):
         """Test keyring library version is aligned."""
@@ -80,12 +76,10 @@ class TestDebianControlVsPyproject:
         control_content = control.read_text()
 
         # Both should have keyring dependency
-        assert (
-            "keyring" in pyproject_content.lower()
-        ), "pyproject.toml missing keyring dependency"
-        assert (
-            "python3-keyring" in control_content
-        ), "Debian control missing python3-keyring dependency"
+        assert "keyring" in pyproject_content.lower(), "pyproject.toml missing keyring dependency"
+        assert "python3-keyring" in control_content, (
+            "Debian control missing python3-keyring dependency"
+        )
 
 
 class TestMinimumVersionConstraints:
@@ -115,9 +109,9 @@ class TestMinimumVersionConstraints:
             if not line or line.startswith("]"):
                 continue
             # Should have version specifier (>=, ==, ~=, etc.)
-            assert (
-                ">=" in line or "==" in line or "~=" in line or "<" in line
-            ), f"Dependency missing version constraint: {line}"
+            assert ">=" in line or "==" in line or "~=" in line or "<" in line, (
+                f"Dependency missing version constraint: {line}"
+            )
 
     def test_urllib3_has_cve_fix_version(self):
         """Test urllib3 has CVE fix version (>= 2.6.3)."""
@@ -173,18 +167,14 @@ class TestGirDependencies:
         control = PROJECT_ROOT / "debian" / "DEBIAN" / "control"
         content = control.read_text()
 
-        assert (
-            "gir1.2-gtk-4.0" in content
-        ), "Debian control missing gir1.2-gtk-4.0 dependency"
+        assert "gir1.2-gtk-4.0" in content, "Debian control missing gir1.2-gtk-4.0 dependency"
 
     def test_control_has_adwaita_gir(self):
         """Test Debian control has libadwaita GIR dependency."""
         control = PROJECT_ROOT / "debian" / "DEBIAN" / "control"
         content = control.read_text()
 
-        assert (
-            "gir1.2-adw-1" in content
-        ), "Debian control missing gir1.2-adw-1 dependency"
+        assert "gir1.2-adw-1" in content, "Debian control missing gir1.2-adw-1 dependency"
 
     def test_control_has_pygobject(self):
         """Test Debian control has PyGObject dependency."""

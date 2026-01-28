@@ -10,9 +10,7 @@ import pytest
 
 def _clear_src_modules():
     """Clear all cached src.* modules to ensure clean imports."""
-    modules_to_remove = [
-        mod for mod in list(sys.modules.keys()) if mod.startswith("src.")
-    ]
+    modules_to_remove = [mod for mod in list(sys.modules.keys()) if mod.startswith("src.")]
     for mod in modules_to_remove:
         del sys.modules[mod]
 
@@ -138,12 +136,8 @@ class TestScannerBuildCommand:
 
         scanner = scanner_class()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_file), recursive=False)
 
         # Should be clamscan with -i flag and path
@@ -157,12 +151,8 @@ class TestScannerBuildCommand:
         """Test _build_command for recursive directory scan."""
         scanner = scanner_class()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(tmp_path), recursive=True)
 
         # Should have -r flag for directory
@@ -179,9 +169,7 @@ class TestScannerBuildCommand:
         scanner = scanner_class()
 
         with mock.patch("src.core.scanner.get_clamav_path", return_value=None):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_file), recursive=False)
 
         # Should fall back to 'clamscan'
@@ -198,12 +186,8 @@ class TestScannerBuildCommand:
         def mock_wrap(cmd):
             return ["flatpak-spawn", "--host"] + cmd
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=mock_wrap
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=mock_wrap):
                 cmd = scanner._build_command(str(test_file), recursive=False)
 
         # Should be prefixed with flatpak-spawn --host
@@ -221,12 +205,8 @@ class TestScannerBuildCommand:
         scanner = scanner_class()
 
         # Mock wrap_host_command to return command unchanged (not in Flatpak)
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_file), recursive=False)
 
         # Should NOT be prefixed with flatpak-spawn
@@ -258,12 +238,8 @@ class TestScannerBuildCommand:
 
         scanner = Scanner(settings_manager=mock_settings)
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_dir), recursive=True)
 
         # Verify the command structure
@@ -274,9 +250,7 @@ class TestScannerBuildCommand:
 
         # Verify file exclusions (--exclude) for *.log and *.tmp
         exclude_indices = [i for i, arg in enumerate(cmd) if arg == "--exclude"]
-        assert (
-            len(exclude_indices) == 2
-        )  # *.log and *.tmp (not *.disabled which is disabled)
+        assert len(exclude_indices) == 2  # *.log and *.tmp (not *.disabled which is disabled)
 
         # Verify directory exclusion (--exclude-dir) for node_modules
         exclude_dir_indices = [i for i, arg in enumerate(cmd) if arg == "--exclude-dir"]
@@ -305,12 +279,8 @@ class TestScannerBuildCommand:
         # Scanner without settings manager
         scanner = Scanner()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_file), recursive=False)
 
         # Should not have any exclusion flags
@@ -331,12 +301,8 @@ class TestScannerBuildCommand:
 
         scanner = Scanner(settings_manager=mock_settings)
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_file), recursive=False)
 
         # Should not have any exclusion flags
@@ -360,12 +326,8 @@ class TestScannerBuildCommand:
 
         scanner = Scanner(settings_manager=mock_settings)
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_dir), recursive=True)
 
         # Verify the command structure is correct
@@ -382,9 +344,7 @@ class TestScannerBuildCommand:
         # We need to exclude the path argument itself (which may contain /tmp/)
         # Get only the exclusion-related args by filtering out the scan path and base command
         exclusion_args = [
-            arg
-            for arg in cmd
-            if arg not in ["/usr/bin/clamscan", "-r", "-i", str(test_dir)]
+            arg for arg in cmd if arg not in ["/usr/bin/clamscan", "-r", "-i", str(test_dir)]
         ]
         all_exclusion_args = " ".join(exclusion_args)
         assert "log" not in all_exclusion_args.lower()
@@ -404,9 +364,7 @@ class TestScannerFlatpakIntegration:
 
         scanner = Scanner()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
             with mock.patch("src.core.scanner.wrap_host_command") as mock_wrap:
                 mock_wrap.return_value = ["/usr/bin/clamscan", "-i", str(test_file)]
                 scanner._build_command(str(test_file), recursive=False)
@@ -671,9 +629,7 @@ Infected files: 3
 
         # Medium threats
         assert classify_threat_severity_str("PUA.Adware.Generic") == "medium"
-        assert (
-            classify_threat_severity_str("Spyware.Keylogger") == "high"
-        )  # keylogger = high
+        assert classify_threat_severity_str("Spyware.Keylogger") == "high"  # keylogger = high
         assert classify_threat_severity_str("Coinminer.Generic") == "medium"
         assert classify_threat_severity_str("Unknown.Malware") == "medium"
 
@@ -701,6 +657,127 @@ Infected files: 3
         assert categorize_threat("Unknown.Malware") == "Virus"
         assert categorize_threat("") == "Unknown"
 
+    def test_parse_results_permission_denied_only(self):
+        """Test _parse_results treats exit code 2 with only permission errors as CLEAN."""
+        scanner = Scanner()
+
+        stdout = """/home/user/test.txt: OK
+/root/secret.txt: Failed to open file ERROR
+/root/other.txt: Failed to open file ERROR
+
+----------- SCAN SUMMARY -----------
+Scanned files: 1
+Scanned directories: 2
+Infected files: 0
+"""
+        result = scanner._parse_results("/home/user", stdout, "", 2)
+
+        # Should be CLEAN because only permission errors, no infections
+        assert result.status == ScanStatus.CLEAN
+        assert result.infected_count == 0
+        assert result.skipped_count == 2
+        assert len(result.skipped_files) == 2
+        assert "/root/secret.txt" in result.skipped_files
+        assert "/root/other.txt" in result.skipped_files
+        assert result.has_warnings is True
+        assert result.warning_message == "2 file(s) could not be accessed"
+
+    def test_parse_results_permission_denied_with_infection(self):
+        """Test _parse_results reports INFECTED when infections found with permission errors."""
+        scanner = Scanner()
+
+        stdout = """/home/user/test.txt: OK
+/home/user/virus.txt: Eicar-Test-Signature FOUND
+/root/secret.txt: Failed to open file ERROR
+
+----------- SCAN SUMMARY -----------
+Scanned files: 2
+Infected files: 1
+"""
+        result = scanner._parse_results("/home/user", stdout, "", 1)
+
+        # Should be INFECTED because of the virus
+        assert result.status == ScanStatus.INFECTED
+        assert result.infected_count == 1
+        assert result.skipped_count == 1
+        assert "/root/secret.txt" in result.skipped_files
+        assert result.has_warnings is True
+        # warning_message is only set for CLEAN with skipped files
+        assert result.warning_message is None
+
+    def test_parse_results_exit_code_2_with_no_skipped_files(self):
+        """Test _parse_results reports ERROR when exit code 2 with no skipped files."""
+        scanner = Scanner()
+
+        stdout = """----------- SCAN SUMMARY -----------
+Scanned files: 0
+Infected files: 0
+"""
+        result = scanner._parse_results("/nonexistent", stdout, "Path not found", 2)
+
+        # Should be ERROR because exit code 2 and no skipped files
+        assert result.status == ScanStatus.ERROR
+        assert result.skipped_count == 0
+        assert result.error_message == "Path not found"
+
+    def test_parse_results_single_permission_denied(self):
+        """Test _parse_results correctly parses single permission denied file."""
+        scanner = Scanner()
+
+        stdout = """/home/user/test.txt: OK
+/root/secret: Failed to open file ERROR
+
+----------- SCAN SUMMARY -----------
+Scanned files: 1
+Infected files: 0
+"""
+        result = scanner._parse_results("/", stdout, "", 2)
+
+        assert result.status == ScanStatus.CLEAN
+        assert result.skipped_count == 1
+        assert result.skipped_files == ["/root/secret"]
+        assert result.warning_message == "1 file(s) could not be accessed"
+
+    def test_scan_result_has_warnings_property(self):
+        """Test ScanResult.has_warnings property works correctly."""
+        # No warnings
+        result_no_warnings = ScanResult(
+            status=ScanStatus.CLEAN,
+            path="/test",
+            stdout="",
+            stderr="",
+            exit_code=0,
+            infected_files=[],
+            scanned_files=10,
+            scanned_dirs=1,
+            infected_count=0,
+            error_message=None,
+            threat_details=[],
+            skipped_files=[],
+            skipped_count=0,
+            warning_message=None,
+        )
+        assert result_no_warnings.has_warnings is False
+
+        # With warnings
+        result_with_warnings = ScanResult(
+            status=ScanStatus.CLEAN,
+            path="/test",
+            stdout="",
+            stderr="",
+            exit_code=2,
+            infected_files=[],
+            scanned_files=10,
+            scanned_dirs=1,
+            infected_count=0,
+            error_message=None,
+            threat_details=[],
+            skipped_files=["/root/secret.txt"],
+            skipped_count=1,
+            warning_message="1 file(s) could not be accessed",
+        )
+        assert result_with_warnings.has_warnings is True
+
 
 class TestScannerThreatDetailsIntegration:
     """Integration tests for enhanced scanner with threat details."""
@@ -721,12 +798,8 @@ Scanned files: 5
 Infected files: 1
 """
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -767,12 +840,8 @@ Scanned files: 100
 Infected files: 4
 """
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -820,12 +889,8 @@ Scanned files: 1
 Infected files: 0
 """
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -861,12 +926,8 @@ Scanned files: 1
 Infected files: 1
 """
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -882,8 +943,7 @@ Infected files: 1
         # Verify file path is preserved including spaces and special characters
         assert len(result.threat_details) == 1
         assert (
-            result.threat_details[0].file_path
-            == "/home/user/Documents/My Files/virus (copy).exe"
+            result.threat_details[0].file_path == "/home/user/Documents/My Files/virus (copy).exe"
         )
 
     def test_threat_details_with_cancelled_scan(self, tmp_path):
@@ -910,21 +970,15 @@ Infected files: 1
             # Second call: return output after termination
             return ("", "")
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
                 ):
                     with mock.patch("subprocess.Popen") as mock_popen:
                         mock_process = mock.MagicMock()
-                        mock_process.communicate.side_effect = (
-                            simulate_timeout_then_cancel
-                        )
+                        mock_process.communicate.side_effect = simulate_timeout_then_cancel
                         mock_process.returncode = 0
                         mock_process.poll.return_value = None  # Process still running
                         mock_popen.return_value = mock_process
@@ -1026,12 +1080,8 @@ Scanned directories: 2
 Infected files: 1
 """
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -1242,9 +1292,7 @@ class TestPatternUtilities:
             "*.egg-info",
         ]
         for pattern in common_patterns:
-            assert (
-                validate_pattern(pattern) is True
-            ), f"Pattern '{pattern}' should be valid"
+            assert validate_pattern(pattern) is True, f"Pattern '{pattern}' should be valid"
 
     def test_validate_pattern_preserves_none_handling(self):
         """Test validate_pattern handles None gracefully (if passed)."""
@@ -1263,12 +1311,8 @@ class TestScannerErrorHandling:
 
         scanner = Scanner()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -1290,12 +1334,8 @@ class TestScannerErrorHandling:
 
         scanner = Scanner()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -1317,12 +1357,8 @@ class TestScannerErrorHandling:
 
         scanner = Scanner()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -1373,8 +1409,7 @@ class TestScannerErrorHandling:
 
         assert result.status == ScanStatus.ERROR
         assert (
-            "not found" in result.error_message.lower()
-            or "not installed" in result.stderr.lower()
+            "not found" in result.error_message.lower() or "not installed" in result.stderr.lower()
         )
         assert len(result.threat_details) == 0
 
@@ -1385,12 +1420,8 @@ class TestScannerErrorHandling:
 
         scanner = Scanner()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -1455,9 +1486,7 @@ class TestScannerCancelEdgeCases:
         mock_process.kill = mock.MagicMock()
         mock_process.wait = mock.MagicMock(
             side_effect=[
-                subprocess.TimeoutExpired(
-                    cmd="test", timeout=5
-                ),  # First wait times out
+                subprocess.TimeoutExpired(cmd="test", timeout=5),  # First wait times out
                 None,  # Second wait (after kill) succeeds
             ]
         )
@@ -1477,12 +1506,8 @@ class TestScannerCancelEdgeCases:
         mock_process.kill = mock.MagicMock()
         mock_process.wait = mock.MagicMock(
             side_effect=[
-                subprocess.TimeoutExpired(
-                    cmd="test", timeout=5
-                ),  # First wait times out
-                subprocess.TimeoutExpired(
-                    cmd="test", timeout=2
-                ),  # Second wait also times out
+                subprocess.TimeoutExpired(cmd="test", timeout=5),  # First wait times out
+                subprocess.TimeoutExpired(cmd="test", timeout=2),  # Second wait also times out
             ]
         )
         scanner._current_process = mock_process
@@ -1498,9 +1523,7 @@ class TestScannerCancelEdgeCases:
         """Test cancel() handles process already gone when calling terminate."""
         scanner = Scanner()
         mock_process = mock.MagicMock()
-        mock_process.terminate = mock.MagicMock(
-            side_effect=ProcessLookupError("No such process")
-        )
+        mock_process.terminate = mock.MagicMock(side_effect=ProcessLookupError("No such process"))
         mock_process.kill = mock.MagicMock()
         mock_process.wait = mock.MagicMock()
         scanner._current_process = mock_process
@@ -1608,10 +1631,7 @@ class TestParseResultsEdgeCases:
         assert len(result.threat_details) == 1
         # Due to rsplit(":", 1), the file_path incorrectly includes part of the threat
         # This documents the current (imperfect) parsing behavior for paths with colons
-        assert (
-            result.threat_details[0].file_path
-            == "/home/user/file.exe: Win.Trojan.Generic"
-        )
+        assert result.threat_details[0].file_path == "/home/user/file.exe: Win.Trojan.Generic"
 
 
 class TestPatternValidationEdgeCases:
@@ -1676,12 +1696,8 @@ class TestScannerProfileExclusionsEdgeCases:
             "patterns": ["", "*.log", None],  # Empty and None values
         }
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 # Filter out None values before passing to function
                 clean_exclusions = {
                     "paths": [p for p in profile_exclusions["paths"] if p],
@@ -1704,12 +1720,8 @@ class TestScannerProfileExclusionsEdgeCases:
 
         profile_exclusions = {"paths": ["~/Downloads"], "patterns": []}
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(
                     str(test_dir), recursive=True, profile_exclusions=profile_exclusions
                 )
@@ -1725,15 +1737,9 @@ class TestScannerProfileExclusionsEdgeCases:
 
         scanner = Scanner()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
-                cmd = scanner._build_command(
-                    str(test_dir), recursive=True, profile_exclusions=None
-                )
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+                cmd = scanner._build_command(str(test_dir), recursive=True, profile_exclusions=None)
 
         # Should not crash
         assert cmd[0] == "/usr/bin/clamscan"
@@ -1794,12 +1800,8 @@ class TestScannerWithMalformedExclusions:
 
         scanner = Scanner(settings_manager=mock_settings)
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_dir), recursive=True)
 
         # Should not crash and should include the valid exclusion
@@ -1823,12 +1825,8 @@ class TestScannerWithMalformedExclusions:
 
         scanner = Scanner(settings_manager=mock_settings)
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_dir), recursive=True)
 
         # Should include the exclusion (defaults to enabled=True)
@@ -1849,12 +1847,8 @@ class TestScannerWithMalformedExclusions:
 
         scanner = Scanner(settings_manager=mock_settings)
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 cmd = scanner._build_command(str(test_dir), recursive=True)
 
         # Should use --exclude (not --exclude-dir) since type defaults to 'pattern'
@@ -1916,12 +1910,8 @@ class TestScannerProcessLockThreadSafety:
 
         scanner._process_lock = TrackingLock()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -1954,9 +1944,7 @@ class TestScannerProcessLockThreadSafety:
                 with mock.patch(
                     "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
                 ):
-                    with mock.patch(
-                        "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-                    ):
+                    with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                         with mock.patch(
                             "src.core.scanner.check_clamav_installed",
                             return_value=(True, "1.0.0"),
@@ -2004,12 +1992,8 @@ class TestScannerProcessLockThreadSafety:
 
         scanner = Scanner()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -2048,12 +2032,8 @@ class TestScannerCancelFlagReset:
         # Manually set cancel event to simulate previous cancelled scan
         scanner._cancel_event.set()
 
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -2086,12 +2066,8 @@ class TestScannerCancelFlagReset:
         scanner._cancel_event.set()
 
         # Now run a new scan
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),
@@ -2120,12 +2096,8 @@ class TestScannerCancelFlagReset:
             scanner._cancel_event.set()
 
         # Now run a real scan
-        with mock.patch(
-            "src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"
-        ):
-            with mock.patch(
-                "src.core.scanner.wrap_host_command", side_effect=lambda x: x
-            ):
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
                 with mock.patch(
                     "src.core.scanner.check_clamav_installed",
                     return_value=(True, "1.0.0"),

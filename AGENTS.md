@@ -16,6 +16,7 @@ This installs the **pre-commit hook** which checks for absolute `src.*` imports.
 
 - Blocks commits with `from src.` or `import src.` in `src/` files
 - Suggests using relative imports instead (`from ..core.module import X`)
+- The AppImage build script also validates this during packaging
 
 ## Project-Specific Agent Notes
 
@@ -46,6 +47,12 @@ When modifying dependencies:
 - **Regenerate** `flathub/python3-runtime-deps.json` after Flatpak dependency changes using `req2flatpak`
 - **Version constraints** should match `pyproject.toml` in packaging files
 - **Test on Ubuntu 22.04** baseline for compatibility (libadwaita 1.1.x)
+
+**AppImage builds:**
+
+- Require NO absolute `src.*` imports - the build script validates this
+- Run `./appimage/build-appimage.sh` to test AppImage packaging locally
+- AppImage bundles Python + GTK4 but requires host ClamAV installation
 
 ### Testing Requirements
 

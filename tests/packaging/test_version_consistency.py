@@ -28,9 +28,9 @@ class TestVersionFormat:
         pyproject = PROJECT_ROOT / "pyproject.toml"
         content = pyproject.read_text()
 
-        assert re.search(
-            r'^version\s*=\s*["\']', content, re.MULTILINE
-        ), "version not defined in pyproject.toml"
+        assert re.search(r'^version\s*=\s*["\']', content, re.MULTILINE), (
+            "version not defined in pyproject.toml"
+        )
 
     def test_version_is_semantic(self):
         """Test version follows semantic versioning (X.Y.Z)."""
@@ -42,9 +42,9 @@ class TestVersionFormat:
 
         version = match.group(1)
         # Semantic versioning: MAJOR.MINOR.PATCH with optional pre-release
-        assert re.match(
-            r"^\d+\.\d+\.\d+", version
-        ), f"Version '{version}' doesn't follow semantic versioning"
+        assert re.match(r"^\d+\.\d+\.\d+", version), (
+            f"Version '{version}' doesn't follow semantic versioning"
+        )
 
     def test_version_not_zero(self):
         """Test version is not 0.0.0 (placeholder)."""
@@ -115,8 +115,7 @@ class TestMetainfoVersion:
         metainfo_version = first_release.get("version")
 
         assert metainfo_version == pyproject_version, (
-            f"Version mismatch: pyproject.toml={pyproject_version}, "
-            f"metainfo.xml={metainfo_version}"
+            f"Version mismatch: pyproject.toml={pyproject_version}, metainfo.xml={metainfo_version}"
         )
 
     def test_releases_have_dates(self):
@@ -135,9 +134,9 @@ class TestMetainfoVersion:
             assert date is not None, f"Release {version} missing date attribute"
 
             # Validate date format (YYYY-MM-DD)
-            assert re.match(
-                r"^\d{4}-\d{2}-\d{2}$", date
-            ), f"Release {version} has invalid date format: {date}"
+            assert re.match(r"^\d{4}-\d{2}-\d{2}$", date), (
+                f"Release {version} has invalid date format: {date}"
+            )
 
 
 class TestAppIdConsistency:
@@ -151,9 +150,7 @@ class TestAppIdConsistency:
 
         app_id = root.find("id")
         assert app_id is not None, "Missing id element in metainfo"
-        assert (
-            app_id.text == "io.github.linx_systems.ClamUI"
-        ), f"Unexpected app ID: {app_id.text}"
+        assert app_id.text == "io.github.linx_systems.ClamUI", f"Unexpected app ID: {app_id.text}"
 
     def test_metainfo_launchable_matches_desktop(self):
         """Test metainfo launchable matches desktop file name."""
@@ -165,9 +162,9 @@ class TestAppIdConsistency:
         assert launchable is not None, "Missing launchable element"
 
         desktop_id = launchable.text
-        assert (
-            desktop_id == "io.github.linx_systems.ClamUI.desktop"
-        ), f"Launchable should match desktop file: {desktop_id}"
+        assert desktop_id == "io.github.linx_systems.ClamUI.desktop", (
+            f"Launchable should match desktop file: {desktop_id}"
+        )
 
     def test_metainfo_provides_binary(self):
         """Test metainfo provides correct binary name."""
@@ -189,9 +186,7 @@ class TestAppIdConsistency:
 
         # File name should be app_id.desktop
         expected_name = "io.github.linx_systems.ClamUI.desktop"
-        assert (
-            desktop.name == expected_name
-        ), f"Desktop file name mismatch: {desktop.name}"
+        assert desktop.name == expected_name, f"Desktop file name mismatch: {desktop.name}"
 
 
 class TestProjectNameConsistency:

@@ -15,6 +15,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 from ...core.flatpak import is_flatpak
+from ..compat import create_entry_row, create_switch_row, create_toolbar_view
 from ..utils import add_row_icon, resolve_icon_name
 from .base import (
     PreferencesPageMixin,
@@ -74,9 +75,7 @@ class ScannerPage(PreferencesPageMixin):
         temp_instance._parent_window = parent_window
 
         # Create scan backend settings group (ClamUI settings, auto-saved)
-        ScannerPage._create_scan_backend_group(
-            page, widgets_dict, settings_manager, temp_instance
-        )
+        ScannerPage._create_scan_backend_group(page, widgets_dict, settings_manager, temp_instance)
 
         # Create file location group
         temp_instance._create_file_location_group(
@@ -156,9 +155,7 @@ class ScannerPage(PreferencesPageMixin):
         backend_row.set_selected(backend_map.get(current_backend, 0))
 
         # Set initial subtitle based on current selection
-        ScannerPage._update_backend_subtitle(
-            backend_row, backend_map.get(current_backend, 0)
-        )
+        ScannerPage._update_backend_subtitle(backend_row, backend_map.get(current_backend, 0))
 
         # Connect to selection changes - pass settings_manager in lambda
         backend_row.connect(
@@ -177,15 +174,11 @@ class ScannerPage(PreferencesPageMixin):
         is_connected, message = check_clamd_connection()
         if is_connected:
             status_row.set_subtitle("✓ Daemon available")
-            status_icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("object-select-symbolic")
-            )
+            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
             status_icon.add_css_class("success")
         else:
             status_row.set_subtitle(f"⚠ Not available: {message}")
-            status_icon = Gtk.Image.new_from_icon_name(
-                resolve_icon_name("dialog-warning-symbolic")
-            )
+            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             status_icon.add_css_class("warning")
 
         status_row.add_suffix(status_icon)
@@ -199,9 +192,7 @@ class ScannerPage(PreferencesPageMixin):
         refresh_button.add_css_class("flat")
         refresh_button.connect(
             "clicked",
-            lambda btn: ScannerPage._on_refresh_daemon_status(
-                widgets_dict["daemon_status_row"]
-            ),
+            lambda btn: ScannerPage._on_refresh_daemon_status(widgets_dict["daemon_status_row"]),
         )
         status_row.add_suffix(refresh_button)
 
@@ -278,9 +269,7 @@ class ScannerPage(PreferencesPageMixin):
             # Update icon
             for child in list(status_row):
                 if isinstance(child, Gtk.Image):
-                    child.set_from_icon_name(
-                        resolve_icon_name("object-select-symbolic")
-                    )
+                    child.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
                     child.remove_css_class("warning")
                     child.add_css_class("success")
                     break
@@ -288,9 +277,7 @@ class ScannerPage(PreferencesPageMixin):
             status_row.set_subtitle(f"⚠ Not available: {message}")
             for child in list(status_row):
                 if isinstance(child, Gtk.Image):
-                    child.set_from_icon_name(
-                        resolve_icon_name("dialog-warning-symbolic")
-                    )
+                    child.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
                     child.remove_css_class("success")
                     child.add_css_class("warning")
                     break
@@ -310,9 +297,7 @@ class ScannerPage(PreferencesPageMixin):
 
         # Get the path to the documentation file
         # From src/ui/preferences/scanner_page.py -> src/ui/preferences/ -> src/ui/ -> src/ -> project_root/
-        docs_path = (
-            Path(__file__).parent.parent.parent.parent / "docs" / "SCAN_BACKENDS.md"
-        )
+        docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "SCAN_BACKENDS.md"
 
         # Check if file exists
         if not docs_path.exists():
@@ -360,7 +345,7 @@ class ScannerPage(PreferencesPageMixin):
         dialog.set_transient_for(parent_window)
 
         # Create content
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
         header_bar = Adw.HeaderBar()
         toolbar_view.add_top_bar(header_bar)
 
@@ -417,42 +402,42 @@ class ScannerPage(PreferencesPageMixin):
         group.set_header_suffix(helper._create_permission_indicator())
 
         # ScanPE switch
-        scan_pe_row = Adw.SwitchRow()
+        scan_pe_row = create_switch_row()
         scan_pe_row.set_title("Scan PE Files")
         scan_pe_row.set_subtitle("Scan Windows/DOS executable files")
         widgets_dict["ScanPE"] = scan_pe_row
         group.add(scan_pe_row)
 
         # ScanELF switch
-        scan_elf_row = Adw.SwitchRow()
+        scan_elf_row = create_switch_row()
         scan_elf_row.set_title("Scan ELF Files")
         scan_elf_row.set_subtitle("Scan Unix/Linux executable files")
         widgets_dict["ScanELF"] = scan_elf_row
         group.add(scan_elf_row)
 
         # ScanOLE2 switch
-        scan_ole2_row = Adw.SwitchRow()
+        scan_ole2_row = create_switch_row()
         scan_ole2_row.set_title("Scan OLE2 Files")
         scan_ole2_row.set_subtitle("Scan Microsoft Office documents")
         widgets_dict["ScanOLE2"] = scan_ole2_row
         group.add(scan_ole2_row)
 
         # ScanPDF switch
-        scan_pdf_row = Adw.SwitchRow()
+        scan_pdf_row = create_switch_row()
         scan_pdf_row.set_title("Scan PDF Files")
         scan_pdf_row.set_subtitle("Scan PDF documents")
         widgets_dict["ScanPDF"] = scan_pdf_row
         group.add(scan_pdf_row)
 
         # ScanHTML switch
-        scan_html_row = Adw.SwitchRow()
+        scan_html_row = create_switch_row()
         scan_html_row.set_title("Scan HTML Files")
         scan_html_row.set_subtitle("Scan HTML documents")
         widgets_dict["ScanHTML"] = scan_html_row
         group.add(scan_html_row)
 
         # ScanArchive switch
-        scan_archive_row = Adw.SwitchRow()
+        scan_archive_row = create_switch_row()
         scan_archive_row.set_title("Scan Archive Files")
         scan_archive_row.set_subtitle("Scan compressed archives (ZIP, RAR, etc.)")
         widgets_dict["ScanArchive"] = scan_archive_row
@@ -461,9 +446,7 @@ class ScannerPage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
-    def _create_performance_group(
-        page: Adw.PreferencesPage, widgets_dict: dict, helper
-    ):
+    def _create_performance_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
         """
         Create the Performance preferences group for clamd.conf.
 
@@ -553,28 +536,26 @@ class ScannerPage(PreferencesPageMixin):
         group.set_header_suffix(helper._create_permission_indicator())
 
         # LogFile entry row
-        log_file_row = Adw.EntryRow()
+        log_file_row = create_entry_row()
         log_file_row.set_title("Log File Path")
         log_file_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         log_file_row.set_show_apply_button(False)
         # Add document icon as prefix
-        log_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("text-x-generic-symbolic")
-        )
+        log_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("text-x-generic-symbolic"))
         log_icon.set_margin_start(6)
         log_file_row.add_prefix(log_icon)
         widgets_dict["LogFile"] = log_file_row
         group.add(log_file_row)
 
         # LogVerbose switch
-        log_verbose_row = Adw.SwitchRow()
+        log_verbose_row = create_switch_row()
         log_verbose_row.set_title("Verbose Logging")
         log_verbose_row.set_subtitle("Enable detailed scanner logging")
         widgets_dict["LogVerbose"] = log_verbose_row
         group.add(log_verbose_row)
 
         # LogSyslog switch
-        log_syslog_row = Adw.SwitchRow()
+        log_syslog_row = create_switch_row()
         log_syslog_row.set_title("Syslog Logging")
         log_syslog_row.set_subtitle("Send log messages to system log")
         widgets_dict["LogSyslog"] = log_syslog_row
@@ -643,9 +624,7 @@ class ScannerPage(PreferencesPageMixin):
         updates["ScanOLE2"] = "yes" if widgets_dict["ScanOLE2"].get_active() else "no"
         updates["ScanPDF"] = "yes" if widgets_dict["ScanPDF"].get_active() else "no"
         updates["ScanHTML"] = "yes" if widgets_dict["ScanHTML"].get_active() else "no"
-        updates["ScanArchive"] = (
-            "yes" if widgets_dict["ScanArchive"].get_active() else "no"
-        )
+        updates["ScanArchive"] = "yes" if widgets_dict["ScanArchive"].get_active() else "no"
 
         # Collect performance settings
         updates["MaxFileSize"] = str(int(widgets_dict["MaxFileSize"].get_value()))
@@ -658,9 +637,7 @@ class ScannerPage(PreferencesPageMixin):
         if log_file:
             updates["LogFile"] = log_file
 
-        updates["LogVerbose"] = (
-            "yes" if widgets_dict["LogVerbose"].get_active() else "no"
-        )
+        updates["LogVerbose"] = "yes" if widgets_dict["LogVerbose"].get_active() else "no"
         updates["LogSyslog"] = "yes" if widgets_dict["LogSyslog"].get_active() else "no"
 
         return updates

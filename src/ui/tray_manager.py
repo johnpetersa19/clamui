@@ -428,9 +428,7 @@ class TrayManager:
         """
         self._send_command({"action": "update_window_visible", "visible": visible})
 
-    def update_profiles(
-        self, profiles: list[dict], current_profile_id: str | None = None
-    ) -> None:
+    def update_profiles(self, profiles: list[dict], current_profile_id: str | None = None) -> None:
         """
         Update the profiles list in the tray menu.
 

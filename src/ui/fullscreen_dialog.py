@@ -9,6 +9,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from .compat import create_toolbar_view
+
 
 class FullscreenLogDialog(Adw.Window):
     """
@@ -72,7 +74,7 @@ class FullscreenLogDialog(Adw.Window):
     def _setup_ui(self):
         """Set up the dialog UI layout."""
         # Create main container with toolbar view for header bar
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar
         header_bar = Adw.HeaderBar()

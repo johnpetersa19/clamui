@@ -74,7 +74,8 @@ class PreferencesWindow(Adw.PreferencesWindow, PreferencesPageMixin):
         self.set_title("Preferences")
         self.set_default_size(600, 500)
         self.set_modal(True)
-        self.set_search_enabled(False)
+        if hasattr(self, "set_search_enabled"):
+            self.set_search_enabled(False)
 
         # Store references to form widgets for later access
         self._freshclam_widgets = {}

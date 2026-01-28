@@ -3,12 +3,9 @@
 # Builds a portable AppImage bundling Python + GTK4/libadwaita + dependencies.
 # ClamAV is NOT bundled (relies on system install, like .deb).
 #
-# Usage: ./appimage/build-appimage.sh [OPTIONS]
+# Usage: ./appimage/build-appimage.sh [--help]
 #
-# Options:
-#   --help      Show this help message
-#
-# Prerequisites: wget, Python 3, GTK4/libadwaita system packages
+# Prerequisites: wget, Python 3, GTK4/libadwaita system packages (Ubuntu 24.04+)
 # Output: ClamUI-VERSION-x86_64.AppImage in the project root
 
 set -e
@@ -50,10 +47,7 @@ show_help() {
 	cat <<'EOF'
 ClamUI AppImage Build Script
 
-Usage: ./appimage/build-appimage.sh [OPTIONS]
-
-Options:
-    --help      Show this help message
+Usage: ./appimage/build-appimage.sh [--help]
 
 This script builds a portable AppImage for ClamUI.
 
@@ -304,6 +298,18 @@ download_tools() {
 		log_success "GTK plugin downloaded"
 	else
 		log_success "GTK plugin already downloaded (cached)"
+	fi
+
+	# Download appimagetool (for creating AppImage after patching)
+	APPIMAGETOOL="$TOOLS_DIR/appimagetool-x86_64.AppImage"
+	if [ ! -f "$APPIMAGETOOL" ]; then
+		log_info "Downloading appimagetool..."
+		wget -q --show-progress -O "$APPIMAGETOOL" \
+			"https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+		chmod +x "$APPIMAGETOOL"
+		log_success "appimagetool downloaded"
+	else
+		log_success "appimagetool already downloaded (cached)"
 	fi
 
 	echo
@@ -666,6 +672,178 @@ bundle_typelibs() {
 }
 
 #
+# Bundle GI-loaded Shared Libraries
+#
+# linuxdeploy traces dependencies from the python3 binary, which doesn't
+# directly link to GTK4 or libadwaita. PyGObject loads these at runtime
+# via GObject Introspection, so linuxdeploy never sees them. We must
+# explicitly copy them into the AppDir so they're available at runtime.
+#
+
+bundle_gi_libraries() {
+	log_info "=== Bundling GI-loaded Shared Libraries ==="
+	echo
+
+	LIB_DEST="$APPDIR/usr/lib"
+
+	# Libraries loaded dynamically by PyGObject via GI (not linked to python3)
+	GI_LIBS=(
+		"libadwaita-1.so.0"
+		"libgtk-4.so.1"
+		"libgdk_pixbuf-2.0.so.0"
+		"libgsk-4.so.1"
+		"libgraphene-1.0.so.0"
+		"libpango-1.0.so.0"
+		"libpangocairo-1.0.so.0"
+		"libharfbuzz.so.0"
+		"libcairo.so.2"
+		"libcairo-gobject.so.2"
+		"libgio-2.0.so.0"
+		"libgobject-2.0.so.0"
+		"libglib-2.0.so.0"
+	)
+
+	# Search paths for shared libraries
+	LIB_SEARCH_DIRS=(
+		/usr/lib/x86_64-linux-gnu
+		/usr/lib64
+		/usr/lib
+	)
+
+	local copied=0
+	for lib in "${GI_LIBS[@]}"; do
+		local found=0
+		for dir in "${LIB_SEARCH_DIRS[@]}"; do
+			if [ -f "$dir/$lib" ]; then
+				# Copy the library and any versioned symlinks
+				cp -P "$dir/$lib"* "$LIB_DEST/" 2>/dev/null || true
+				log_success "  Copied: $lib (from $dir)"
+				found=1
+				copied=$((copied + 1))
+				break
+			fi
+		done
+		if [ "$found" = "0" ]; then
+			log_warning "  Not found: $lib (linuxdeploy may resolve it)"
+		fi
+	done
+
+	echo
+	log_success "Bundled $copied GI-loaded libraries"
+	echo
+	return 0
+}
+
+#
+# Bundle Adwaita Icon Theme
+#
+# GTK4/libadwaita applications need the Adwaita icon theme for proper
+# symbolic icon rendering. Without it, many icons may be missing.
+#
+
+bundle_adwaita_icons() {
+	log_info "=== Bundling Adwaita Icon Theme ==="
+	echo
+
+	ICON_DEST="$APPDIR/usr/share/icons/Adwaita"
+	mkdir -p "$ICON_DEST"
+
+	# Source directories
+	ICON_SRC="/usr/share/icons/Adwaita"
+
+	if [ -d "$ICON_SRC" ]; then
+		# Copy scalable symbolic icons (most important for GTK4)
+		if [ -d "$ICON_SRC/scalable" ]; then
+			cp -r "$ICON_SRC/scalable" "$ICON_DEST/"
+			log_success "Copied scalable icons"
+		fi
+
+		# Copy index.theme for icon discovery
+		if [ -f "$ICON_SRC/index.theme" ]; then
+			cp "$ICON_SRC/index.theme" "$ICON_DEST/"
+			log_success "Copied index.theme"
+		fi
+
+		# Copy cursors (optional, small)
+		if [ -d "$ICON_SRC/cursors" ]; then
+			cp -r "$ICON_SRC/cursors" "$ICON_DEST/"
+			log_success "Copied cursors"
+		fi
+	else
+		log_warning "Adwaita icon theme not found at $ICON_SRC"
+	fi
+
+	echo
+	return 0
+}
+
+#
+# Patch GTK Plugin Hook for libadwaita
+#
+# The linuxdeploy GTK plugin forces GTK_THEME="Adwaita:dark" which overrides
+# the user's system theme. For GTK4/libadwaita apps, we want libadwaita to
+# handle its own theming natively. This function patches the generated hook.
+#
+
+patch_gtk_plugin_hook() {
+	log_info "=== Patching GTK Plugin Hook for libadwaita ==="
+	echo
+
+	HOOK_FILE="$APPDIR/apprun-hooks/linuxdeploy-plugin-gtk.sh"
+
+	if [ ! -f "$HOOK_FILE" ]; then
+		log_warning "GTK plugin hook not found, skipping patch"
+		return 0
+	fi
+
+	# Create patched version that works with GTK4/libadwaita:
+	# - Don't force GTK_THEME (let libadwaita use its styling)
+	# - Keep color-scheme detection for dark/light mode
+	# - Append to GSETTINGS_SCHEMA_DIR instead of replacing
+
+	cat >"$HOOK_FILE" <<'PATCHED_HOOK'
+#! /usr/bin/env bash
+
+# Patched for GTK4/libadwaita compatibility
+# - Removed forced GTK_THEME (libadwaita handles theming)
+# - Preserves user's color-scheme preference
+# - Appends to system paths instead of replacing
+
+# Detect color scheme via portal or gsettings
+COLOR_SCHEME="$(dbus-send --session --dest=org.freedesktop.portal.Desktop --type=method_call --print-reply --reply-timeout=1000 /org/freedesktop/portal/desktop org.freedesktop.portal.Settings.Read 'string:org.freedesktop.appearance' 'string:color-scheme' 2> /dev/null | tail -n1 | cut -b35- | cut -d' ' -f2 || printf '')"
+if [ -z "$COLOR_SCHEME" ]; then
+    COLOR_SCHEME="$(gsettings get org.gnome.desktop.interface color-scheme 2> /dev/null || printf '')"
+fi
+
+# Set ADW_DEBUG_COLOR_SCHEME for libadwaita (respects user preference)
+case "$COLOR_SCHEME" in
+    "1"|"'prefer-dark'")  export ADW_DEBUG_COLOR_SCHEME=prefer-dark;;
+    "2"|"'prefer-light'") export ADW_DEBUG_COLOR_SCHEME=prefer-light;;
+esac
+
+export APPDIR="${APPDIR:-"$(dirname "$(realpath "$0")")"}"
+
+# GTK4/libadwaita paths
+export GTK_DATA_PREFIX="$APPDIR"
+export GTK_EXE_PREFIX="$APPDIR/usr"
+export GTK_PATH="$APPDIR/usr/lib/gtk-4.0"
+export GDK_PIXBUF_MODULE_FILE="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+export GI_TYPELIB_PATH="$APPDIR/usr/lib/girepository-1.0:${GI_TYPELIB_PATH:-}"
+
+# Append to system paths instead of replacing (allows reading user prefs)
+export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+export GSETTINGS_SCHEMA_DIR="$APPDIR/usr/share/glib-2.0/schemas:${GSETTINGS_SCHEMA_DIR:-}"
+
+# Note: GTK_THEME is NOT set - libadwaita handles its own theming
+# Note: GDK_BACKEND is NOT forced - let GTK4 auto-detect
+PATCHED_HOOK
+
+	log_success "GTK plugin hook patched for libadwaita"
+	echo
+	return 0
+}
+
+#
 # Copy Desktop Integration Files
 #
 
@@ -761,7 +939,10 @@ export GTK_DATA_PREFIX="\$HERE/usr"
 export GSETTINGS_SCHEMA_DIR="\$HERE/usr/share/glib-2.0/schemas:\${GSETTINGS_SCHEMA_DIR:-}"
 
 # GDK pixbuf loaders
-if [ -d "\$HERE/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0" ]; then
+if [ -d "\$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders" ]; then
+	export GDK_PIXBUF_MODULE_FILE="\$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+	export GDK_PIXBUF_MODULEDIR="\$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+elif [ -d "\$HERE/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0" ]; then
 	export GDK_PIXBUF_MODULE_FILE="\$HERE/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders.cache"
 	export GDK_PIXBUF_MODULEDIR="\$HERE/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders"
 fi
@@ -798,17 +979,8 @@ run_linuxdeploy() {
 	export DEPLOY_GTK_VERSION=4
 
 	log_info "Running linuxdeploy with GTK4 plugin..."
-	log_info "This resolves shared library dependencies and creates the AppImage."
+	log_info "This resolves shared library dependencies and prepares the AppDir."
 	echo
-
-	# Determine output path
-	APPIMAGE_OUTPUT="$PROJECT_ROOT/$APPIMAGE_FILENAME"
-
-	# Remove existing output
-	if [ -f "$APPIMAGE_OUTPUT" ]; then
-		log_warning "Removing existing AppImage: $APPIMAGE_FILENAME"
-		rm -f "$APPIMAGE_OUTPUT"
-	fi
 
 	# Add bundled .libs directories to LD_LIBRARY_PATH so linuxdeploy can
 	# resolve cross-references between hash-mangled shared libraries
@@ -818,15 +990,47 @@ run_linuxdeploy() {
 		log_info "Added bundled lib paths to LD_LIBRARY_PATH"
 	fi
 
-	# Run linuxdeploy
-	# --appimage-extract-and-run avoids FUSE requirement during build
-	export OUTPUT="$APPIMAGE_OUTPUT"
+	# Run linuxdeploy WITHOUT --output to just prepare the AppDir
+	# We'll create the AppImage separately after patching the GTK hook
 	"$LINUXDEPLOY" \
 		--appimage-extract-and-run \
 		--appdir "$APPDIR" \
 		--desktop-file "$APPDIR/$APP_ID.desktop" \
-		--plugin gtk \
-		--output appimage
+		--plugin gtk
+
+	echo
+	log_success "AppDir prepared by linuxdeploy"
+	return 0
+}
+
+#
+# Create AppImage
+#
+# Run appimagetool to create the final AppImage from the prepared AppDir.
+# This is done separately from linuxdeploy so we can patch the GTK hook first.
+#
+
+create_appimage() {
+	log_info "=== Creating AppImage ==="
+	echo
+
+	APPIMAGETOOL="$TOOLS_DIR/appimagetool-x86_64.AppImage"
+	APPIMAGE_OUTPUT="$PROJECT_ROOT/$APPIMAGE_FILENAME"
+
+	# Remove existing output
+	if [ -f "$APPIMAGE_OUTPUT" ]; then
+		log_warning "Removing existing AppImage: $APPIMAGE_FILENAME"
+		rm -f "$APPIMAGE_OUTPUT"
+	fi
+
+	log_info "Running appimagetool..."
+
+	# Run appimagetool to create the AppImage
+	# --appimage-extract-and-run avoids FUSE requirement during build
+	"$APPIMAGETOOL" \
+		--appimage-extract-and-run \
+		"$APPDIR" \
+		"$APPIMAGE_OUTPUT"
 
 	echo
 
@@ -963,6 +1167,19 @@ main() {
 		exit 1
 	fi
 
+	# Bundle GI-loaded shared libraries (PyGObject loads these dynamically,
+	# so linuxdeploy can't discover them by tracing the python3 binary)
+	if ! bundle_gi_libraries; then
+		log_error "Failed to bundle GI-loaded libraries."
+		cleanup
+		exit 1
+	fi
+
+	# Bundle Adwaita icon theme for proper symbolic icon rendering
+	if ! bundle_adwaita_icons; then
+		log_warning "Failed to bundle Adwaita icons (non-fatal)"
+	fi
+
 	# Copy desktop integration files
 	if ! copy_desktop_files; then
 		log_error "Failed to copy desktop files."
@@ -977,9 +1194,23 @@ main() {
 		exit 1
 	fi
 
-	# Run linuxdeploy to resolve shared libs and create AppImage
+	# Run linuxdeploy to resolve shared libs and prepare AppDir
 	if ! run_linuxdeploy; then
-		log_error "Failed to create AppImage with linuxdeploy."
+		log_error "Failed to prepare AppDir with linuxdeploy."
+		cleanup
+		exit 1
+	fi
+
+	# Patch GTK plugin hook for libadwaita compatibility
+	# This must run AFTER linuxdeploy (which generates the hook) but BEFORE
+	# creating the AppImage
+	if ! patch_gtk_plugin_hook; then
+		log_warning "Failed to patch GTK plugin hook (non-fatal)"
+	fi
+
+	# Create the final AppImage
+	if ! create_appimage; then
+		log_error "Failed to create AppImage."
 		cleanup
 		exit 1
 	fi

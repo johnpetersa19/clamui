@@ -86,9 +86,7 @@ class TestTooltipFormatting:
 
         mock_utils_module = mock.MagicMock()
         mock_utils_module.format_scan_path = mock.MagicMock(return_value="/test/path")
-        mock_utils_module.validate_dropped_files = mock.MagicMock(
-            return_value=(["/test"], [])
-        )
+        mock_utils_module.validate_dropped_files = mock.MagicMock(return_value=(["/test"], []))
 
         mock_quarantine_module = mock.MagicMock()
         mock_quarantine_module.QuarantineManager = mock.MagicMock()
@@ -227,10 +225,10 @@ class TestTooltipFormatting:
         # Verify all shortcut formats are valid
         for tooltip_format, gtk_format in tooltip_to_accelerator.items():
             # Tooltip format should be human-readable (e.g., "Ctrl+1")
-            assert "+" in tooltip_format or tooltip_format.startswith(
-                "F"
-            ), f"Invalid tooltip format: {tooltip_format}"
+            assert "+" in tooltip_format or tooltip_format.startswith("F"), (
+                f"Invalid tooltip format: {tooltip_format}"
+            )
             # GTK format should contain Control or start with F
-            assert "<Control>" in gtk_format or gtk_format.startswith(
-                "F"
-            ), f"Invalid GTK format: {gtk_format}"
+            assert "<Control>" in gtk_format or gtk_format.startswith("F"), (
+                f"Invalid GTK format: {gtk_format}"
+            )

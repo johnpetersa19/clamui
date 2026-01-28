@@ -38,13 +38,9 @@ class TestDaemonScannerCheckAvailable:
         """Test availability check when clamd is running."""
         scanner = daemon_scanner_class()
 
-        with patch(
-            "src.core.daemon_scanner.check_clamdscan_installed"
-        ) as mock_installed:
+        with patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed:
             mock_installed.return_value = (True, "ClamAV 1.0.0")
-            with patch(
-                "src.core.daemon_scanner.check_clamd_connection"
-            ) as mock_connection:
+            with patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection:
                 mock_connection.return_value = (True, "PONG")
 
                 available, msg = scanner.check_available()
@@ -56,9 +52,7 @@ class TestDaemonScannerCheckAvailable:
         """Test availability check when clamdscan is not installed."""
         scanner = daemon_scanner_class()
 
-        with patch(
-            "src.core.daemon_scanner.check_clamdscan_installed"
-        ) as mock_installed:
+        with patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed:
             mock_installed.return_value = (False, "clamdscan not found")
 
             available, msg = scanner.check_available()
@@ -70,13 +64,9 @@ class TestDaemonScannerCheckAvailable:
         """Test availability check when clamd is not running."""
         scanner = daemon_scanner_class()
 
-        with patch(
-            "src.core.daemon_scanner.check_clamdscan_installed"
-        ) as mock_installed:
+        with patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed:
             mock_installed.return_value = (True, "ClamAV 1.0.0")
-            with patch(
-                "src.core.daemon_scanner.check_clamd_connection"
-            ) as mock_connection:
+            with patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection:
                 mock_connection.return_value = (False, "Connection refused")
 
                 available, msg = scanner.check_available()
@@ -140,9 +130,7 @@ class TestDaemonScannerBuildCommand:
 
         scanner = daemon_scanner_class(settings_manager=mock_settings)
 
-        with patch(
-            "src.core.daemon_scanner.wrap_host_command", side_effect=lambda x, **kw: x
-        ):
+        with patch("src.core.daemon_scanner.wrap_host_command", side_effect=lambda x, **kw: x):
             cmd = scanner._build_command(str(test_file), recursive=True)
 
         # clamdscan does NOT support --exclude options (they're silently ignored)
@@ -166,9 +154,7 @@ class TestDaemonScannerParseResults:
 ----------- SCAN SUMMARY -----------
 Infected files: 0
 """
-        result = scanner._parse_results(
-            "/home/user", stdout, "", 0, file_count=1, dir_count=0
-        )
+        result = scanner._parse_results("/home/user", stdout, "", 0, file_count=1, dir_count=0)
 
         assert result.status == scan_status_class.CLEAN
         assert result.infected_count == 0
@@ -185,9 +171,7 @@ Infected files: 0
 ----------- SCAN SUMMARY -----------
 Infected files: 1
 """
-        result = scanner._parse_results(
-            "/home/user", stdout, "", 1, file_count=1, dir_count=0
-        )
+        result = scanner._parse_results("/home/user", stdout, "", 1, file_count=1, dir_count=0)
 
         assert result.status == scan_status_class.INFECTED
         assert result.infected_count == 1
@@ -263,9 +247,7 @@ class TestDaemonScannerCancel:
         mock_process.kill = MagicMock()
         mock_process.wait = MagicMock(
             side_effect=[
-                subprocess.TimeoutExpired(
-                    cmd="test", timeout=5
-                ),  # First wait times out
+                subprocess.TimeoutExpired(cmd="test", timeout=5),  # First wait times out
                 None,  # Second wait (after kill) succeeds
             ]
         )
@@ -285,12 +267,8 @@ class TestDaemonScannerCancel:
         mock_process.kill = MagicMock()
         mock_process.wait = MagicMock(
             side_effect=[
-                subprocess.TimeoutExpired(
-                    cmd="test", timeout=5
-                ),  # First wait times out
-                subprocess.TimeoutExpired(
-                    cmd="test", timeout=2
-                ),  # Second wait also times out
+                subprocess.TimeoutExpired(cmd="test", timeout=5),  # First wait times out
+                subprocess.TimeoutExpired(cmd="test", timeout=2),  # Second wait also times out
             ]
         )
         scanner._current_process = mock_process
@@ -306,9 +284,7 @@ class TestDaemonScannerCancel:
         """Test cancel handles process already gone when calling terminate."""
         scanner = daemon_scanner_class()
         mock_process = MagicMock()
-        mock_process.terminate = MagicMock(
-            side_effect=ProcessLookupError("No such process")
-        )
+        mock_process.terminate = MagicMock(side_effect=ProcessLookupError("No such process"))
         mock_process.kill = MagicMock()
         mock_process.wait = MagicMock()
         scanner._current_process = mock_process
@@ -341,9 +317,7 @@ class TestDaemonScannerCancel:
 class TestDaemonScannerFilterExcludedThreats:
     """Tests for DaemonScanner._filter_excluded_threats method."""
 
-    def test_filter_excludes_exact_path_match(
-        self, daemon_scanner_class, scan_status_class
-    ):
+    def test_filter_excludes_exact_path_match(self, daemon_scanner_class, scan_status_class):
         """Test that exact path matches are filtered out."""
         mock_settings = MagicMock()
         mock_settings.get.return_value = [
@@ -385,9 +359,7 @@ class TestDaemonScannerFilterExcludedThreats:
         assert filtered.infected_count == 0
         assert len(filtered.threat_details) == 0
 
-    def test_filter_keeps_non_excluded_threats(
-        self, daemon_scanner_class, scan_status_class
-    ):
+    def test_filter_keeps_non_excluded_threats(self, daemon_scanner_class, scan_status_class):
         """Test that non-excluded threats are kept."""
         mock_settings = MagicMock()
         mock_settings.get.return_value = [
@@ -425,9 +397,7 @@ class TestDaemonScannerFilterExcludedThreats:
         assert filtered.infected_count == 1
         assert len(filtered.threat_details) == 1
 
-    def test_filter_respects_disabled_exclusions(
-        self, daemon_scanner_class, scan_status_class
-    ):
+    def test_filter_respects_disabled_exclusions(self, daemon_scanner_class, scan_status_class):
         """Test that disabled exclusions don't filter threats."""
         mock_settings = MagicMock()
         mock_settings.get.return_value = [
@@ -484,9 +454,7 @@ class TestDaemonScannerCountTargets:
         scanner = daemon_scanner_class()
 
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
         ):
@@ -522,9 +490,7 @@ class TestDaemonScannerCountTargets:
         scanner = daemon_scanner_class()
 
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
         ):
@@ -554,9 +520,7 @@ class TestDaemonScannerCountTargets:
         scanner = daemon_scanner_class()
 
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
         ):
@@ -591,9 +555,7 @@ class TestDaemonScannerCountTargets:
         scanner = daemon_scanner_class()
 
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
             patch.object(scanner, "_count_scan_targets") as mock_count,
@@ -613,9 +575,7 @@ class TestDaemonScannerCountTargets:
         # _count_scan_targets should have been called
         mock_count.assert_called_once()
 
-    def test_scan_async_passes_count_targets_to_sync(
-        self, tmp_path, daemon_scanner_class
-    ):
+    def test_scan_async_passes_count_targets_to_sync(self, tmp_path, daemon_scanner_class):
         """Test that scan_async passes count_targets to scan_sync."""
         test_dir = tmp_path / "scan_test"
         test_dir.mkdir()
@@ -898,9 +858,7 @@ class TestDaemonScannerProcessLockThreadSafety:
         assert "enter" in lock_acquired
         assert "exit" in lock_acquired
 
-    def test_scan_sync_uses_lock_for_process_assignment(
-        self, tmp_path, daemon_scanner_class
-    ):
+    def test_scan_sync_uses_lock_for_process_assignment(self, tmp_path, daemon_scanner_class):
         """Test that scan_sync() acquires lock when assigning _current_process."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
@@ -908,18 +866,14 @@ class TestDaemonScannerProcessLockThreadSafety:
         scanner = daemon_scanner_class()
 
         # Verify the lock attribute exists (check for the fix)
-        assert hasattr(
-            scanner, "_process_lock"
-        ), "Scanner should have _process_lock attribute"
+        assert hasattr(scanner, "_process_lock"), "Scanner should have _process_lock attribute"
 
         # We can verify the lock is used by checking that _current_process operations
         # don't raise errors during concurrent access. The actual lock usage is tested
         # by the concurrent test below. Here we just verify the lock exists and
         # scan completes successfully with proper cleanup.
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
         ):
@@ -951,12 +905,8 @@ class TestDaemonScannerProcessLockThreadSafety:
         def scan_thread():
             try:
                 with (
-                    patch(
-                        "src.core.daemon_scanner.check_clamdscan_installed"
-                    ) as mock_installed,
-                    patch(
-                        "src.core.daemon_scanner.check_clamd_connection"
-                    ) as mock_connection,
+                    patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
+                    patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
                     patch("subprocess.Popen") as mock_popen,
                 ):
                     mock_installed.return_value = (True, "ClamAV 1.0.0")
@@ -1005,9 +955,7 @@ class TestDaemonScannerProcessLockThreadSafety:
         scanner = daemon_scanner_class()
 
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
         ):
@@ -1050,9 +998,7 @@ class TestDaemonScannerCancelFlagReset:
         scanner._cancel_event.set()
 
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
         ):
@@ -1097,13 +1043,9 @@ class TestDaemonScannerCancelFlagReset:
             return (0, 0)
 
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
-            patch.object(
-                scanner, "_count_scan_targets", side_effect=counting_that_gets_cancelled
-            ),
+            patch.object(scanner, "_count_scan_targets", side_effect=counting_that_gets_cancelled),
         ):
             mock_installed.return_value = (True, "ClamAV 1.0.0")
             mock_connection.return_value = (True, "PONG")
@@ -1119,9 +1061,7 @@ class TestDaemonScannerCancelFlagReset:
         # Without the fix, scan B would return CANCELLED immediately
         # because the flag wasn't reset at scan start
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
         ):
@@ -1155,9 +1095,7 @@ class TestDaemonScannerCancelFlagReset:
 
         # Now run a real scan
         with (
-            patch(
-                "src.core.daemon_scanner.check_clamdscan_installed"
-            ) as mock_installed,
+            patch("src.core.daemon_scanner.check_clamdscan_installed") as mock_installed,
             patch("src.core.daemon_scanner.check_clamd_connection") as mock_connection,
             patch("subprocess.Popen") as mock_popen,
         ):
@@ -1222,9 +1160,7 @@ class TestDaemonScannerExclusionHelpers:
         assert "*.log" in patterns
         assert "*.cache" in patterns
 
-    def test_collect_exclusion_patterns_empty_when_no_settings(
-        self, daemon_scanner_class
-    ):
+    def test_collect_exclusion_patterns_empty_when_no_settings(self, daemon_scanner_class):
         """Test that empty list is returned when no settings manager."""
         scanner = daemon_scanner_class()
 
@@ -1279,13 +1215,8 @@ class TestDaemonScannerExclusionHelpers:
         scanner = daemon_scanner_class()
 
         patterns = ["/home/user/eicar.txt"]
-        assert (
-            scanner._matches_exclusion_pattern("/home/user/eicar.txt", patterns) is True
-        )
-        assert (
-            scanner._matches_exclusion_pattern("/home/user/other.txt", patterns)
-            is False
-        )
+        assert scanner._matches_exclusion_pattern("/home/user/eicar.txt", patterns) is True
+        assert scanner._matches_exclusion_pattern("/home/user/other.txt", patterns) is False
 
     def test_matches_exclusion_pattern_glob_pattern(self, daemon_scanner_class):
         """Test glob pattern matching."""
@@ -1294,9 +1225,7 @@ class TestDaemonScannerExclusionHelpers:
         patterns = ["*.log", "*.tmp"]
         assert scanner._matches_exclusion_pattern("/var/log/test.log", patterns) is True
         assert scanner._matches_exclusion_pattern("/tmp/file.tmp", patterns) is True
-        assert (
-            scanner._matches_exclusion_pattern("/home/user/file.txt", patterns) is False
-        )
+        assert scanner._matches_exclusion_pattern("/home/user/file.txt", patterns) is False
 
     def test_matches_exclusion_pattern_with_tilde(
         self, daemon_scanner_class, monkeypatch, tmp_path
@@ -1310,10 +1239,7 @@ class TestDaemonScannerExclusionHelpers:
 
         patterns = ["~/.cache/*"]
         # After tilde expansion, the pattern becomes the full path
-        assert (
-            scanner._matches_exclusion_pattern(str(fake_home / ".cache/file"), patterns)
-            is True
-        )
+        assert scanner._matches_exclusion_pattern(str(fake_home / ".cache/file"), patterns) is True
 
     def test_matches_exclusion_pattern_empty_patterns(self, daemon_scanner_class):
         """Test that empty patterns list returns False."""
@@ -1345,13 +1271,9 @@ class TestDaemonScannerExclusionHelpers:
 
         exclude_paths = [excluded_dir.resolve()]
 
-        assert (
-            scanner._matches_exclusion_path(str(file_in_subdir), exclude_paths) is True
-        )
+        assert scanner._matches_exclusion_path(str(file_in_subdir), exclude_paths) is True
 
-    def test_matches_exclusion_path_outside_excluded(
-        self, daemon_scanner_class, tmp_path
-    ):
+    def test_matches_exclusion_path_outside_excluded(self, daemon_scanner_class, tmp_path):
         """Test that files outside excluded paths don't match."""
         scanner = daemon_scanner_class()
 
@@ -1364,9 +1286,7 @@ class TestDaemonScannerExclusionHelpers:
 
         exclude_paths = [excluded_dir.resolve()]
 
-        assert (
-            scanner._matches_exclusion_path(str(file_in_other), exclude_paths) is False
-        )
+        assert scanner._matches_exclusion_path(str(file_in_other), exclude_paths) is False
 
     def test_matches_exclusion_path_empty_paths(self, daemon_scanner_class):
         """Test that empty paths list returns False."""
@@ -1390,18 +1310,13 @@ class TestDaemonScannerExclusionHelpers:
         exclude_paths = [excluded_dir.resolve()]
 
         # Should NOT match because "excluded_other" is not under "excluded"
-        assert (
-            scanner._matches_exclusion_path(str(file_in_similar), exclude_paths)
-            is False
-        )
+        assert scanner._matches_exclusion_path(str(file_in_similar), exclude_paths) is False
 
 
 class TestDaemonScannerFlatpakSupport:
     """Tests for DaemonScanner Flatpak mode support."""
 
-    def test_build_command_uses_optimal_flags_in_flatpak(
-        self, tmp_path, daemon_scanner_class
-    ):
+    def test_build_command_uses_optimal_flags_in_flatpak(self, tmp_path, daemon_scanner_class):
         """Test _build_command uses --multiscan --fdpass in Flatpak mode.
 
         Previously, Flatpak mode used --stream which is slower.
@@ -1432,9 +1347,7 @@ class TestDaemonScannerFlatpakSupport:
         assert "--fdpass" in cmd
         assert "--stream" not in cmd
 
-    def test_build_command_uses_optimal_flags_in_native(
-        self, tmp_path, daemon_scanner_class
-    ):
+    def test_build_command_uses_optimal_flags_in_native(self, tmp_path, daemon_scanner_class):
         """Test _build_command uses --multiscan --fdpass in native mode."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
@@ -1455,9 +1368,7 @@ class TestDaemonScannerFlatpakSupport:
         assert "--fdpass" in cmd
         assert "--stream" not in cmd
 
-    def test_build_command_wraps_with_flatpak_spawn(
-        self, tmp_path, daemon_scanner_class
-    ):
+    def test_build_command_wraps_with_flatpak_spawn(self, tmp_path, daemon_scanner_class):
         """Test _build_command wraps command for Flatpak execution on host."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")

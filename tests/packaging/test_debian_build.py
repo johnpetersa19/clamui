@@ -36,9 +36,9 @@ class TestVersionExtraction:
         content = pyproject.read_text()
 
         # Should have a version line
-        assert re.search(
-            r'^version\s*=\s*["\']', content, re.MULTILINE
-        ), "version not defined in pyproject.toml"
+        assert re.search(r'^version\s*=\s*["\']', content, re.MULTILINE), (
+            "version not defined in pyproject.toml"
+        )
 
     def test_version_format_semantic(self):
         """Test version follows semantic versioning (X.Y.Z)."""
@@ -51,9 +51,9 @@ class TestVersionExtraction:
 
         version = match.group(1)
         # Should match X.Y.Z pattern (with optional pre-release)
-        assert re.match(
-            r"^\d+\.\d+\.\d+", version
-        ), f"Version '{version}' doesn't follow semantic versioning"
+        assert re.match(r"^\d+\.\d+\.\d+", version), (
+            f"Version '{version}' doesn't follow semantic versioning"
+        )
 
     def test_version_can_be_extracted_via_shell(self):
         """Test version can be extracted using grep/sed (as build script does)."""
@@ -105,9 +105,9 @@ class TestAbsoluteImportValidation:
                 files_with_relative.append(py_file.name)
 
         # Core modules should use relative imports
-        assert (
-            len(files_with_relative) > 0
-        ), "No relative imports found - expected in multi-module package"
+        assert len(files_with_relative) > 0, (
+            "No relative imports found - expected in multi-module package"
+        )
 
 
 class TestLauncherScript:
@@ -129,9 +129,7 @@ class TestLauncherScript:
         content = build_script.read_text()
 
         # The launcher script in build-deb.sh should use 'clamui.main'
-        assert (
-            "clamui.main" in content
-        ), "Launcher should import from 'clamui.main', not 'src.main'"
+        assert "clamui.main" in content, "Launcher should import from 'clamui.main', not 'src.main'"
 
         # Should NOT use src.main
         assert "src.main" not in content, "Launcher should NOT import from 'src.main'"
@@ -175,9 +173,9 @@ class TestPackageStructure:
         content = control.read_text()
 
         # Should have VERSION placeholder that gets substituted
-        assert "Version: VERSION" in content or re.search(
-            r"Version:\s*\d", content
-        ), "Control file should have VERSION placeholder or actual version"
+        assert "Version: VERSION" in content or re.search(r"Version:\s*\d", content), (
+            "Control file should have VERSION placeholder or actual version"
+        )
 
     def test_package_name_is_clamui(self):
         """Test package name in control is 'clamui'."""
@@ -191,9 +189,9 @@ class TestPackageStructure:
         control = PROJECT_ROOT / "debian" / "DEBIAN" / "control"
         content = control.read_text()
 
-        assert (
-            "Architecture: all" in content
-        ), "Architecture should be 'all' for pure Python package"
+        assert "Architecture: all" in content, (
+            "Architecture should be 'all' for pure Python package"
+        )
 
 
 class TestMaintainerScripts:
@@ -239,9 +237,7 @@ class TestMaintainerScripts:
                     capture_output=True,
                     text=True,
                 )
-                assert (
-                    result.returncode == 0
-                ), f"{script_name} has syntax errors: {result.stderr}"
+                assert result.returncode == 0, f"{script_name} has syntax errors: {result.stderr}"
 
 
 class TestExcludesPycache:
@@ -253,9 +249,7 @@ class TestExcludesPycache:
         content = build_script.read_text()
 
         # Should exclude __pycache__
-        assert (
-            "__pycache__" in content
-        ), "Build script should handle __pycache__ exclusion"
+        assert "__pycache__" in content, "Build script should handle __pycache__ exclusion"
 
     def test_build_script_excludes_pyc_files(self):
         """Test build script excludes .pyc files."""

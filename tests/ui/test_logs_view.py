@@ -411,7 +411,7 @@ class TestLogsViewLogRowCreation:
 
         # Configure Adw.ActionRow to return our mock_row
         mock_row = mock.MagicMock()
-        mock_gi_modules["adw"].ActionRow.return_value = mock_row
+        mock_gi_modules["adw"].ActionRow.side_effect = lambda *args, **kwargs: mock_row
 
         view._create_log_row(mock_log_entry)
 
@@ -426,7 +426,7 @@ class TestLogsViewLogRowCreation:
         mock_log_entry.type = "update"
 
         mock_row = mock.MagicMock()
-        mock_gi_modules["adw"].ActionRow.return_value = mock_row
+        mock_gi_modules["adw"].ActionRow.side_effect = lambda *args, **kwargs: mock_row
 
         view._create_log_row(mock_log_entry)
 
@@ -438,7 +438,7 @@ class TestLogsViewLogRowCreation:
         view = object.__new__(logs_view_class)
 
         mock_row = mock.MagicMock()
-        mock_gi_modules["adw"].ActionRow.return_value = mock_row
+        mock_gi_modules["adw"].ActionRow.side_effect = lambda *args, **kwargs: mock_row
 
         view._create_log_row(mock_log_entry)
 

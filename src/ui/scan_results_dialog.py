@@ -19,6 +19,7 @@ from ..core.quarantine import QuarantineManager, QuarantineStatus
 from ..core.scanner import ScanResult, ScanStatus, ThreatDetail
 from ..core.utils import format_flatpak_portal_path
 from .clipboard_helper import ClipboardHelper
+from .compat import create_toolbar_view, safe_add_suffix
 from .file_export import TEXT_FILTER, FileExportHelper
 from .utils import resolve_icon_name
 
@@ -109,7 +110,7 @@ class ScanResultsDialog(Adw.Window):
         self._toast_overlay = Adw.ToastOverlay()
 
         # Main container with toolbar view
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar with actions
         header_bar = Adw.HeaderBar()
@@ -156,6 +157,10 @@ class ScanResultsDialog(Adw.Window):
         if self._scan_result.infected_count > 0:
             self._create_threats_section(content_box)
 
+        # Add skipped files section if there are skipped files
+        if self._scan_result.skipped_count > 0:
+            self._create_skipped_files_section(content_box)
+
         scrolled.set_child(content_box)
         toolbar_view.set_content(scrolled)
 
@@ -174,7 +179,12 @@ class ScanResultsDialog(Adw.Window):
         # Set title based on result status
         if self._scan_result.status == ScanStatus.CLEAN:
             expander.set_title("Scan Complete")
-            expander.set_subtitle("No threats found")
+            if self._scan_result.has_warnings:
+                expander.set_subtitle(
+                    f"No threats found ({self._scan_result.skipped_count} file(s) not accessible)"
+                )
+            else:
+                expander.set_subtitle("No threats found")
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
             icon.add_css_class("success")
         elif self._scan_result.status == ScanStatus.INFECTED:
@@ -193,7 +203,7 @@ class ScanResultsDialog(Adw.Window):
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
             icon.add_css_class("error")
 
-        expander.add_suffix(icon)
+        safe_add_suffix(expander, icon)
 
         # Stats content
         stats_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -213,6 +223,11 @@ class ScanResultsDialog(Adw.Window):
         if self._scan_result.infected_count > 0:
             stats_content.append(
                 self._create_stat_row("Threats found:", str(self._scan_result.infected_count))
+            )
+
+        if self._scan_result.skipped_count > 0:
+            stats_content.append(
+                self._create_stat_row("Not accessible:", str(self._scan_result.skipped_count))
             )
 
         if self._scan_result.error_message:
@@ -241,6 +256,49 @@ class ScanResultsDialog(Adw.Window):
         row.append(value_widget)
 
         return row
+
+    def _create_skipped_files_section(self, parent: Gtk.Box):
+        """Create the skipped files section for files that couldn't be scanned."""
+        skipped_group = Adw.PreferencesGroup()
+        skipped_group.set_title("Files Not Accessible")
+
+        # Create expander row (collapsed by default)
+        expander = Adw.ExpanderRow()
+        expander.set_title("Permission Denied")
+        count = self._scan_result.skipped_count
+        expander.set_subtitle(
+            f"{count} file could not be scanned"
+            if count == 1
+            else f"{count} files could not be scanned"
+        )
+
+        # Add info icon
+        icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
+        icon.add_css_class("dim-label")
+        safe_add_suffix(expander, icon)
+
+        # Create list of skipped files
+        skipped_files = self._scan_result.skipped_files or []
+
+        # Limit the number of files shown to avoid performance issues
+        max_display = 100
+        display_files = skipped_files[:max_display]
+
+        for file_path in display_files:
+            row = Adw.ActionRow()
+            row.set_title(file_path)
+            row.add_css_class("property")
+            expander.add_row(row)
+
+        # Show truncation notice if needed
+        if len(skipped_files) > max_display:
+            truncate_row = Adw.ActionRow()
+            truncate_row.set_title(f"... and {len(skipped_files) - max_display} more")
+            truncate_row.add_css_class("dim-label")
+            expander.add_row(truncate_row)
+
+        skipped_group.add(expander)
+        parent.append(skipped_group)
 
     def _create_threats_section(self, parent: Gtk.Box):
         """Create the threats list section."""

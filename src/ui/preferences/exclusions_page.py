@@ -12,6 +12,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ..compat import create_entry_row, create_switch_row
 from ..utils import resolve_icon_name
 from .base import PreferencesPageMixin
 
@@ -100,7 +101,7 @@ class ExclusionsPage(PreferencesPageMixin):
 
         for preset in PRESET_EXCLUSIONS:
             # Create a row for each preset
-            row = Adw.SwitchRow()
+            row = create_switch_row()
             row.set_title(preset["description"])
             row.set_subtitle(preset["pattern"])
             row.set_active(preset["enabled"])
@@ -114,7 +115,7 @@ class ExclusionsPage(PreferencesPageMixin):
         self._custom_exclusions_group.set_description("Your exclusion patterns. Auto-saved.")
 
         # Custom exclusion entry row
-        self._custom_entry_row = Adw.EntryRow()
+        self._custom_entry_row = create_entry_row()
         self._custom_entry_row.set_title("Add Pattern (e.g., /path/to/exclude or *.tmp)")
         self._custom_entry_row.set_show_apply_button(False)
 
@@ -157,7 +158,7 @@ class ExclusionsPage(PreferencesPageMixin):
             pattern: The exclusion pattern to add
             enabled: Whether the exclusion is enabled (default: True)
         """
-        row = Adw.SwitchRow()
+        row = create_switch_row()
         row.set_title(pattern)
         row.set_active(enabled)
 

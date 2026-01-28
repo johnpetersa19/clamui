@@ -436,6 +436,7 @@ class DaemonScanner:
         """
         infected_files = []
         threat_details = []
+        skipped_files = []
         scanned_files = file_count
         scanned_dirs = dir_count
         infected_count = 0
@@ -465,10 +466,28 @@ class DaemonScanner:
                     threat_details.append(threat_detail)
                     infected_count += 1
 
+            # Look for "Failed to open file" warnings (permission denied)
+            # Format: "/path/to/file: Failed to open file ERROR"
+            elif ": Failed to open file" in line:
+                # Extract the file path (everything before ": Failed to open file")
+                file_path = line.split(": Failed to open file")[0].strip()
+                if file_path:
+                    skipped_files.append(file_path)
+
+        # Determine overall status based on exit code
+        warning_message = None
         if exit_code == 0:
             status = ScanStatus.CLEAN
         elif exit_code == 1:
             status = ScanStatus.INFECTED
+        elif exit_code == 2:
+            # Exit code 2 = warnings/errors
+            # If no infections and all errors are just "Failed to open file", treat as CLEAN
+            if infected_count == 0 and len(skipped_files) > 0:
+                status = ScanStatus.CLEAN
+                warning_message = f"{len(skipped_files)} file(s) could not be accessed"
+            else:
+                status = ScanStatus.ERROR
         else:
             status = ScanStatus.ERROR
 
@@ -484,6 +503,9 @@ class DaemonScanner:
             infected_count=infected_count,
             error_message=stderr if status == ScanStatus.ERROR else None,
             threat_details=threat_details,
+            skipped_files=skipped_files,
+            skipped_count=len(skipped_files),
+            warning_message=warning_message,
         )
 
     def _collect_exclusion_patterns(self, profile_exclusions: dict | None = None) -> list[str]:

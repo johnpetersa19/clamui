@@ -308,9 +308,7 @@ class TestHandleCommand:
         with mock.patch(
             "src.ui.tray_service.GLib.idle_add", side_effect=lambda fn, *args: fn(*args)
         ):
-            tray_service.handle_command(
-                {"action": "update_status", "status": "scanning"}
-            )
+            tray_service.handle_command({"action": "update_status", "status": "scanning"})
 
         tray_service.update_status.assert_called_with("scanning")
 
@@ -332,9 +330,7 @@ class TestHandleCommand:
         with mock.patch(
             "src.ui.tray_service.GLib.idle_add", side_effect=lambda fn, *args: fn(*args)
         ):
-            tray_service.handle_command(
-                {"action": "update_window_visible", "visible": False}
-            )
+            tray_service.handle_command({"action": "update_window_visible", "visible": False})
 
         tray_service.update_window_visible.assert_called_with(False)
 
@@ -426,9 +422,7 @@ class TestHelperMethods:
         result = tray_service._get_tooltip()
         assert "75%" in result
 
-    def test_get_sni_status_returns_mapped_status(
-        self, tray_service, tray_service_class
-    ):
+    def test_get_sni_status_returns_mapped_status(self, tray_service, tray_service_class):
         """Test _get_sni_status returns correct SNI status."""
         tray_service._current_status = "threat"
 

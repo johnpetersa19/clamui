@@ -46,6 +46,9 @@ class ScanResult:
     infected_count: int
     error_message: str | None
     threat_details: list[ThreatDetail]
+    skipped_files: list[str] | None = None  # Files that couldn't be scanned (permissions)
+    skipped_count: int = 0  # Count of skipped files
+    warning_message: str | None = None  # User-friendly warning about skipped files
 
     @property
     def is_clean(self) -> bool:
@@ -56,3 +59,8 @@ class ScanResult:
     def has_threats(self) -> bool:
         """Check if scan found threats."""
         return self.status == ScanStatus.INFECTED
+
+    @property
+    def has_warnings(self) -> bool:
+        """Check if scan completed with warnings (e.g., skipped files)."""
+        return self.skipped_count > 0

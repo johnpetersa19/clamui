@@ -222,9 +222,7 @@ class ClamUIApp(Adw.Application):
         if self._statistics_view is None:
             self._statistics_view = StatisticsView()
             # Connect statistics view quick scan callback
-            self._statistics_view.set_quick_scan_callback(
-                self._on_statistics_quick_scan
-            )
+            self._statistics_view.set_quick_scan_callback(self._on_statistics_quick_scan)
         return self._statistics_view
 
     @property
@@ -328,9 +326,7 @@ class ClamUIApp(Adw.Application):
         if file_paths:
             self._initial_scan_paths = file_paths
             self._initial_use_virustotal = use_virustotal
-            logger.info(
-                f"Command line: {len(file_paths)} path(s), virustotal={use_virustotal}"
-            )
+            logger.info(f"Command line: {len(file_paths)} path(s), virustotal={use_virustotal}")
 
         # Activate the application (shows window, processes paths)
         self.activate()
@@ -502,14 +498,10 @@ class ClamUIApp(Adw.Application):
             )
 
             # Set window toggle callback
-            self._tray_indicator.set_window_toggle_callback(
-                on_toggle=self._on_tray_window_toggle
-            )
+            self._tray_indicator.set_window_toggle_callback(on_toggle=self._on_tray_window_toggle)
 
             # Set profile selection callback
-            self._tray_indicator.set_profile_select_callback(
-                on_select=self._on_tray_profile_select
-            )
+            self._tray_indicator.set_profile_select_callback(on_select=self._on_tray_profile_select)
 
             # Start the tray subprocess
             if self._tray_indicator.start():
@@ -672,10 +664,7 @@ class ClamUIApp(Adw.Application):
                 self._current_view = "update"
 
             # Trigger the update if freshclam is available and not already updating
-            if (
-                self.update_view._freshclam_available
-                and not self.update_view._is_updating
-            ):
+            if self.update_view._freshclam_available and not self.update_view._is_updating:
                 self.update_view._start_update()
 
     def _on_scan_file(self, action, param):
@@ -893,16 +882,11 @@ class ClamUIApp(Adw.Application):
             self._current_view = "update"
 
             # Start the update if freshclam is available
-            if (
-                self.update_view._freshclam_available
-                and not self.update_view._is_updating
-            ):
+            if self.update_view._freshclam_available and not self.update_view._is_updating:
                 self.update_view._start_update()
                 logger.info("Database update started from tray menu")
             else:
-                logger.info(
-                    "Database update view opened from tray menu (update not started)"
-                )
+                logger.info("Database update view opened from tray menu (update not started)")
 
         return False  # Don't repeat
 
@@ -1011,9 +995,7 @@ class ClamUIApp(Adw.Application):
                 if result.has_threats:
                     # Threats detected - show alert/threat status
                     self._tray_indicator.update_status("threat")
-                    logger.debug(
-                        f"Tray updated to threat state ({result.infected_count} threats)"
-                    )
+                    logger.debug(f"Tray updated to threat state ({result.infected_count} threats)")
                 elif result.is_clean:
                     # No threats - show protected status
                     self._tray_indicator.update_status("protected")
@@ -1021,9 +1003,7 @@ class ClamUIApp(Adw.Application):
                 else:
                     # Error or cancelled - show warning status
                     self._tray_indicator.update_status("warning")
-                    logger.debug(
-                        f"Tray updated to warning state (status: {result.status.value})"
-                    )
+                    logger.debug(f"Tray updated to warning state (status: {result.status.value})")
             else:
                 # No result provided, default to protected
                 self._tray_indicator.update_status("protected")
@@ -1045,10 +1025,7 @@ class ClamUIApp(Adw.Application):
         if self._scan_view is not None:
             try:
                 # Cancel any ongoing scan
-                if (
-                    hasattr(self._scan_view, "_scanner")
-                    and self._scan_view._scanner is not None
-                ):
+                if hasattr(self._scan_view, "_scanner") and self._scan_view._scanner is not None:
                     self._scan_view._scanner.cancel()
                     logger.debug("Active scan cancelled during shutdown")
             except Exception as e:
@@ -1105,9 +1082,7 @@ class ClamUIApp(Adw.Application):
 
     # Initial scan path handling (from CLI / context menu)
 
-    def set_initial_scan_paths(
-        self, file_paths: list[str], use_virustotal: bool = False
-    ) -> None:
+    def set_initial_scan_paths(self, file_paths: list[str], use_virustotal: bool = False) -> None:
         """
         Set initial file paths to scan on activation.
 
@@ -1120,9 +1095,7 @@ class ClamUIApp(Adw.Application):
         """
         self._initial_scan_paths = file_paths
         self._initial_use_virustotal = use_virustotal
-        logger.info(
-            f"Set {len(file_paths)} initial scan path(s) (virustotal={use_virustotal})"
-        )
+        logger.info(f"Set {len(file_paths)} initial scan path(s) (virustotal={use_virustotal})")
 
     def _process_initial_scan_paths(self) -> None:
         """
@@ -1174,9 +1147,7 @@ class ClamUIApp(Adw.Application):
             self._trigger_virustotal_scan(file_path, api_key)
         else:
             # No API key - check remembered action
-            action = self._settings_manager.get(
-                "virustotal_remember_no_key_action", "none"
-            )
+            action = self._settings_manager.get("virustotal_remember_no_key_action", "none")
 
             if action == "open_website":
                 # Open VirusTotal website directly

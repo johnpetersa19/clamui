@@ -12,6 +12,7 @@ from gi.repository import Adw, GLib, GObject, Gtk
 from ..core.log_manager import DaemonStatus, LogEntry, LogManager
 from ..core.statistics_calculator import StatisticsCalculator
 from .clipboard_helper import ClipboardHelper
+from .compat import create_toolbar_view, safe_add_suffix, safe_add_titled_with_icon
 from .file_export import CSV_FILTER, JSON_FILTER, TEXT_FILTER, FileExportHelper
 from .fullscreen_dialog import FullscreenLogDialog
 from .pagination import PaginatedListController
@@ -65,7 +66,7 @@ class ClearLogsDialog(Adw.Window):
     def _setup_ui(self):
         """Set up the dialog UI."""
         # Create main container with toolbar view for header bar
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar
         header_bar = Adw.HeaderBar()
@@ -233,7 +234,8 @@ class LogsView(Gtk.Box):
         self._create_log_detail_section(tab_content)
 
         # Add to view stack
-        self._view_stack.add_titled_with_icon(
+        safe_add_titled_with_icon(
+            self._view_stack,
             tab_content,
             "historical",
             "Historical Logs",
@@ -255,7 +257,8 @@ class LogsView(Gtk.Box):
         self._create_daemon_logs_section(tab_content)
 
         # Add to view stack
-        self._view_stack.add_titled_with_icon(
+        safe_add_titled_with_icon(
+            self._view_stack,
             tab_content,
             "daemon",
             "ClamAV Daemon",
@@ -510,7 +513,7 @@ class LogsView(Gtk.Box):
         self._live_toggle.set_tooltip_text("Start live log updates")
         self._live_toggle.set_valign(Gtk.Align.CENTER)
         self._live_toggle.connect("toggled", self._on_live_toggle)
-        self._daemon_status_row.add_suffix(self._live_toggle)
+        safe_add_suffix(self._daemon_status_row, self._live_toggle)
 
         daemon_group.add(self._daemon_status_row)
 
@@ -701,7 +704,7 @@ class LogsView(Gtk.Box):
         else:
             status_icon.set_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
         status_icon.set_valign(Gtk.Align.CENTER)
-        row.add_suffix(status_icon)
+        safe_add_suffix(row, status_icon)
 
         # Store entry ID in row for later retrieval
         row.set_name(entry.id)

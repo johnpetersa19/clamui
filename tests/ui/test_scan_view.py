@@ -653,9 +653,7 @@ class TestProfileLoadsAllTargets:
         # Verify both structures are cleared and updated
         assert len(mock_scan_view._selected_paths) == 1
         assert "/some/old/path" not in mock_scan_view._selected_paths
-        assert (
-            os.path.normpath("/some/old/path") not in mock_scan_view._normalized_paths
-        )
+        assert os.path.normpath("/some/old/path") not in mock_scan_view._normalized_paths
         assert os.path.normpath(str(profile_dir)) in mock_scan_view._normalized_paths
 
     def test_profile_switch_allows_reselection(self, mock_scan_view, tmp_path):
@@ -700,9 +698,7 @@ class TestProfileLoadsAllTargets:
         assert len(mock_scan_view._selected_paths) == 1
         assert str(quick_scan_dir) in mock_scan_view._selected_paths
         assert os.path.normpath(str(quick_scan_dir)) in mock_scan_view._normalized_paths
-        assert (
-            os.path.normpath(str(full_scan_dir)) not in mock_scan_view._normalized_paths
-        )
+        assert os.path.normpath(str(full_scan_dir)) not in mock_scan_view._normalized_paths
 
         # Step 3: Switch back to Full Scan - this would fail before the fix
         mock_dropdown.get_selected.return_value = 1  # First profile (Full Scan) again
@@ -899,9 +895,7 @@ class TestScanWorker:
             mock_scan_view._scan_worker()
 
             # Verify scanner was called with the correct path
-            mock_scan_view._scanner.scan_sync.assert_called_once_with(
-                "/home/user/test.txt"
-            )
+            mock_scan_view._scanner.scan_sync.assert_called_once_with("/home/user/test.txt")
 
             # Verify _on_scan_complete was scheduled
             assert len(captured_callbacks) >= 1
@@ -933,9 +927,7 @@ class TestScanWorker:
                     # ScanResult should be constructed with error message
                     mock_scan_result.assert_called_once()
                     call_kwargs = mock_scan_result.call_args[1]
-                    assert (
-                        call_kwargs["error_message"] == "No paths selected for scanning"
-                    )
+                    assert call_kwargs["error_message"] == "No paths selected for scanning"
 
     def test_scan_worker_exception_calls_error_handler(self, mock_scan_view):
         """Test scan worker handles exceptions properly."""
@@ -1474,9 +1466,7 @@ class TestStartScanning:
         mock_scan_view._selected_paths = ["/test/path"]
 
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/test/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test/path"):
                 mock_scan_view._start_scanning()
 
         assert mock_scan_view._is_scanning is True
@@ -1488,9 +1478,7 @@ class TestStartScanning:
         mock_scan_view._selected_paths = ["/test/path"]
 
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/test/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test/path"):
                 mock_scan_view._start_scanning()
 
         mock_scan_view._scan_button.set_sensitive.assert_called_with(False)
@@ -1503,9 +1491,7 @@ class TestStartScanning:
         mock_scan_view._selected_paths = ["/test/path"]
 
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/test/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test/path"):
                 mock_scan_view._start_scanning()
 
         mock_scan_view._cancel_button.set_visible.assert_called_with(True)
@@ -1527,9 +1513,7 @@ class TestStartScanning:
         mock_scan_view._selected_paths = ["/single/path"]
 
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/single/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/single/path"):
                 mock_scan_view._start_scanning()
 
         mock_scan_view._cancel_button.set_label.assert_called_with("Cancel")
@@ -1540,9 +1524,7 @@ class TestStartScanning:
         mock_scan_view._selected_paths = ["/test/path"]
 
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/test/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test/path"):
                 mock_scan_view._start_scanning()
 
         mock_scan_view._hide_view_results.assert_called_once()
@@ -1555,9 +1537,7 @@ class TestStartScanning:
         mock_scan_view._on_scan_state_changed = callback
 
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/test/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test/path"):
                 mock_scan_view._start_scanning()
 
         callback.assert_called_once_with(True)
@@ -1568,9 +1548,7 @@ class TestStartScanning:
         mock_scan_view._selected_paths = ["/test/path"]
 
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/test/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test/path"):
                 mock_scan_view._start_scanning()
 
         mock_scan_view._progress_section.set_visible.assert_called_with(True)
@@ -1607,9 +1585,7 @@ class TestOnScanClicked:
         mock_scan_view._selected_paths = ["/test/path"]
 
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/test/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test/path"):
                 mock_scan_view._on_scan_clicked(mock.MagicMock())
 
         assert mock_scan_view._is_scanning is True
@@ -1687,9 +1663,7 @@ class TestEicarTest:
 
             with mock.patch("src.ui.scan_view.is_flatpak", return_value=False):
                 with mock.patch("src.ui.scan_view.GLib"):
-                    with mock.patch(
-                        "src.ui.scan_view.format_scan_path", return_value="/test"
-                    ):
+                    with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test"):
                         mock_scan_view._on_eicar_test_clicked(mock.MagicMock())
 
             # Verify temp file was created
@@ -1717,18 +1691,12 @@ class TestEicarTest:
                 with mock.patch("src.ui.scan_view.Path") as mock_path:
                     mock_home = mock.MagicMock()
                     mock_cache_dir = mock.MagicMock()
-                    mock_cache_dir.__str__ = mock.MagicMock(
-                        return_value="/home/test/.cache/clamui"
-                    )
+                    mock_cache_dir.__str__ = mock.MagicMock(return_value="/home/test/.cache/clamui")
                     mock_home.__truediv__ = mock.MagicMock(return_value=mock_cache_dir)
-                    mock_cache_dir.__truediv__ = mock.MagicMock(
-                        return_value=mock_cache_dir
-                    )
+                    mock_cache_dir.__truediv__ = mock.MagicMock(return_value=mock_cache_dir)
                     mock_path.home.return_value = mock_home
                     with mock.patch("src.ui.scan_view.GLib"):
-                        with mock.patch(
-                            "src.ui.scan_view.format_scan_path", return_value="/test"
-                        ):
+                        with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test"):
                             mock_scan_view._on_eicar_test_clicked(mock.MagicMock())
 
             # Verify cache dir was used (not /tmp)
@@ -1933,9 +1901,7 @@ class TestStartScan:
 
         # Track if _on_scan_clicked was called via the is_scanning flag
         with mock.patch("src.ui.scan_view.GLib"):
-            with mock.patch(
-                "src.ui.scan_view.format_scan_path", return_value="/test/path"
-            ):
+            with mock.patch("src.ui.scan_view.format_scan_path", return_value="/test/path"):
                 mock_scan_view._start_scan()
 
         # Verify scanning was started
@@ -2041,9 +2007,7 @@ class TestRefreshProfiles:
         mock_profile2.id = "full"
         mock_profile_manager.list_profiles.return_value = [mock_profile1, mock_profile2]
 
-        mock_scan_view._get_profile_manager = mock.MagicMock(
-            return_value=mock_profile_manager
-        )
+        mock_scan_view._get_profile_manager = mock.MagicMock(return_value=mock_profile_manager)
 
         mock_scan_view.refresh_profiles()
 
@@ -2063,9 +2027,7 @@ class TestRefreshProfiles:
         mock_profile_manager = mock.MagicMock()
         mock_profile_manager.list_profiles.return_value = [mock_profile]
 
-        mock_scan_view._get_profile_manager = mock.MagicMock(
-            return_value=mock_profile_manager
-        )
+        mock_scan_view._get_profile_manager = mock.MagicMock(return_value=mock_profile_manager)
         mock_scan_view._profile_list = [mock_profile]
 
         # Set current selection to the test profile
@@ -2262,9 +2224,7 @@ class TestDropWithValidationErrors:
             result = mock_scan_view._on_drop(None, mock_file_list, 0, 0)
 
         assert result is False
-        mock_scan_view._show_drop_error.assert_called_with(
-            "Unable to accept dropped files"
-        )
+        mock_scan_view._show_drop_error.assert_called_with("Unable to accept dropped files")
 
 
 class TestProgressLabelNone:

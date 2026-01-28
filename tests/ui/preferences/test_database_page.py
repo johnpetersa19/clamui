@@ -54,9 +54,7 @@ class TestDatabasePageCreation:
         # Should create a PreferencesPage
         adw.PreferencesPage.assert_called()
 
-    def test_create_page_sets_title_and_icon(
-        self, mock_gi_modules, mock_config_path, widgets_dict
-    ):
+    def test_create_page_sets_title_and_icon(self, mock_gi_modules, mock_config_path, widgets_dict):
         """Test create_page sets correct title and icon."""
         adw = mock_gi_modules["adw"]
         mock_page = mock.MagicMock()
@@ -87,9 +85,7 @@ class TestDatabasePageCreation:
             # Should call _create_file_location_group
             mock_create_file_location.assert_called_once()
 
-    def test_create_page_creates_all_widgets(
-        self, mock_gi_modules, mock_config_path, widgets_dict
-    ):
+    def test_create_page_creates_all_widgets(self, mock_gi_modules, mock_config_path, widgets_dict):
         """Test create_page creates all required widgets."""
         from src.ui.preferences.database_page import DatabasePage
 
@@ -119,32 +115,31 @@ class TestDatabasePageCreation:
     def test_create_page_creates_entry_rows_with_icons(
         self, mock_gi_modules, mock_config_path, widgets_dict
     ):
-        """Test create_page creates EntryRows with appropriate icons."""
+        """Test create_page creates entry rows with appropriate icons."""
         adw = mock_gi_modules["adw"]
         gtk = mock_gi_modules["gtk"]
         from src.ui.preferences.database_page import DatabasePage
 
         DatabasePage.create_page(mock_config_path, widgets_dict)
 
-        # Should create multiple EntryRows
+        # Should create multiple ActionRows (via create_entry_row/create_switch_row compat)
         assert (
-            adw.EntryRow.call_count >= 5
-        )  # DatabaseDirectory, UpdateLogFile, NotifyClamd, DatabaseMirror, HTTPProxyServer
+            adw.ActionRow.call_count >= 5
+        )  # DatabaseDirectory, UpdateLogFile, NotifyClamd, DatabaseMirror, HTTPProxyServer + switches
 
         # Should create multiple Image icons
         assert gtk.Image.new_from_icon_name.call_count >= 5
 
-    def test_create_page_creates_switch_rows(
-        self, mock_gi_modules, mock_config_path, widgets_dict
-    ):
-        """Test create_page creates SwitchRows for boolean settings."""
+    def test_create_page_creates_switch_rows(self, mock_gi_modules, mock_config_path, widgets_dict):
+        """Test create_page creates switch rows for boolean settings."""
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.database_page import DatabasePage
 
         DatabasePage.create_page(mock_config_path, widgets_dict)
 
-        # Should create SwitchRows for LogVerbose and LogSyslog
-        assert adw.SwitchRow.call_count >= 2
+        # Switch rows are now ActionRows via create_switch_row compat
+        # Total ActionRow count includes both entry rows and switch rows
+        assert adw.ActionRow.call_count >= 7  # 5 entry + 2 switch
 
     def test_create_page_creates_spin_buttons(
         self, mock_gi_modules, mock_config_path, widgets_dict
@@ -168,11 +163,10 @@ class TestDatabasePageCreation:
 
         DatabasePage.create_page(mock_config_path, widgets_dict)
 
-        # Should create EntryRow configured for password input
-        # (using create_password_entry_row helper which uses Adw.EntryRow)
-        # The helper creates one EntryRow for HTTPProxyPassword
-        # Count should include all EntryRows created
-        assert adw.EntryRow.call_count >= 6  # 5 regular + 1 password
+        # Entry rows are now ActionRows via create_entry_row compat
+        # (create_password_entry_row also uses create_entry_row internally)
+        # 5 regular entries + 1 password entry + 2 switch rows = 8 ActionRows
+        assert adw.ActionRow.call_count >= 8
 
     def test_create_page_creates_preference_groups(
         self, mock_gi_modules, mock_config_path, widgets_dict
@@ -222,9 +216,7 @@ class TestDatabasePagePopulateFields:
         # Should not raise exception
         DatabasePage.populate_fields(None, mock_widgets)
 
-    def test_populate_fields_sets_text_entries(
-        self, mock_gi_modules, mock_config, mock_widgets
-    ):
+    def test_populate_fields_sets_text_entries(self, mock_gi_modules, mock_config, mock_widgets):
         """Test populate_fields sets text entry values."""
         from src.ui.preferences.database_page import DatabasePage
 
@@ -238,9 +230,7 @@ class TestDatabasePagePopulateFields:
         mock_widgets["NotifyClamd"].set_text.assert_called_with("/var/lib/clamav")
         mock_widgets["DatabaseMirror"].set_text.assert_called_with("/var/lib/clamav")
 
-    def test_populate_fields_sets_switch_states(
-        self, mock_gi_modules, mock_config, mock_widgets
-    ):
+    def test_populate_fields_sets_switch_states(self, mock_gi_modules, mock_config, mock_widgets):
         """Test populate_fields sets switch states correctly."""
         from src.ui.preferences.database_page import DatabasePage
 
@@ -259,9 +249,7 @@ class TestDatabasePagePopulateFields:
         mock_widgets["LogVerbose"].set_active.assert_called_with(False)
         mock_widgets["LogSyslog"].set_active.assert_called_with(False)
 
-    def test_populate_fields_sets_numeric_values(
-        self, mock_gi_modules, mock_config, mock_widgets
-    ):
+    def test_populate_fields_sets_numeric_values(self, mock_gi_modules, mock_config, mock_widgets):
         """Test populate_fields sets numeric spin row values."""
         from src.ui.preferences.database_page import DatabasePage
 
@@ -298,9 +286,7 @@ class TestDatabasePagePopulateFields:
         mock_widgets["HTTPProxyUsername"].set_text.assert_called_with("proxy_user")
         mock_widgets["HTTPProxyPassword"].set_text.assert_called_with("proxy_user")
 
-    def test_populate_fields_skips_missing_keys(
-        self, mock_gi_modules, mock_config, mock_widgets
-    ):
+    def test_populate_fields_skips_missing_keys(self, mock_gi_modules, mock_config, mock_widgets):
         """Test populate_fields skips keys not in config."""
         from src.ui.preferences.database_page import DatabasePage
 
@@ -367,9 +353,7 @@ class TestDatabasePageCollectData:
         assert result["NotifyClamd"] == "/etc/clamav/clamd.conf"
         assert result["DatabaseMirror"] == "database.clamav.net"
 
-    def test_collect_data_converts_switch_to_yes_no(
-        self, mock_gi_modules, mock_widgets
-    ):
+    def test_collect_data_converts_switch_to_yes_no(self, mock_gi_modules, mock_widgets):
         """Test collect_data converts switch states to yes/no strings."""
         from src.ui.preferences.database_page import DatabasePage
 
@@ -380,9 +364,7 @@ class TestDatabasePageCollectData:
         # LogSyslog is False -> "no"
         assert result["LogSyslog"] == "no"
 
-    def test_collect_data_converts_numeric_to_string(
-        self, mock_gi_modules, mock_widgets
-    ):
+    def test_collect_data_converts_numeric_to_string(self, mock_gi_modules, mock_widgets):
         """Test collect_data converts numeric values to strings."""
         from src.ui.preferences.database_page import DatabasePage
 
@@ -402,9 +384,7 @@ class TestDatabasePageCollectData:
         assert result["HTTPProxyUsername"] == "proxyuser"
         assert result["HTTPProxyPassword"] == "proxypass"
 
-    def test_collect_data_excludes_empty_text_fields(
-        self, mock_gi_modules, mock_widgets
-    ):
+    def test_collect_data_excludes_empty_text_fields(self, mock_gi_modules, mock_widgets):
         """Test collect_data excludes empty text fields."""
         from src.ui.preferences.database_page import DatabasePage
 
@@ -430,9 +410,7 @@ class TestDatabasePageCollectData:
         # Port 0 should not be in result
         assert "HTTPProxyPort" not in result
 
-    def test_collect_data_excludes_empty_proxy_credentials(
-        self, mock_gi_modules, mock_widgets
-    ):
+    def test_collect_data_excludes_empty_proxy_credentials(self, mock_gi_modules, mock_widgets):
         """Test collect_data excludes empty proxy credentials."""
         from src.ui.preferences.database_page import DatabasePage
 

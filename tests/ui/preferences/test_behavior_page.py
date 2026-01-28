@@ -389,7 +389,7 @@ class TestBehaviorPageFileManagerIntegration:
         mock_row = MagicMock()
         mock_icon = MagicMock()
         adw.PreferencesGroup.return_value = mock_group
-        adw.ActionRow.return_value = mock_row
+        adw.ActionRow.side_effect = lambda *args, **kwargs: mock_row
         gtk.Image.new_from_icon_name.return_value = mock_icon
 
         from src.ui.preferences.behavior_page import BehaviorPage
@@ -409,7 +409,7 @@ class TestBehaviorPageFileManagerIntegration:
         mock_row = MagicMock()
         mock_icon = MagicMock()
         adw.PreferencesGroup.return_value = mock_group
-        adw.ActionRow.return_value = mock_row
+        adw.ActionRow.side_effect = lambda *args, **kwargs: mock_row
         gtk.Image.new_from_icon_name.return_value = mock_icon
 
         from src.ui.preferences.behavior_page import BehaviorPage

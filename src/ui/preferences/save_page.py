@@ -19,6 +19,7 @@ from ...core.clamav_config import (
     validate_config,
     write_config_with_elevation,
 )
+from ..compat import create_toolbar_view, safe_set_subtitle_lines, safe_set_title_lines
 from ..utils import resolve_icon_name
 from .base import PreferencesPageMixin
 from .database_page import DatabasePage
@@ -148,7 +149,7 @@ class SavePage(PreferencesPageMixin):
         dialog.set_transient_for(self._window)
 
         # Create content
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
         header_bar = Adw.HeaderBar()
         toolbar_view.add_top_bar(header_bar)
 
@@ -212,9 +213,9 @@ class SavePage(PreferencesPageMixin):
         # Manual save settings info row
         manual_save_row = Adw.ActionRow()
         manual_save_row.set_title("Manual Save Required")
-        manual_save_row.set_title_lines(1)
+        safe_set_title_lines(manual_save_row, 1)
         manual_save_row.set_subtitle("Database Updates, Scanner, On-Access, Scheduled Scans")
-        manual_save_row.set_subtitle_lines(1)
+        safe_set_subtitle_lines(manual_save_row, 1)
         lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-lock-screen-symbolic"))
         lock_icon.add_css_class("warning")
         manual_save_row.add_prefix(lock_icon)

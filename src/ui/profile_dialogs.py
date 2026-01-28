@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from gi.repository import Adw, GLib, GObject, Gtk
 
+from .compat import create_entry_row, create_toolbar_view
 from .utils import add_row_icon, resolve_icon_name
 
 if TYPE_CHECKING:
@@ -100,7 +101,7 @@ class ProfileDialog(Adw.Window):
     def _setup_ui(self):
         """Set up the dialog UI layout."""
         # Create main container with toolbar view for header bar
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar with save button
         header_bar = Adw.HeaderBar()
@@ -152,13 +153,13 @@ class ProfileDialog(Adw.Window):
 
         # Profile name entry row
         # Note: Adw.EntryRow doesn't have set_max_length - validation is done in _on_name_changed
-        self._name_row = Adw.EntryRow()
+        self._name_row = create_entry_row()
         self._name_row.set_title("Name")
         self._name_row.connect("changed", self._on_name_changed)
         basic_group.add(self._name_row)
 
         # Description entry row
-        self._description_row = Adw.EntryRow()
+        self._description_row = create_entry_row()
         self._description_row.set_title("Description")
         basic_group.add(self._description_row)
 
@@ -683,7 +684,7 @@ class PatternEntryDialog(Adw.Window):
     def _setup_ui(self):
         """Set up the dialog UI."""
         # Create main container
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Header bar
         header_bar = Adw.HeaderBar()
@@ -715,7 +716,7 @@ class PatternEntryDialog(Adw.Window):
             "Enter a glob pattern to exclude (e.g., *.tmp, .git/*, cache/*)"
         )
 
-        self._pattern_row = Adw.EntryRow()
+        self._pattern_row = create_entry_row()
         self._pattern_row.set_title("Pattern")
         self._pattern_row.connect("changed", self._on_pattern_changed)
         self._pattern_row.connect("entry-activated", lambda r: self._on_add_clicked(None))
@@ -798,7 +799,7 @@ class DeleteProfileDialog(Adw.Window):
     def _setup_ui(self):
         """Set up the dialog UI."""
         # Create main container with toolbar view for header bar
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar
         header_bar = Adw.HeaderBar()
@@ -917,7 +918,7 @@ class ProfileListDialog(Adw.Window):
     def _setup_ui(self):
         """Set up the dialog UI layout."""
         # Create main container with toolbar view for header bar
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar with new profile button
         header_bar = Adw.HeaderBar()

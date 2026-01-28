@@ -114,6 +114,8 @@ clamui/
 │   └── hooks/                  # Git hooks for development
 │       ├── install-hooks.sh    # Hook installer (run after clone)
 │       └── pre-commit          # Blocks absolute src.* imports
+├── appimage/                   # AppImage packaging
+│   └── build-appimage.sh       # AppImage build script (bundles Python + GTK4)
 ├── flathub/                    # Flatpak packaging
 ├── debian/                     # Debian packaging
 ├── icons/                      # Application icons
@@ -749,6 +751,12 @@ The `scan_backend` setting determines how ClamUI communicates with ClamAV to per
 - Runs Ruff linting and format checking
 - Configured rules in pyproject.toml
 
+### build-appimage.yml
+
+- Builds AppImage on push to master, tags, PRs
+- Uses ubuntu-24.04 runner
+- Uploads AppImage as artifact (7-day retention)
+
 ## Security Considerations
 
 1. **Input Sanitization**: Use `sanitize_log_line()` before logging user/external input
@@ -886,6 +894,40 @@ flatpak-builder --force-clean build-dir flathub/io.github.linx_systems.ClamUI.ym
 flatpak-builder --run build-dir flathub/io.github.linx_systems.ClamUI.yml clamui
 ```
 
+## AppImage Development
+
+### Prerequisites
+
+```bash
+# Install AppImage build tools (Ubuntu/Debian)
+sudo apt install wget file patchelf desktop-file-utils libgdk-pixbuf2.0-dev
+```
+
+### Building an AppImage
+
+```bash
+# Run from project root
+./appimage/build-appimage.sh
+```
+
+The script:
+1. Creates a Python virtual environment with GTK4/libadwaita
+2. Bundles all dependencies into an AppDir structure
+3. Downloads and uses `linuxdeploy` + `linuxdeploy-plugin-gtk` for GTK runtime bundling
+4. Produces `ClamUI-<version>-x86_64.AppImage` (~96 MB)
+
+**Note:** The AppImage bundles Python and GTK4/libadwaita but requires ClamAV to be installed on the host system. ClamAV cannot be bundled as it requires system-level virus database updates.
+
+### Testing the AppImage
+
+```bash
+# Make executable and run
+chmod +x ClamUI-*-x86_64.AppImage
+./ClamUI-*-x86_64.AppImage
+```
+
+See `appimage/build-appimage.sh` for detailed build configuration.
+
 ---
 
 ## Known Issues & Technical Debt
@@ -900,6 +942,7 @@ flatpak-builder --run build-dir flathub/io.github.linx_systems.ClamUI.yml clamui
 
 - Flatpak uses `--filesystem=host` (read-write) for full scanning capability and quarantine operations
 - Debian packages require Python 3.10+
+- AppImage bundles Python + GTK4/libadwaita (~96 MB), requires host ClamAV installation
 - urllib3>=2.6.3 required for CVE fix (decompression-bomb bypass on redirects)
 
 ### libadwaita Compatibility

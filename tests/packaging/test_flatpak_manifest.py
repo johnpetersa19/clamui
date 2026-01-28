@@ -137,9 +137,7 @@ class TestRequiredPermissions:
         data = yaml_parser.safe_load(manifest.read_text())
 
         finish_args = data.get("finish-args", [])
-        talk_args = [
-            arg for arg in finish_args if "--talk-name" in arg or "--own-name" in arg
-        ]
+        talk_args = [arg for arg in finish_args if "--talk-name" in arg or "--own-name" in arg]
 
         # Should have some D-Bus permissions for tray
         assert len(talk_args) > 0, "Missing D-Bus talk permissions"
@@ -215,6 +213,4 @@ class TestGeneratedDependencies:
         ]
 
         for filename in required_files:
-            assert (
-                flathub_dir / filename
-            ).exists(), f"{filename} not found in flathub/"
+            assert (flathub_dir / filename).exists(), f"{filename} not found in flathub/"

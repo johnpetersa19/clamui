@@ -21,6 +21,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 from ..core.keyring_manager import set_api_key, validate_api_key_format
+from .compat import create_switch_row, create_toolbar_view
 from .utils import resolve_icon_name
 
 if TYPE_CHECKING:
@@ -95,7 +96,7 @@ class VirusTotalSetupDialog(Adw.Window):
         self._toast_overlay = Adw.ToastOverlay()
 
         # Main container with toolbar view
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar
         header_bar = Adw.HeaderBar()
@@ -146,9 +147,7 @@ class VirusTotalSetupDialog(Adw.Window):
         chevron.add_css_class("dim-label")
         link_row.add_suffix(chevron)
 
-        info_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("network-server-symbolic")
-        )
+        info_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("network-server-symbolic"))
         info_icon.add_css_class("dim-label")
         link_row.add_prefix(info_icon)
 
@@ -201,15 +200,11 @@ class VirusTotalSetupDialog(Adw.Window):
         # Open website option
         website_row = Adw.ActionRow()
         website_row.set_title("Upload file manually")
-        website_row.set_subtitle(
-            "Open VirusTotal website to upload files without API key"
-        )
+        website_row.set_subtitle("Open VirusTotal website to upload files without API key")
         website_row.set_activatable(True)
         website_row.connect("activated", self._on_open_website_clicked)
 
-        website_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("web-browser-symbolic")
-        )
+        website_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("web-browser-symbolic"))
         website_icon.add_css_class("dim-label")
         website_row.add_prefix(website_icon)
 
@@ -220,11 +215,9 @@ class VirusTotalSetupDialog(Adw.Window):
         actions_group.add(website_row)
 
         # Remember decision option
-        self._remember_switch = Adw.SwitchRow()
+        self._remember_switch = create_switch_row()
         self._remember_switch.set_title("Remember my choice")
-        self._remember_switch.set_subtitle(
-            "Don't ask again when scanning without API key"
-        )
+        self._remember_switch.set_subtitle("Don't ask again when scanning without API key")
         self._remember_switch.set_active(False)
 
         remember_icon = Gtk.Image.new_from_icon_name(
@@ -245,7 +238,7 @@ class VirusTotalSetupDialog(Adw.Window):
             logger.error(f"Failed to open browser: {e}")
             self._show_toast("Failed to open browser")
 
-    def _on_api_key_changed(self, entry_row: Adw.PasswordEntryRow):
+    def _on_api_key_changed(self, entry_row: Adw.ActionRow):
         """Handle API key entry changes."""
         api_key = entry_row.get_text().strip()
 
@@ -290,17 +283,13 @@ class VirusTotalSetupDialog(Adw.Window):
             if self._on_key_saved:
                 self._on_key_saved(api_key)
         else:
-            self._show_toast(
-                f"Failed to save: {error}" if error else "Failed to save API key"
-            )
+            self._show_toast(f"Failed to save: {error}" if error else "Failed to save API key")
 
     def _on_open_website_clicked(self, row: Adw.ActionRow):
         """Open VirusTotal upload page."""
         # Save remember preference if enabled
         if self._remember_switch.get_active() and self._settings_manager:
-            self._settings_manager.set(
-                "virustotal_remember_no_key_action", "open_website"
-            )
+            self._settings_manager.set("virustotal_remember_no_key_action", "open_website")
 
         try:
             webbrowser.open(VT_UPLOAD_URL)

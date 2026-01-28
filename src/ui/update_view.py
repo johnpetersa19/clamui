@@ -11,6 +11,7 @@ from gi.repository import Adw, Gtk
 
 from ..core.updater import FreshclamUpdater, UpdateResult, UpdateStatus
 from ..core.utils import check_freshclam_installed
+from .compat import create_banner
 from .utils import add_row_icon, resolve_icon_name
 from .view_helpers import StatusLevel, set_status_class
 
@@ -147,7 +148,7 @@ class UpdateView(Gtk.Box):
         results_box.set_spacing(12)
 
         # Status banner (hidden by default)
-        self._status_banner = Adw.Banner()
+        self._status_banner = create_banner()
         self._status_banner.set_revealed(False)
         self._status_banner.set_button_label("Dismiss")
         self._status_banner.connect("button-clicked", self._on_status_banner_dismissed)

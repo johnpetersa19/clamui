@@ -144,8 +144,8 @@ class TestExclusionsPageCreation:
         page = ExclusionsPage(mock_settings_manager)
         page.create_page()
 
-        # Should create one SwitchRow per preset exclusion
-        assert adw.SwitchRow.call_count >= len(PRESET_EXCLUSIONS)
+        # Switch rows are now ActionRows via create_switch_row compat
+        assert adw.ActionRow.call_count >= len(PRESET_EXCLUSIONS)
 
     def test_create_page_creates_custom_entry_row(self, mock_gi_modules, mock_settings_manager):
         """Test create_page creates EntryRow for adding custom exclusions."""
@@ -155,8 +155,8 @@ class TestExclusionsPageCreation:
         page = ExclusionsPage(mock_settings_manager)
         page.create_page()
 
-        # Should create an EntryRow for custom exclusions
-        adw.EntryRow.assert_called()
+        # Entry rows are now ActionRows via create_entry_row compat
+        adw.ActionRow.assert_called()
 
     def test_create_page_creates_add_button(self, mock_gi_modules, mock_settings_manager):
         """Test create_page creates add button for custom exclusions."""
@@ -320,8 +320,8 @@ class TestExclusionsPageAddCustomExclusionRow:
 
         page._add_custom_exclusion_row("/test/path", True)
 
-        # Should create a SwitchRow
-        adw.SwitchRow.assert_called()
+        # Switch rows are now ActionRows via create_switch_row compat
+        adw.ActionRow.assert_called()
 
     def test_add_custom_exclusion_row_sets_title(self, mock_gi_modules, mock_settings_manager):
         """Test _add_custom_exclusion_row sets row title to pattern."""
@@ -329,7 +329,7 @@ class TestExclusionsPageAddCustomExclusionRow:
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
         mock_row = mock.MagicMock()
-        adw.SwitchRow.side_effect = lambda *args, **kwargs: mock_row
+        adw.ActionRow.side_effect = lambda *args, **kwargs: mock_row
 
         page = ExclusionsPage(mock_settings_manager)
         page._custom_exclusions_group = mock.MagicMock()
@@ -346,19 +346,20 @@ class TestExclusionsPageAddCustomExclusionRow:
         from src.ui.preferences.exclusions_page import ExclusionsPage
 
         mock_row = mock.MagicMock()
-        adw.SwitchRow.side_effect = lambda *args, **kwargs: mock_row
+        adw.ActionRow.side_effect = lambda *args, **kwargs: mock_row
 
         page = ExclusionsPage(mock_settings_manager)
         page._custom_exclusions_group = mock.MagicMock()
 
         # Test enabled=True
+        # create_switch_row patches set_active to delegate to Gtk.Switch via _compat_switch
         page._add_custom_exclusion_row("/test/path", True)
-        mock_row.set_active.assert_called_with(True)
+        mock_row._compat_switch.set_active.assert_called_with(True)
 
         # Test enabled=False
         mock_row.reset_mock()
         page._add_custom_exclusion_row("/another/path", False)
-        mock_row.set_active.assert_called_with(False)
+        mock_row._compat_switch.set_active.assert_called_with(False)
 
     def test_add_custom_exclusion_row_creates_remove_button(
         self, mock_gi_modules, mock_settings_manager

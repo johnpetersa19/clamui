@@ -177,7 +177,7 @@ class TestPreferencesPageMixinMethods:
         adw = mock_gi_modules["adw"]
         mock_page = mock.MagicMock()
         mock_row = mock.MagicMock()
-        adw.ActionRow.return_value = mock_row
+        adw.ActionRow.side_effect = lambda *args, **kwargs: mock_row
 
         test_instance._create_file_location_group(
             mock_page, "Test Group", "/path/to/file.conf", "Test description"
@@ -187,7 +187,6 @@ class TestPreferencesPageMixinMethods:
         adw.ActionRow.assert_called_once()
         mock_row.set_title.assert_called_with("File Location")
         mock_row.set_subtitle.assert_called_with("/path/to/file.conf")
-        mock_row.set_subtitle_selectable.assert_called_with(True)
 
     def test_create_file_location_group_adds_folder_icon(self, test_instance, mock_gi_modules):
         """Test _create_file_location_group adds a folder icon."""
@@ -195,7 +194,7 @@ class TestPreferencesPageMixinMethods:
         adw = mock_gi_modules["adw"]
         mock_page = mock.MagicMock()
         mock_row = mock.MagicMock()
-        adw.ActionRow.return_value = mock_row
+        adw.ActionRow.side_effect = lambda *args, **kwargs: mock_row
 
         test_instance._create_file_location_group(
             mock_page, "Test Group", "/path/to/file.conf", "Test description"
@@ -214,7 +213,7 @@ class TestPreferencesPageMixinMethods:
         mock_page = mock.MagicMock()
         mock_row = mock.MagicMock()
         mock_button = mock.MagicMock()
-        adw.ActionRow.return_value = mock_row
+        adw.ActionRow.side_effect = lambda *args, **kwargs: mock_row
         gtk.Button.return_value = mock_button
 
         test_instance._create_file_location_group(

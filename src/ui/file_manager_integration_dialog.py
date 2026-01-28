@@ -22,6 +22,7 @@ from ..core.file_manager_integration import (
     get_available_integrations,
     install_integration,
 )
+from .compat import create_switch_row, create_toolbar_view
 from .utils import resolve_icon_name
 
 if TYPE_CHECKING:
@@ -68,7 +69,7 @@ class FileManagerIntegrationDialog(Adw.Window):
 
         self._settings_manager = settings_manager
         self._on_complete = on_complete
-        self._integration_rows: dict[FileManager, Adw.SwitchRow] = {}
+        self._integration_rows: dict[FileManager, Adw.ActionRow] = {}
 
         # Configure and set up the dialog
         self._setup_dialog()
@@ -89,7 +90,7 @@ class FileManagerIntegrationDialog(Adw.Window):
         self._toast_overlay = Adw.ToastOverlay()
 
         # Main container with toolbar view
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
 
         # Create header bar
         header_bar = Adw.HeaderBar()
@@ -177,7 +178,7 @@ class FileManagerIntegrationDialog(Adw.Window):
 
         preferences_page.add(fm_group)
 
-    def _create_file_manager_row(self, integration: IntegrationInfo) -> Adw.SwitchRow:
+    def _create_file_manager_row(self, integration: IntegrationInfo) -> Adw.ActionRow:
         """
         Create a switch row for a file manager integration.
 
@@ -187,7 +188,7 @@ class FileManagerIntegrationDialog(Adw.Window):
         Returns:
             The created SwitchRow widget.
         """
-        row = Adw.SwitchRow()
+        row = create_switch_row()
         row.set_title(integration.display_name)
 
         if integration.is_installed:

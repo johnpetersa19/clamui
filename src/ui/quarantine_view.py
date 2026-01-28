@@ -27,6 +27,7 @@ from ..core.quarantine import (
     QuarantineResult,
     QuarantineStatus,
 )
+from .compat import create_banner
 from .pagination import PaginatedListController
 from .utils import add_row_icon, resolve_icon_name
 from .view_helpers import EmptyStateConfig, create_empty_state, create_loading_row
@@ -134,7 +135,7 @@ class QuarantineView(Gtk.Box):
         self.set_spacing(18)
 
         # Create the status banner (hidden by default)
-        self._status_banner = Adw.Banner()
+        self._status_banner = create_banner()
         self._status_banner.set_revealed(False)
         self._status_banner.set_button_label("Dismiss")
         self._status_banner.connect("button-clicked", self._on_status_banner_dismissed)
@@ -183,7 +184,11 @@ class QuarantineView(Gtk.Box):
 
         # Search entry
         self._search_entry = Gtk.SearchEntry()
-        self._search_entry.set_placeholder_text("Search by threat name or path...")
+        # set_placeholder_text() requires GTK 4.10+; fall back to GObject property
+        if hasattr(self._search_entry, "set_placeholder_text"):
+            self._search_entry.set_placeholder_text("Search by threat name or path...")
+        else:
+            self._search_entry.set_property("placeholder-text", "Search by threat name or path...")
         self._search_entry.set_hexpand(True)
         self._search_entry.connect("search-changed", self._on_search_changed)
         header_box.append(self._search_entry)
@@ -222,8 +227,7 @@ class QuarantineView(Gtk.Box):
 
         # Scrolled window for quarantine entries
         self._scrolled = Gtk.ScrolledWindow()
-        self._scrolled.set_min_content_height(300)
-        self._scrolled.set_vexpand(True)
+        self._scrolled.set_min_content_height(200)
         self._scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self._scrolled.add_css_class("card")
 

@@ -240,15 +240,12 @@ def mock_gi_modules():
     mock_adw.ApplicationWindow = MockAdwApplicationWindow
 
     # Widget row constructors return unique MagicMock instances to track calls separately
-    # ActionRow is kept without side_effect since tests may set return_value
-    mock_adw.ActionRow = MagicMock()
+    mock_adw.ActionRow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.ComboRow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.SwitchRow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.EntryRow = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.SpinRow = MagicMock()
-    mock_adw.SpinRow.new_with_range = MagicMock(
-        side_effect=lambda *args, **kwargs: MagicMock()
-    )
+    mock_adw.SpinRow.new_with_range = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     # Container widgets - tests may set return_value to control what's returned
     mock_adw.PreferencesGroup = MagicMock()
     mock_adw.PreferencesPage = MagicMock()
@@ -265,6 +262,10 @@ def mock_gi_modules():
     mock_adw.ToolbarView = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.ToastOverlay = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
     mock_adw.StatusPage = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+
+    # GTK widget constructors used by compat.py - must return unique instances
+    mock_gtk.Entry = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
+    mock_gtk.Switch = MagicMock(side_effect=lambda *args, **kwargs: MagicMock())
 
     # GTK widget constructors - tests may set return_value
     mock_gtk.Button = MagicMock()

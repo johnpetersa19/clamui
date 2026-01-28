@@ -13,7 +13,7 @@ jobs:
   build-appimage:
     permissions:
       contents: read
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,10 +27,44 @@ jobs:
             python3 python3-pip python3-gi python3-gi-cairo \
             gir1.2-gtk-4.0 gir1.2-adw-1 \
             libgtk-4-dev libadwaita-1-dev \
-            libfuse2 wget rsync
+            libfuse2t64 wget rsync
 
       - name: Build AppImage
         run: ./appimage/build-appimage.sh
+
+      - name: Test AppImage (smoke test)
+        run: |
+          chmod +x ClamUI-*.AppImage
+
+          # Extract AppImage for testing
+          ./ClamUI-*.AppImage --appimage-extract
+
+          # Test 1: Python interpreter works
+          ./squashfs-root/usr/bin/python3 --version
+
+          # Test 2: ClamUI module imports successfully
+          ./squashfs-root/usr/bin/python3 -c "
+          import clamui.main
+          print('clamui.main: OK')
+          "
+
+          # Test 3: GTK4/Adwaita bindings load
+          ./squashfs-root/usr/bin/python3 -c "
+          from gi.repository import Gtk, Adw
+          print('GTK:', Gtk._version)
+          print('Adwaita: OK')
+          "
+
+          # Test 4: Core modules import (validates bundling)
+          ./squashfs-root/usr/bin/python3 -c "
+          from clamui.core.scanner import Scanner
+          from clamui.core.settings_manager import SettingsManager
+          from clamui.core.quarantine.manager import QuarantineManager
+          print('Core modules: OK')
+          "
+
+          # Cleanup extracted files
+          rm -rf squashfs-root
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4

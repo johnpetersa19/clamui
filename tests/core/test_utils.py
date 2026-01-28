@@ -106,16 +106,9 @@ class TestReExportCorrectness:
         assert utils.wrap_host_command is flatpak.wrap_host_command
         assert utils.which_host_command is flatpak.which_host_command
         assert utils.format_flatpak_portal_path is flatpak.format_flatpak_portal_path
-        assert (
-            utils._resolve_portal_path_via_xattr
-            is flatpak._resolve_portal_path_via_xattr
-        )
-        assert (
-            utils._resolve_portal_path_via_gio is flatpak._resolve_portal_path_via_gio
-        )
-        assert (
-            utils._resolve_portal_path_via_dbus is flatpak._resolve_portal_path_via_dbus
-        )
+        assert utils._resolve_portal_path_via_xattr is flatpak._resolve_portal_path_via_xattr
+        assert utils._resolve_portal_path_via_gio is flatpak._resolve_portal_path_via_gio
+        assert utils._resolve_portal_path_via_dbus is flatpak._resolve_portal_path_via_dbus
 
     def test_clamav_detection_functions_are_same_objects(self):
         """Test that ClamAV detection functions from utils are the same as from clamav_detection module."""
@@ -123,14 +116,8 @@ class TestReExportCorrectness:
 
         # Verify re-exported functions are the same objects
         assert utils.check_clamav_installed is clamav_detection.check_clamav_installed
-        assert (
-            utils.check_freshclam_installed
-            is clamav_detection.check_freshclam_installed
-        )
-        assert (
-            utils.check_clamdscan_installed
-            is clamav_detection.check_clamdscan_installed
-        )
+        assert utils.check_freshclam_installed is clamav_detection.check_freshclam_installed
+        assert utils.check_clamdscan_installed is clamav_detection.check_clamdscan_installed
         assert utils.get_clamd_socket_path is clamav_detection.get_clamd_socket_path
         assert utils.check_clamd_connection is clamav_detection.check_clamd_connection
         assert utils.get_clamav_path is clamav_detection.get_clamav_path
@@ -208,18 +195,14 @@ class TestUtilsModuleAPI:
         ]
 
         for function_name in expected_functions:
-            assert (
-                function_name in utils.__all__
-            ), f"{function_name} not in utils.__all__"
+            assert function_name in utils.__all__, f"{function_name} not in utils.__all__"
 
     def test_all_functions_in_all_are_accessible(self):
         """Test that all functions listed in __all__ are actually accessible."""
         from src.core import utils
 
         for function_name in utils.__all__:
-            assert hasattr(
-                utils, function_name
-            ), f"{function_name} in __all__ but not accessible"
+            assert hasattr(utils, function_name), f"{function_name} in __all__ but not accessible"
             attr = getattr(utils, function_name)
             assert callable(attr), f"{function_name} is not callable"
 
@@ -231,15 +214,11 @@ class TestUtilsModuleAPI:
         public_attrs = [name for name in dir(utils) if not name.startswith("_")]
 
         # Filter to only callables (functions)
-        public_functions = [
-            name for name in public_attrs if callable(getattr(utils, name))
-        ]
+        public_functions = [name for name in public_attrs if callable(getattr(utils, name))]
 
         # All public functions should be in __all__
         for function_name in public_functions:
-            assert (
-                function_name in utils.__all__
-            ), f"{function_name} is public but not in __all__"
+            assert function_name in utils.__all__, f"{function_name} is public but not in __all__"
 
 
 class TestReExportFunctionality:
@@ -308,9 +287,7 @@ class TestReExportFunctionality:
         from src.core.utils import get_freshclam_path
 
         # Mock which_host_command to return None (not found)
-        with mock.patch(
-            "src.core.clamav_detection.which_host_command", return_value=None
-        ):
+        with mock.patch("src.core.clamav_detection.which_host_command", return_value=None):
             path = get_freshclam_path()
             assert path is None
 

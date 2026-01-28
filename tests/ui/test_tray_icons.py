@@ -43,9 +43,7 @@ def mock_pil_modules(monkeypatch):
 class TestFindClamuiBaseIcon:
     """Tests for find_clamui_base_icon function."""
 
-    def test_finds_icon_in_development_path(
-        self, tmp_path, monkeypatch, mock_pil_modules
-    ):
+    def test_finds_icon_in_development_path(self, tmp_path, monkeypatch, mock_pil_modules):
         """Test icon discovery in development environment."""
         import importlib
 
@@ -198,9 +196,7 @@ class TestTrayIconGeneratorConstants:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         expected_statuses = ["protected", "scanning", "warning", "threat"]
         for status in expected_statuses:
@@ -220,9 +216,7 @@ class TestTrayIconGeneratorConstants:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         assert generator.ICON_SIZE > 0
         assert generator.ICON_SIZE <= 128  # Reasonable tray icon size
@@ -238,9 +232,7 @@ class TestTrayIconGeneratorConstants:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         assert generator.OVERLAY_SIZE < generator.ICON_SIZE
 
@@ -259,9 +251,7 @@ class TestTrayIconGeneratorGetIconPath:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         result = generator.get_icon_path("protected")
 
@@ -279,18 +269,14 @@ class TestTrayIconGeneratorGetIconPath:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         result = generator.get_icon_path("scanning")
 
         # The mock Image.save should have been called
         assert Path(result).name == "clamui-tray-scanning.png"
 
-    def test_get_icon_path_unknown_status_defaults_to_protected(
-        self, tmp_path, mock_pil_modules
-    ):
+    def test_get_icon_path_unknown_status_defaults_to_protected(self, tmp_path, mock_pil_modules):
         """Test get_icon_path defaults to 'protected' for unknown status."""
         import importlib
 
@@ -301,9 +287,7 @@ class TestTrayIconGeneratorGetIconPath:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         result = generator.get_icon_path("unknown_status")
 
@@ -320,9 +304,7 @@ class TestTrayIconGeneratorGetIconPath:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         statuses = ["protected", "scanning", "warning", "threat"]
         for status in statuses:
@@ -344,9 +326,7 @@ class TestTrayIconGeneratorGetIconName:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         result = generator.get_icon_name("protected")
 
@@ -363,18 +343,14 @@ class TestTrayIconGeneratorGetIconName:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         statuses = ["protected", "scanning", "warning", "threat"]
         for status in statuses:
             result = generator.get_icon_name(status)
             assert result == f"clamui-tray-{status}"
 
-    def test_get_icon_name_unknown_status_defaults_to_protected(
-        self, tmp_path, mock_pil_modules
-    ):
+    def test_get_icon_name_unknown_status_defaults_to_protected(self, tmp_path, mock_pil_modules):
         """Test get_icon_name defaults to 'protected' for unknown status."""
         import importlib
 
@@ -385,9 +361,7 @@ class TestTrayIconGeneratorGetIconName:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         result = generator.get_icon_name("unknown")
 
@@ -408,9 +382,7 @@ class TestTrayIconGeneratorPregenerateAll:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         # Track calls to get_icon_path
         with mock.patch.object(generator, "get_icon_path") as mock_get:
@@ -439,9 +411,7 @@ class TestTrayIconGeneratorCreateOverlay:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         result = generator._create_overlay("protected")
 
@@ -459,9 +429,7 @@ class TestTrayIconGeneratorCreateOverlay:
         base_icon = tmp_path / "base.png"
         base_icon.write_bytes(b"fake png data")
 
-        generator = tray_icons.TrayIconGenerator(
-            str(base_icon), str(tmp_path / "cache")
-        )
+        generator = tray_icons.TrayIconGenerator(str(base_icon), str(tmp_path / "cache"))
 
         statuses = ["protected", "scanning", "warning", "threat"]
         for status in statuses:
@@ -484,9 +452,7 @@ class TestIsAvailable:
 
         assert isinstance(result, bool)
 
-    def test_is_available_false_when_pil_unavailable(
-        self, monkeypatch, mock_pil_modules
-    ):
+    def test_is_available_false_when_pil_unavailable(self, monkeypatch, mock_pil_modules):
         """Test is_available returns False when PIL is not available."""
         from src.ui import tray_icons
 

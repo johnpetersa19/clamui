@@ -287,9 +287,7 @@ class NotificationManager:
             True if notification was sent successfully, False otherwise
         """
         if self._app is None:
-            logger.debug(
-                "Cannot send notification '%s': no app reference", notification_id
-            )
+            logger.debug("Cannot send notification '%s': no app reference", notification_id)
             return False
 
         try:

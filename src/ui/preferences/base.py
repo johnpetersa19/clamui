@@ -16,26 +16,34 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk
 
+from ..compat import (
+    create_entry_row,
+    create_toolbar_view,
+    safe_set_subtitle_selectable,
+)
 from ..utils import resolve_icon_name
 
 
-def create_password_entry_row(title: str) -> Adw.EntryRow:
+def create_password_entry_row(title: str) -> Adw.ActionRow:
     """
     Create a password entry row compatible with libadwaita 1.0+.
 
-    Replaces Adw.PasswordEntryRow (1.2+) with Adw.EntryRow configured
+    Replaces Adw.PasswordEntryRow (1.2+) with an ActionRow configured
     for password input with visibility toggle button.
 
     Args:
         title: The title/label for the entry row
 
     Returns:
-        Configured Adw.EntryRow with password functionality
+        Configured Adw.ActionRow with password functionality
     """
-    row = Adw.EntryRow()
+    row = create_entry_row()
     row.set_title(title)
     row.set_input_purpose(Gtk.InputPurpose.PASSWORD)
     row.set_show_apply_button(False)
+
+    # Get the underlying entry widget
+    entry = row._compat_entry
 
     # Add visibility toggle button as suffix
     toggle_button = Gtk.ToggleButton()
@@ -46,13 +54,8 @@ def create_password_entry_row(title: str) -> Adw.EntryRow:
 
     def on_toggle(btn):
         visible = btn.get_active()
-        # EntryRow uses GtkText internally, access via editable delegate
-        editable = row.get_delegate()
-        if editable and hasattr(editable, "set_visibility"):
-            editable.set_visibility(visible)
-        btn.set_icon_name(
-            "view-reveal-symbolic" if visible else "view-conceal-symbolic"
-        )
+        entry.set_visibility(visible)
+        btn.set_icon_name("view-reveal-symbolic" if visible else "view-conceal-symbolic")
         btn.set_tooltip_text("Hide password" if visible else "Show password")
 
     toggle_button.connect("toggled", on_toggle)
@@ -60,9 +63,7 @@ def create_password_entry_row(title: str) -> Adw.EntryRow:
 
     # Start with text hidden (after widget is realized)
     def hide_text():
-        editable = row.get_delegate()
-        if editable and hasattr(editable, "set_visibility"):
-            editable.set_visibility(False)
+        entry.set_visibility(False)
         return False  # Don't repeat
 
     GLib.idle_add(hide_text)
@@ -119,9 +120,7 @@ def create_spin_row(
     return row, spin_button
 
 
-def populate_bool_field(
-    config, widgets_dict: dict, key: str, default: bool = False
-) -> None:
+def populate_bool_field(config, widgets_dict: dict, key: str, default: bool = False) -> None:
     """
     Populate a boolean switch widget from config.
 
@@ -169,9 +168,7 @@ def populate_text_field(config, widgets_dict: dict, key: str) -> None:
         widgets_dict[key].set_text(config.get_value(key))
 
 
-def populate_multivalue_field(
-    config, widgets_dict: dict, key: str, separator: str = ", "
-) -> None:
+def populate_multivalue_field(config, widgets_dict: dict, key: str, separator: str = ", ") -> None:
     """
     Populate a text entry widget with comma-separated values from config.
 
@@ -219,9 +216,7 @@ class PreferencesPageMixin:
 
         # Create lock icon - using system-lock-screen-symbolic
         # Alternative: changes-allow-symbolic for a shield-style icon
-        lock_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("system-lock-screen-symbolic")
-        )
+        lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-lock-screen-symbolic"))
         lock_icon.add_css_class("dim-label")
         lock_icon.set_tooltip_text("Requires administrator privileges to modify")
 
@@ -251,9 +246,7 @@ class PreferencesPageMixin:
             )
         except Exception as e:
             # Show error dialog if opening fails
-            self._show_simple_dialog(
-                "Error Opening Folder", f"Could not open folder: {str(e)}"
-            )
+            self._show_simple_dialog("Error Opening Folder", f"Could not open folder: {str(e)}")
 
     def _show_simple_dialog(self, title: str, message: str):
         """
@@ -273,7 +266,7 @@ class PreferencesPageMixin:
         dialog.set_transient_for(self)
 
         # Create content
-        toolbar_view = Adw.ToolbarView()
+        toolbar_view = create_toolbar_view()
         header_bar = Adw.HeaderBar()
         toolbar_view.add_top_bar(header_bar)
 
@@ -349,12 +342,10 @@ class PreferencesPageMixin:
         path_row = Adw.ActionRow()
         path_row.set_title("File Location")
         path_row.set_subtitle(file_path)
-        path_row.set_subtitle_selectable(True)
+        safe_set_subtitle_selectable(path_row, True)
 
         # Add folder icon as prefix
-        folder_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("folder-open-symbolic")
-        )
+        folder_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("folder-open-symbolic"))
         folder_icon.set_margin_start(6)
         path_row.add_prefix(folder_icon)
 

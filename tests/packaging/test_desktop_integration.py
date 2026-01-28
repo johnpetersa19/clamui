@@ -64,15 +64,12 @@ class TestDesktopFileSyntax:
 
         assert "Categories=" in content, "Missing Categories field"
         # Should have at least one of: Utility, Security, GTK
-        assert any(
-            cat in content for cat in ["Utility", "Security", "GTK"]
-        ), "Missing standard category"
+        assert any(cat in content for cat in ["Utility", "Security", "GTK"]), (
+            "Missing standard category"
+        )
 
     @pytest.mark.skipif(
-        subprocess.run(
-            ["which", "desktop-file-validate"], capture_output=True
-        ).returncode
-        != 0,
+        subprocess.run(["which", "desktop-file-validate"], capture_output=True).returncode != 0,
         reason="desktop-file-validate not available",
     )
     def test_desktop_file_validates(self):
@@ -105,9 +102,9 @@ class TestExecPath:
         content = desktop.read_text()
 
         # Check for %U or %F for file handling
-        assert (
-            "%U" in content or "%F" in content or "Exec=clamui\n" in content
-        ), "Exec should handle file arguments or be simple"
+        assert "%U" in content or "%F" in content or "Exec=clamui\n" in content, (
+            "Exec should handle file arguments or be simple"
+        )
 
 
 class TestIconFiles:
@@ -140,18 +137,16 @@ class TestIconFiles:
         assert len(icon_line) == 1, "Should have exactly one Icon= line"
 
         icon_name = icon_line[0].replace("Icon=", "").strip()
-        assert (
-            icon_name == "io.github.linx_systems.ClamUI"
-        ), f"Icon name mismatch: {icon_name}"
+        assert icon_name == "io.github.linx_systems.ClamUI", f"Icon name mismatch: {icon_name}"
 
     def test_svg_icon_is_valid_svg(self):
         """Test SVG icon is valid XML."""
         svg_icon = PROJECT_ROOT / "icons" / "io.github.linx_systems.ClamUI.svg"
         content = svg_icon.read_text()
 
-        assert content.startswith("<?xml") or content.startswith(
-            "<svg"
-        ), "SVG should start with XML declaration or svg tag"
+        assert content.startswith("<?xml") or content.startswith("<svg"), (
+            "SVG should start with XML declaration or svg tag"
+        )
         assert "</svg>" in content, "SVG should have closing svg tag"
 
 
@@ -161,9 +156,7 @@ class TestDesktopFileConsistency:
     def test_root_and_flathub_desktop_match(self):
         """Test root and flathub desktop files are consistent."""
         root_desktop = PROJECT_ROOT / "io.github.linx_systems.ClamUI.desktop"
-        flathub_desktop = (
-            PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.desktop"
-        )
+        flathub_desktop = PROJECT_ROOT / "flathub" / "io.github.linx_systems.ClamUI.desktop"
 
         root_content = root_desktop.read_text()
         flathub_content = flathub_desktop.read_text()
@@ -176,13 +169,13 @@ class TestDesktopFileConsistency:
             return None
 
         # Name and Icon should match
-        assert parse_field(root_content, "Name") == parse_field(
-            flathub_content, "Name"
-        ), "Name should match between desktop files"
+        assert parse_field(root_content, "Name") == parse_field(flathub_content, "Name"), (
+            "Name should match between desktop files"
+        )
 
-        assert parse_field(root_content, "Icon") == parse_field(
-            flathub_content, "Icon"
-        ), "Icon should match between desktop files"
+        assert parse_field(root_content, "Icon") == parse_field(flathub_content, "Icon"), (
+            "Icon should match between desktop files"
+        )
 
 
 class TestVirusTotalDesktop:
