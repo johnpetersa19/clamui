@@ -20,7 +20,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 
-def create_entry_row() -> Adw.ActionRow:
+def create_entry_row(icon_name: str | None = None) -> Adw.ActionRow:
     """
     Create an entry row compatible with libadwaita 1.0+.
 
@@ -30,10 +30,23 @@ def create_entry_row() -> Adw.ActionRow:
     set_show_apply_button, get_delegate, connect (redirects "changed"
     and "entry-activated" signals).
 
+    Args:
+        icon_name: Optional prefix icon name (styled with 12px margin, dim-label)
+
     Returns:
         Adw.ActionRow with entry-row-compatible API
     """
     row = Adw.ActionRow()
+
+    # Add optional prefix icon with GNOME Settings styling
+    if icon_name:
+        from .utils import resolve_icon_name
+
+        icon = Gtk.Image.new_from_icon_name(resolve_icon_name(icon_name))
+        icon.set_margin_start(12)
+        icon.add_css_class("dim-label")
+        row.add_prefix(icon)
+
     entry = Gtk.Entry()
     entry.set_valign(Gtk.Align.CENTER)
     entry.set_hexpand(True)
@@ -65,7 +78,7 @@ def create_entry_row() -> Adw.ActionRow:
     return row
 
 
-def create_switch_row() -> Adw.ActionRow:
+def create_switch_row(icon_name: str | None = None) -> Adw.ActionRow:
     """
     Create a switch row compatible with libadwaita 1.0+.
 
@@ -74,10 +87,23 @@ def create_switch_row() -> Adw.ActionRow:
     Patched methods: set_active, get_active, connect (redirects
     "notify::active" signal).
 
+    Args:
+        icon_name: Optional prefix icon name (styled with 12px margin, dim-label)
+
     Returns:
         Adw.ActionRow with switch-row-compatible API
     """
     row = Adw.ActionRow()
+
+    # Add optional prefix icon with GNOME Settings styling
+    if icon_name:
+        from .utils import resolve_icon_name
+
+        icon = Gtk.Image.new_from_icon_name(resolve_icon_name(icon_name))
+        icon.set_margin_start(12)
+        icon.add_css_class("dim-label")
+        row.add_prefix(icon)
+
     switch = Gtk.Switch()
     switch.set_valign(Gtk.Align.CENTER)
     row.add_suffix(switch)

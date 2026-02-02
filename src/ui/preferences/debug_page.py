@@ -23,7 +23,7 @@ from ...core.logging_config import get_logging_config
 from ...core.sanitize import sanitize_path_for_logging
 from ..compat import create_toolbar_view
 from ..utils import resolve_icon_name
-from .base import PreferencesPageMixin
+from .base import PreferencesPageMixin, styled_prefix_icon
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +113,7 @@ class DebugPage(PreferencesPageMixin):
         self._log_level_row = Adw.ComboRow()
         self._log_level_row.set_title("Log Level")
         self._log_level_row.set_subtitle("Set the verbosity of debug logs")
+        self._log_level_row.add_prefix(styled_prefix_icon("utilities-terminal-symbolic"))
 
         # Create string list model for options
         model = Gtk.StringList()
@@ -140,9 +141,7 @@ class DebugPage(PreferencesPageMixin):
         location_row.set_subtitle(log_path_display)
 
         # Add folder icon as prefix
-        folder_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("folder-open-symbolic"))
-        folder_icon.add_css_class("dim-label")
-        location_row.add_prefix(folder_icon)
+        location_row.add_prefix(styled_prefix_icon("folder-open-symbolic"))
 
         # Add "Open Folder" button as suffix
         open_button = Gtk.Button()
@@ -174,9 +173,7 @@ class DebugPage(PreferencesPageMixin):
         self._update_log_size_display()
 
         # Add size icon as prefix
-        size_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("drive-harddisk-symbolic"))
-        size_icon.add_css_class("dim-label")
-        self._log_size_row.add_prefix(size_icon)
+        self._log_size_row.add_prefix(styled_prefix_icon("drive-harddisk-symbolic"))
 
         # Add refresh button
         refresh_button = Gtk.Button()
@@ -195,9 +192,7 @@ class DebugPage(PreferencesPageMixin):
         export_row.set_subtitle("Save all log files to a ZIP archive for sharing")
 
         # Add export icon as prefix
-        export_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("document-save-symbolic"))
-        export_icon.add_css_class("dim-label")
-        export_row.add_prefix(export_icon)
+        export_row.add_prefix(styled_prefix_icon("document-save-symbolic"))
 
         # Add export button
         self._export_button = Gtk.Button()
@@ -216,9 +211,7 @@ class DebugPage(PreferencesPageMixin):
         clear_row.set_subtitle("Delete all log files to free disk space")
 
         # Add clear icon as prefix
-        clear_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("user-trash-symbolic"))
-        clear_icon.add_css_class("dim-label")
-        clear_row.add_prefix(clear_icon)
+        clear_row.add_prefix(styled_prefix_icon("user-trash-symbolic"))
 
         # Add clear button
         self._clear_button = Gtk.Button()
@@ -250,9 +243,7 @@ class DebugPage(PreferencesPageMixin):
         install_row.set_subtitle(self._get_installation_type())
 
         # Add package icon as prefix
-        package_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("package-x-generic-symbolic"))
-        package_icon.add_css_class("dim-label")
-        install_row.add_prefix(package_icon)
+        install_row.add_prefix(styled_prefix_icon("package-x-generic-symbolic"))
 
         group.add(install_row)
 
@@ -262,9 +253,7 @@ class DebugPage(PreferencesPageMixin):
         distro_row.set_subtitle(self._get_distro_info())
 
         # Add computer icon as prefix
-        distro_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("computer-symbolic"))
-        distro_icon.add_css_class("dim-label")
-        distro_row.add_prefix(distro_icon)
+        distro_row.add_prefix(styled_prefix_icon("computer-symbolic"))
 
         group.add(distro_row)
 
@@ -274,11 +263,7 @@ class DebugPage(PreferencesPageMixin):
         desktop_row.set_subtitle(self._get_desktop_environment())
 
         # Add preferences icon as prefix
-        desktop_icon = Gtk.Image.new_from_icon_name(
-            resolve_icon_name("preferences-desktop-symbolic")
-        )
-        desktop_icon.add_css_class("dim-label")
-        desktop_row.add_prefix(desktop_icon)
+        desktop_row.add_prefix(styled_prefix_icon("preferences-desktop-symbolic"))
 
         group.add(desktop_row)
 
@@ -288,9 +273,7 @@ class DebugPage(PreferencesPageMixin):
         python_row.set_subtitle(platform.python_version())
 
         # Add code icon as prefix
-        python_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("text-x-script-symbolic"))
-        python_icon.add_css_class("dim-label")
-        python_row.add_prefix(python_icon)
+        python_row.add_prefix(styled_prefix_icon("text-x-script-symbolic"))
 
         group.add(python_row)
 
@@ -300,9 +283,7 @@ class DebugPage(PreferencesPageMixin):
         gtk_row.set_subtitle(self._get_gtk_version())
 
         # Add application icon as prefix
-        gtk_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("applications-graphics-symbolic"))
-        gtk_icon.add_css_class("dim-label")
-        gtk_row.add_prefix(gtk_icon)
+        gtk_row.add_prefix(styled_prefix_icon("applications-graphics-symbolic"))
 
         group.add(gtk_row)
 
@@ -312,9 +293,7 @@ class DebugPage(PreferencesPageMixin):
         copy_row.set_subtitle("Copy all system information to clipboard")
 
         # Add copy icon as prefix
-        copy_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("edit-copy-symbolic"))
-        copy_icon.add_css_class("dim-label")
-        copy_row.add_prefix(copy_icon)
+        copy_row.add_prefix(styled_prefix_icon("edit-copy-symbolic"))
 
         # Add copy button
         copy_button = Gtk.Button()

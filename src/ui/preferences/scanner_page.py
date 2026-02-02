@@ -6,9 +6,12 @@ This module provides the ScannerPage class which handles the UI and logic
 for configuring ClamAV scanner settings and scan backend selection.
 """
 
+import logging
 from pathlib import Path
 
 import gi
+
+logger = logging.getLogger(__name__)
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -16,12 +19,17 @@ from gi.repository import Adw, Gtk
 
 from ...core.flatpak import is_flatpak
 from ..compat import create_entry_row, create_switch_row, create_toolbar_view
-from ..utils import add_row_icon, resolve_icon_name
+from ..utils import resolve_icon_name
 from .base import (
     PreferencesPageMixin,
+    create_navigation_row,
+    create_spin_row,
+    create_status_row,
     populate_bool_field,
     populate_int_field,
     populate_text_field,
+    styled_prefix_icon,
+    update_status_row,
 )
 
 
@@ -167,22 +175,15 @@ class ScannerPage(PreferencesPageMixin):
         group.add(backend_row)
 
         # Daemon status indicator
-        status_row = Adw.ActionRow()
-        status_row.set_title("Daemon Status")
-
-        # Check daemon connection
         is_connected, message = check_clamd_connection()
-        if is_connected:
-            status_row.set_subtitle("✓ Daemon available")
-            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
-            status_icon.add_css_class("success")
-        else:
-            status_row.set_subtitle(f"⚠ Not available: {message}")
-            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
-            status_icon.add_css_class("warning")
-
-        status_row.add_suffix(status_icon)
+        status_row, status_icon = create_status_row(
+            title="Daemon Status",
+            status_ok=is_connected,
+            ok_message="Daemon available",
+            error_message=f"Not available: {message}",
+        )
         widgets_dict["daemon_status_row"] = status_row
+        widgets_dict["daemon_status_icon"] = status_icon
         group.add(status_row)
 
         # Refresh button
@@ -192,25 +193,23 @@ class ScannerPage(PreferencesPageMixin):
         refresh_button.add_css_class("flat")
         refresh_button.connect(
             "clicked",
-            lambda btn: ScannerPage._on_refresh_daemon_status(widgets_dict["daemon_status_row"]),
+            lambda btn: ScannerPage._on_refresh_daemon_status(
+                widgets_dict["daemon_status_row"],
+                widgets_dict["daemon_status_icon"],
+            ),
         )
         status_row.add_suffix(refresh_button)
 
         # Learn more row - links to documentation
-        learn_more_row = Adw.ActionRow()
-        learn_more_row.set_title("Documentation")
-        learn_more_row.set_subtitle("About scan backends")
-        add_row_icon(learn_more_row, "help-about-symbolic")
-        learn_more_row.set_activatable(True)
+        learn_more_row = create_navigation_row(
+            title="Documentation",
+            subtitle="About scan backends",
+            icon_name="help-about-symbolic",
+        )
         learn_more_row.connect(
             "activated",
             lambda row: ScannerPage._on_learn_more_clicked(helper._parent_window),
         )
-
-        # Add chevron to indicate it's clickable
-        chevron = Gtk.Image.new_from_icon_name(resolve_icon_name("go-next-symbolic"))
-        chevron.add_css_class("dim-label")
-        learn_more_row.add_suffix(chevron)
 
         group.add(learn_more_row)
 
@@ -252,35 +251,26 @@ class ScannerPage(PreferencesPageMixin):
         ScannerPage._update_backend_subtitle(row, selected)
 
     @staticmethod
-    def _on_refresh_daemon_status(status_row: Adw.ActionRow):
+    def _on_refresh_daemon_status(status_row: Adw.ActionRow, status_icon: Gtk.Image):
         """
         Refresh the daemon connection status.
 
         Args:
             status_row: The ActionRow displaying daemon status
+            status_icon: The status icon widget to update
         """
         from ...core.utils import check_clamd_connection
 
         is_connected, message = check_clamd_connection()
 
-        # Update status row
-        if is_connected:
-            status_row.set_subtitle("✓ Daemon available")
-            # Update icon
-            for child in list(status_row):
-                if isinstance(child, Gtk.Image):
-                    child.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
-                    child.remove_css_class("warning")
-                    child.add_css_class("success")
-                    break
-        else:
-            status_row.set_subtitle(f"⚠ Not available: {message}")
-            for child in list(status_row):
-                if isinstance(child, Gtk.Image):
-                    child.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
-                    child.remove_css_class("success")
-                    child.add_css_class("warning")
-                    break
+        # Update status row using helper
+        update_status_row(
+            row=status_row,
+            status_icon=status_icon,
+            status_ok=is_connected,
+            ok_message="Daemon available",
+            error_message=f"Not available: {message}",
+        )
 
     @staticmethod
     def _on_learn_more_clicked(parent_window):
@@ -402,42 +392,42 @@ class ScannerPage(PreferencesPageMixin):
         group.set_header_suffix(helper._create_permission_indicator())
 
         # ScanPE switch
-        scan_pe_row = create_switch_row()
+        scan_pe_row = create_switch_row("application-x-executable-symbolic")
         scan_pe_row.set_title("Scan PE Files")
         scan_pe_row.set_subtitle("Scan Windows/DOS executable files")
         widgets_dict["ScanPE"] = scan_pe_row
         group.add(scan_pe_row)
 
         # ScanELF switch
-        scan_elf_row = create_switch_row()
+        scan_elf_row = create_switch_row("application-x-executable-symbolic")
         scan_elf_row.set_title("Scan ELF Files")
         scan_elf_row.set_subtitle("Scan Unix/Linux executable files")
         widgets_dict["ScanELF"] = scan_elf_row
         group.add(scan_elf_row)
 
         # ScanOLE2 switch
-        scan_ole2_row = create_switch_row()
+        scan_ole2_row = create_switch_row("x-office-document-symbolic")
         scan_ole2_row.set_title("Scan OLE2 Files")
         scan_ole2_row.set_subtitle("Scan Microsoft Office documents")
         widgets_dict["ScanOLE2"] = scan_ole2_row
         group.add(scan_ole2_row)
 
         # ScanPDF switch
-        scan_pdf_row = create_switch_row()
+        scan_pdf_row = create_switch_row("x-office-document-symbolic")
         scan_pdf_row.set_title("Scan PDF Files")
         scan_pdf_row.set_subtitle("Scan PDF documents")
         widgets_dict["ScanPDF"] = scan_pdf_row
         group.add(scan_pdf_row)
 
         # ScanHTML switch
-        scan_html_row = create_switch_row()
+        scan_html_row = create_switch_row("text-html-symbolic")
         scan_html_row.set_title("Scan HTML Files")
         scan_html_row.set_subtitle("Scan HTML documents")
         widgets_dict["ScanHTML"] = scan_html_row
         group.add(scan_html_row)
 
         # ScanArchive switch
-        scan_archive_row = create_switch_row()
+        scan_archive_row = create_switch_row("package-x-generic-symbolic")
         scan_archive_row.set_title("Scan Archive Files")
         scan_archive_row.set_subtitle("Scan compressed archives (ZIP, RAR, etc.)")
         widgets_dict["ScanArchive"] = scan_archive_row
@@ -466,9 +456,6 @@ class ScannerPage(PreferencesPageMixin):
         group.set_description("Configure scanning limits and performance settings")
         group.set_header_suffix(helper._create_permission_indicator())
 
-        # Using compatible helper for libadwaita 1.0+
-        from .base import create_spin_row
-
         # MaxFileSize spin row (in MB, 0-4000)
         max_file_size_row, max_file_size_spin = create_spin_row(
             title="Max File Size (MB)",
@@ -477,6 +464,7 @@ class ScannerPage(PreferencesPageMixin):
             max_val=4000,
             step=1,
         )
+        max_file_size_row.add_prefix(styled_prefix_icon("drive-harddisk-symbolic"))
         widgets_dict["MaxFileSize"] = max_file_size_spin
         group.add(max_file_size_row)
 
@@ -488,6 +476,7 @@ class ScannerPage(PreferencesPageMixin):
             max_val=4000,
             step=1,
         )
+        max_scan_size_row.add_prefix(styled_prefix_icon("drive-harddisk-symbolic"))
         widgets_dict["MaxScanSize"] = max_scan_size_spin
         group.add(max_scan_size_row)
 
@@ -499,6 +488,7 @@ class ScannerPage(PreferencesPageMixin):
             max_val=255,
             step=1,
         )
+        max_recursion_row.add_prefix(styled_prefix_icon("folder-symbolic"))
         widgets_dict["MaxRecursion"] = max_recursion_spin
         group.add(max_recursion_row)
 
@@ -510,6 +500,7 @@ class ScannerPage(PreferencesPageMixin):
             max_val=1000000,
             step=1,
         )
+        max_files_row.add_prefix(styled_prefix_icon("document-open-symbolic"))
         widgets_dict["MaxFiles"] = max_files_spin
         group.add(max_files_row)
 
@@ -536,26 +527,22 @@ class ScannerPage(PreferencesPageMixin):
         group.set_header_suffix(helper._create_permission_indicator())
 
         # LogFile entry row
-        log_file_row = create_entry_row()
+        log_file_row = create_entry_row("text-x-generic-symbolic")
         log_file_row.set_title("Log File Path")
         log_file_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         log_file_row.set_show_apply_button(False)
-        # Add document icon as prefix
-        log_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("text-x-generic-symbolic"))
-        log_icon.set_margin_start(6)
-        log_file_row.add_prefix(log_icon)
         widgets_dict["LogFile"] = log_file_row
         group.add(log_file_row)
 
         # LogVerbose switch
-        log_verbose_row = create_switch_row()
+        log_verbose_row = create_switch_row("utilities-terminal-symbolic")
         log_verbose_row.set_title("Verbose Logging")
         log_verbose_row.set_subtitle("Enable detailed scanner logging")
         widgets_dict["LogVerbose"] = log_verbose_row
         group.add(log_verbose_row)
 
         # LogSyslog switch
-        log_syslog_row = create_switch_row()
+        log_syslog_row = create_switch_row("utilities-terminal-symbolic")
         log_syslog_row.set_title("Syslog Logging")
         log_syslog_row.set_subtitle("Send log messages to system log")
         widgets_dict["LogSyslog"] = log_syslog_row

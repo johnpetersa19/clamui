@@ -6,7 +6,11 @@ This module provides the BehaviorPage class which handles the UI and logic
 for managing window behavior settings like close behavior and tray integration.
 """
 
+import logging
+
 import gi
+
+logger = logging.getLogger(__name__)
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -14,7 +18,7 @@ from gi.repository import Adw, Gtk
 
 from ...core.flatpak import is_flatpak
 from ..utils import resolve_icon_name
-from .base import PreferencesPageMixin
+from .base import PreferencesPageMixin, create_navigation_row, styled_prefix_icon
 
 
 class BehaviorPage(PreferencesPageMixin):
@@ -104,6 +108,7 @@ class BehaviorPage(PreferencesPageMixin):
         self._close_behavior_row = Adw.ComboRow()
         self._close_behavior_row.set_title("When closing window")
         self._close_behavior_row.set_subtitle("Choose what happens when you close the main window")
+        self._close_behavior_row.add_prefix(styled_prefix_icon("window-close-symbolic"))
 
         # Create string list model for options
         model = Gtk.StringList()
@@ -136,21 +141,12 @@ class BehaviorPage(PreferencesPageMixin):
             "Add context menu actions to scan files directly from your file manager"
         )
 
-        row = Adw.ActionRow()
-        row.set_title("Configure Integration")
-        row.set_subtitle("Install or manage 'Scan with ClamUI' menu actions")
-        row.set_activatable(True)
+        row = create_navigation_row(
+            title="Configure Integration",
+            subtitle="Install or manage 'Scan with ClamUI' menu actions",
+            icon_name="system-file-manager-symbolic",
+        )
         row.connect("activated", self._on_file_manager_integration_clicked)
-
-        # Icon prefix
-        icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-file-manager-symbolic"))
-        icon.add_css_class("dim-label")
-        row.add_prefix(icon)
-
-        # Chevron suffix
-        chevron = Gtk.Image.new_from_icon_name(resolve_icon_name("go-next-symbolic"))
-        chevron.add_css_class("dim-label")
-        row.add_suffix(chevron)
 
         group.add(row)
         return group

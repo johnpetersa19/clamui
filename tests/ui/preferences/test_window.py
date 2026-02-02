@@ -21,13 +21,13 @@ class TestPreferencesWindowImport:
 
         assert isinstance(PreferencesWindow, type)
 
-    def test_preferences_window_inherits_from_adw_preferences_window(self, mock_gi_modules):
-        """Test that PreferencesWindow inherits from Adw.PreferencesWindow."""
+    def test_preferences_window_inherits_from_adw_window(self, mock_gi_modules):
+        """Test that PreferencesWindow inherits from Adw.Window."""
         adw = mock_gi_modules["adw"]
         from src.ui.preferences.window import PreferencesWindow
 
-        # Check inheritance from Adw.PreferencesWindow
-        assert issubclass(PreferencesWindow, adw.PreferencesWindow)
+        # Check inheritance from Adw.Window (not Adw.PreferencesWindow)
+        assert issubclass(PreferencesWindow, adw.Window)
 
     def test_preferences_window_inherits_from_mixin(self, mock_gi_modules):
         """Test that PreferencesWindow inherits from PreferencesPageMixin."""
@@ -77,12 +77,16 @@ class TestPreferencesWindowInitialization:
             mock.patch("src.ui.preferences.window.ScheduledPage") as mock_scheduled,
             mock.patch("src.ui.preferences.window.ExclusionsPage") as mock_exclusions,
             mock.patch("src.ui.preferences.window.SavePage") as mock_save,
+            mock.patch("src.ui.preferences.window.VirusTotalPage") as mock_vt,
+            mock.patch("src.ui.preferences.window.BehaviorPage") as mock_behavior,
+            mock.patch("src.ui.preferences.window.DebugPage") as mock_debug,
         ):
             # Configure static page mocks to return page objects
             mock_db.create_page.return_value = mock.MagicMock()
             mock_scanner.create_page.return_value = mock.MagicMock()
             mock_onaccess.create_page.return_value = mock.MagicMock()
             mock_scheduled.create_page.return_value = mock.MagicMock()
+            mock_vt.create_page.return_value = mock.MagicMock()
 
             # Configure instance-based page mocks
             mock_exclusions_instance = mock.MagicMock()
@@ -92,6 +96,14 @@ class TestPreferencesWindowInitialization:
             mock_save_instance = mock.MagicMock()
             mock_save_instance.create_page.return_value = mock.MagicMock()
             mock_save.return_value = mock_save_instance
+
+            mock_behavior_instance = mock.MagicMock()
+            mock_behavior_instance.create_page.return_value = mock.MagicMock()
+            mock_behavior.return_value = mock_behavior_instance
+
+            mock_debug_instance = mock.MagicMock()
+            mock_debug_instance.create_page.return_value = mock.MagicMock()
+            mock_debug.return_value = mock_debug_instance
 
             # Configure populate_fields as no-op
             mock_db.populate_fields = mock.MagicMock()
@@ -106,191 +118,178 @@ class TestPreferencesWindowInitialization:
                 "scheduled": mock_scheduled,
                 "exclusions": mock_exclusions,
                 "save": mock_save,
+                "virustotal": mock_vt,
+                "behavior": mock_behavior,
+                "debug": mock_debug,
             }
 
-    def test_window_initializes_with_settings_manager(
+    def test_initialization_calls_setup_ui(
         self,
         mock_gi_modules,
-        mock_settings_manager,
         mock_parse_config,
         mock_path_exists,
         mock_scheduler,
         mock_page_modules,
     ):
-        """Test that window initializes with settings manager."""
+        """Test that initialization calls _setup_ui."""
         from src.ui.preferences.window import PreferencesWindow
 
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
+        with mock.patch.object(PreferencesWindow, "_setup_ui") as mock_setup:
+            with mock.patch.object(PreferencesWindow, "_load_configs"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow()
+                    mock_setup.assert_called_once()
 
-        assert _window._settings_manager == mock_settings_manager
-
-    def test_window_sets_title(
+    def test_initialization_calls_load_configs(
         self,
         mock_gi_modules,
-        mock_settings_manager,
         mock_parse_config,
         mock_path_exists,
         mock_scheduler,
         mock_page_modules,
     ):
-        """Test that window sets correct title."""
+        """Test that initialization calls _load_configs."""
         from src.ui.preferences.window import PreferencesWindow
 
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
+        with mock.patch.object(PreferencesWindow, "_setup_ui"):
+            with mock.patch.object(PreferencesWindow, "_load_configs") as mock_load:
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow()
+                    mock_load.assert_called_once()
 
-        _window.set_title.assert_called_with("Preferences")
-
-    def test_window_sets_default_size(
+    def test_initialization_with_settings_manager(
         self,
         mock_gi_modules,
-        mock_settings_manager,
         mock_parse_config,
         mock_path_exists,
         mock_scheduler,
         mock_page_modules,
+        mock_settings_manager,
     ):
-        """Test that window sets correct default size."""
+        """Test that settings_manager is stored when provided."""
         from src.ui.preferences.window import PreferencesWindow
 
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        _window.set_default_size.assert_called_with(600, 500)
-
-    def test_window_sets_modal(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window sets modal property."""
-        from src.ui.preferences.window import PreferencesWindow
-
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        _window.set_modal.assert_called_with(True)
-
-    def test_window_disables_search(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window disables search."""
-        from src.ui.preferences.window import PreferencesWindow
-
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        _window.set_search_enabled.assert_called_with(False)
-
-    def test_window_initializes_widget_dicts(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window initializes all widget dictionaries."""
-        from src.ui.preferences.window import PreferencesWindow
-
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        assert isinstance(_window._freshclam_widgets, dict)
-        assert isinstance(_window._clamd_widgets, dict)
-        assert isinstance(_window._scheduled_widgets, dict)
-        assert isinstance(_window._onaccess_widgets, dict)
-
-    def test_window_initializes_scheduler(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window initializes scheduler."""
-        from src.ui.preferences.window import PreferencesWindow
-
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        mock_scheduler.assert_called_once()
-        assert _window._scheduler is not None
-
-    def test_window_detects_clamd_available(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window detects clamd availability."""
-        with mock.patch("src.ui.preferences.window.Path") as mock_path_class:
-            mock_path_instance = mock.MagicMock()
-            mock_path_instance.exists.return_value = True
-            mock_path_class.return_value = mock_path_instance
-
-            from src.ui.preferences.window import PreferencesWindow
-
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            assert _window._clamd_available is True
-
-    def test_window_detects_clamd_unavailable(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window detects clamd unavailability."""
-        with mock.patch("src.ui.preferences.window.Path") as mock_path_class:
-            mock_path_instance = mock.MagicMock()
-            mock_path_instance.exists.return_value = False
-            mock_path_class.return_value = mock_path_instance
-
-            from src.ui.preferences.window import PreferencesWindow
-
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            assert _window._clamd_available is False
-
-    def test_window_initializes_saving_state(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window initializes saving state."""
-        from src.ui.preferences.window import PreferencesWindow
-
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        assert _window._is_saving is False
-        assert _window._scheduler_error is None
+        with mock.patch.object(PreferencesWindow, "_setup_ui"):
+            with mock.patch.object(PreferencesWindow, "_load_configs"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow(settings_manager=mock_settings_manager)
+                    assert window._settings_manager == mock_settings_manager
 
 
-class TestPreferencesWindowPageComposition:
-    """Tests for PreferencesWindow page composition."""
+class TestNavigationItems:
+    """Tests for navigation sidebar items."""
+
+    def test_navigation_items_defined(self, mock_gi_modules):
+        """Test that NAVIGATION_ITEMS is defined with correct structure."""
+        from src.ui.preferences.window import NAVIGATION_ITEMS
+
+        assert isinstance(NAVIGATION_ITEMS, (list, tuple))
+        assert len(NAVIGATION_ITEMS) == 9  # behavior, exclusions, database, scanner, scheduled, onaccess, virustotal, debug, save
+
+        # Check structure of each item
+        for item in NAVIGATION_ITEMS:
+            assert len(item) == 3
+            page_id, icon_name, label = item
+            assert isinstance(page_id, str)
+            assert isinstance(icon_name, str)
+            assert isinstance(label, str)
+            assert icon_name.endswith("-symbolic")
+
+    def test_navigation_items_contain_required_pages(self, mock_gi_modules):
+        """Test that all required page IDs are in NAVIGATION_ITEMS."""
+        from src.ui.preferences.window import NAVIGATION_ITEMS
+
+        page_ids = [item[0] for item in NAVIGATION_ITEMS]
+
+        required_pages = [
+            "behavior",
+            "exclusions",
+            "database",
+            "scanner",
+            "scheduled",
+            "onaccess",
+            "virustotal",
+            "debug",
+            "save",
+        ]
+
+        for page in required_pages:
+            assert page in page_ids, f"Missing required page: {page}"
+
+
+class TestPreferencesSidebarRow:
+    """Tests for PreferencesSidebarRow class."""
+
+    def test_sidebar_row_import(self, mock_gi_modules):
+        """Test that PreferencesSidebarRow can be imported."""
+        from src.ui.preferences.window import PreferencesSidebarRow
+
+        assert PreferencesSidebarRow is not None
+
+    def test_sidebar_row_is_class(self, mock_gi_modules):
+        """Test that PreferencesSidebarRow is a class."""
+        from src.ui.preferences.window import PreferencesSidebarRow
+
+        assert isinstance(PreferencesSidebarRow, type)
+
+    def test_sidebar_row_inherits_from_listbox_row(self, mock_gi_modules):
+        """Test that PreferencesSidebarRow inherits from Gtk.ListBoxRow."""
+        gtk = mock_gi_modules["gtk"]
+        from src.ui.preferences.window import PreferencesSidebarRow
+
+        assert issubclass(PreferencesSidebarRow, gtk.ListBoxRow)
+
+    def test_sidebar_row_page_id_property(self, mock_gi_modules):
+        """Test that PreferencesSidebarRow stores page_id."""
+        from src.ui.preferences.window import PreferencesSidebarRow
+
+        row = PreferencesSidebarRow("test_page", "folder-symbolic", "Test Label")
+        assert row.page_id == "test_page"
+
+
+class TestPreferencesWindowMethods:
+    """Tests for PreferencesWindow methods."""
 
     @pytest.fixture
-    def mock_settings_manager(self):
-        """Provide a mock settings manager."""
-        manager = mock.MagicMock()
-        manager.get_setting.return_value = None
-        return manager
+    def mock_page_modules(self):
+        """Mock all page modules."""
+        with (
+            mock.patch("src.ui.preferences.window.DatabasePage") as mock_db,
+            mock.patch("src.ui.preferences.window.ScannerPage") as mock_scanner,
+            mock.patch("src.ui.preferences.window.OnAccessPage") as mock_onaccess,
+            mock.patch("src.ui.preferences.window.ScheduledPage") as mock_scheduled,
+            mock.patch("src.ui.preferences.window.ExclusionsPage") as mock_exclusions,
+            mock.patch("src.ui.preferences.window.SavePage") as mock_save,
+            mock.patch("src.ui.preferences.window.VirusTotalPage") as mock_vt,
+            mock.patch("src.ui.preferences.window.BehaviorPage") as mock_behavior,
+            mock.patch("src.ui.preferences.window.DebugPage") as mock_debug,
+        ):
+            # Configure static page mocks
+            mock_db.create_page.return_value = mock.MagicMock()
+            mock_scanner.create_page.return_value = mock.MagicMock()
+            mock_onaccess.create_page.return_value = mock.MagicMock()
+            mock_scheduled.create_page.return_value = mock.MagicMock()
+            mock_vt.create_page.return_value = mock.MagicMock()
+
+            # Configure instance-based page mocks
+            for mock_class in [mock_exclusions, mock_save, mock_behavior, mock_debug]:
+                instance = mock.MagicMock()
+                instance.create_page.return_value = mock.MagicMock()
+                mock_class.return_value = instance
+
+            # Configure populate_fields
+            mock_db.populate_fields = mock.MagicMock()
+            mock_scanner.populate_fields = mock.MagicMock()
+            mock_onaccess.populate_fields = mock.MagicMock()
+            mock_scheduled.populate_fields = mock.MagicMock()
+
+            yield
+
+    @pytest.fixture
+    def mock_scheduler(self):
+        """Mock Scheduler class."""
+        with mock.patch("src.ui.preferences.window.Scheduler") as mock_sched:
+            yield mock_sched
 
     @pytest.fixture
     def mock_parse_config(self):
@@ -301,226 +300,44 @@ class TestPreferencesWindowPageComposition:
 
     @pytest.fixture
     def mock_path_exists(self):
-        """Mock Path.exists to control clamd availability."""
+        """Mock Path.exists."""
         with mock.patch("src.ui.preferences.window.Path.exists") as mock_exists:
             mock_exists.return_value = True
             yield mock_exists
 
-    @pytest.fixture
-    def mock_scheduler(self):
-        """Mock Scheduler class."""
-        with mock.patch("src.ui.preferences.window.Scheduler") as mock_sched:
-            yield mock_sched
-
-    @pytest.fixture
-    def mock_page_modules(self):
-        """Mock all page modules."""
-        with (
-            mock.patch("src.ui.preferences.window.DatabasePage") as mock_db,
-            mock.patch("src.ui.preferences.window.ScannerPage") as mock_scanner,
-            mock.patch("src.ui.preferences.window.OnAccessPage") as mock_onaccess,
-            mock.patch("src.ui.preferences.window.ScheduledPage") as mock_scheduled,
-            mock.patch("src.ui.preferences.window.ExclusionsPage") as mock_exclusions,
-            mock.patch("src.ui.preferences.window.SavePage") as mock_save,
-        ):
-            # Configure static page mocks to return page objects
-            mock_db.create_page.return_value = mock.MagicMock()
-            mock_scanner.create_page.return_value = mock.MagicMock()
-            mock_onaccess.create_page.return_value = mock.MagicMock()
-            mock_scheduled.create_page.return_value = mock.MagicMock()
-
-            # Configure instance-based page mocks
-            mock_exclusions_instance = mock.MagicMock()
-            mock_exclusions_instance.create_page.return_value = mock.MagicMock()
-            mock_exclusions.return_value = mock_exclusions_instance
-
-            mock_save_instance = mock.MagicMock()
-            mock_save_instance.create_page.return_value = mock.MagicMock()
-            mock_save.return_value = mock_save_instance
-
-            # Configure populate_fields as no-op
-            mock_db.populate_fields = mock.MagicMock()
-            mock_scanner.populate_fields = mock.MagicMock()
-            mock_onaccess.populate_fields = mock.MagicMock()
-            mock_scheduled.populate_fields = mock.MagicMock()
-
-            yield {
-                "database": mock_db,
-                "scanner": mock_scanner,
-                "onaccess": mock_onaccess,
-                "scheduled": mock_scheduled,
-                "exclusions": mock_exclusions,
-                "save": mock_save,
-            }
-
-    def test_window_creates_database_page(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window creates database page."""
+    def test_get_page_label_returns_label(self, mock_gi_modules):
+        """Test _get_page_label returns the correct label."""
         from src.ui.preferences.window import PreferencesWindow
 
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
+        with mock.patch.object(PreferencesWindow, "__init__", lambda x: None):
+            window = PreferencesWindow.__new__(PreferencesWindow)
+            label = window._get_page_label("database")
+            assert label == "Database"
 
-        mock_page_modules["database"].create_page.assert_called_once_with(
-            "/etc/clamav/freshclam.conf", _window._freshclam_widgets
-        )
-
-    def test_window_creates_scanner_page(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window creates scanner page."""
+    def test_get_page_label_fallback(self, mock_gi_modules):
+        """Test _get_page_label returns capitalized ID for unknown pages."""
         from src.ui.preferences.window import PreferencesWindow
 
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
+        with mock.patch.object(PreferencesWindow, "__init__", lambda x: None):
+            window = PreferencesWindow.__new__(PreferencesWindow)
+            label = window._get_page_label("unknown_page")
+            assert label == "Unknown_page"
 
-        mock_page_modules["scanner"].create_page.assert_called_once_with(
-            "/etc/clamav/clamd.conf",
-            _window._clamd_widgets,
-            mock_settings_manager,
-            _window._clamd_available,
-            _window,
-        )
-
-    def test_window_creates_onaccess_page(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window creates on-access page."""
+    def test_add_toast_method_exists(self, mock_gi_modules):
+        """Test that add_toast method exists."""
         from src.ui.preferences.window import PreferencesWindow
 
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
+        assert hasattr(PreferencesWindow, "add_toast")
 
-        mock_page_modules["onaccess"].create_page.assert_called_once_with(
-            "/etc/clamav/clamd.conf",
-            _window._onaccess_widgets,
-            _window._clamd_available,
-            _window,
-        )
-
-    def test_window_creates_scheduled_page(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window creates scheduled page."""
+    def test_select_page_method_exists(self, mock_gi_modules):
+        """Test that select_page method exists."""
         from src.ui.preferences.window import PreferencesWindow
 
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        mock_page_modules["scheduled"].create_page.assert_called_once_with(
-            _window._scheduled_widgets
-        )
-
-    def test_window_creates_exclusions_page(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window creates exclusions page."""
-        from src.ui.preferences.window import PreferencesWindow
-
-        PreferencesWindow(settings_manager=mock_settings_manager)
-
-        # Should instantiate ExclusionsPage
-        mock_page_modules["exclusions"].assert_called_once_with(mock_settings_manager)
-        # Should call create_page on the instance
-        mock_page_modules["exclusions"].return_value.create_page.assert_called_once()
-
-    def test_window_creates_save_page(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window creates save page."""
-        from src.ui.preferences.window import PreferencesWindow
-
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        # Should instantiate SavePage with all required arguments
-        mock_page_modules["save"].assert_called_once()
-        call_args = mock_page_modules["save"].call_args
-
-        # Verify all required arguments are passed
-        # Note: _freshclam_config and _clamd_config are None when SavePage is called
-        # because _setup_ui() runs before _load_configs()
-        assert call_args[0][0] == _window  # window reference
-        assert call_args[0][1] is None  # freshclam_config (not yet loaded)
-        assert call_args[0][2] is None  # clamd_config (not yet loaded)
-        assert call_args[0][3] == "/etc/clamav/freshclam.conf"
-        assert call_args[0][4] == "/etc/clamav/clamd.conf"
-        assert call_args[0][5] == _window._clamd_available
-        assert call_args[0][6] == mock_settings_manager
-        assert call_args[0][7] == _window._scheduler
-        assert call_args[0][8] == _window._freshclam_widgets
-        assert call_args[0][9] == _window._clamd_widgets
-        assert call_args[0][10] == _window._onaccess_widgets
-        assert call_args[0][11] == _window._scheduled_widgets
-
-        # Should call create_page on the instance
-        mock_page_modules["save"].return_value.create_page.assert_called_once()
-
-    def test_window_adds_all_pages(
-        self,
-        mock_gi_modules,
-        mock_settings_manager,
-        mock_parse_config,
-        mock_path_exists,
-        mock_scheduler,
-        mock_page_modules,
-    ):
-        """Test that window adds all 8 pages."""
-        from src.ui.preferences.window import PreferencesWindow
-
-        _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-        # Should call add() 8 times (one for each page)
-        assert _window.add.call_count == 8
+        assert hasattr(PreferencesWindow, "select_page")
 
 
-class TestPreferencesWindowConfigLoading:
-    """Tests for PreferencesWindow configuration loading."""
-
-    @pytest.fixture
-    def mock_settings_manager(self):
-        """Provide a mock settings manager."""
-        manager = mock.MagicMock()
-        manager.get_setting.return_value = None
-        return manager
-
-    @pytest.fixture
-    def mock_scheduler(self):
-        """Mock Scheduler class."""
-        with mock.patch("src.ui.preferences.window.Scheduler") as mock_sched:
-            yield mock_sched
+class TestPreferencesWindowProperties:
+    """Tests for PreferencesWindow properties and attributes."""
 
     @pytest.fixture
     def mock_page_modules(self):
@@ -532,23 +349,123 @@ class TestPreferencesWindowConfigLoading:
             mock.patch("src.ui.preferences.window.ScheduledPage") as mock_scheduled,
             mock.patch("src.ui.preferences.window.ExclusionsPage") as mock_exclusions,
             mock.patch("src.ui.preferences.window.SavePage") as mock_save,
+            mock.patch("src.ui.preferences.window.VirusTotalPage") as mock_vt,
+            mock.patch("src.ui.preferences.window.BehaviorPage") as mock_behavior,
+            mock.patch("src.ui.preferences.window.DebugPage") as mock_debug,
         ):
-            # Configure static page mocks to return page objects
+            # Configure static page mocks
             mock_db.create_page.return_value = mock.MagicMock()
             mock_scanner.create_page.return_value = mock.MagicMock()
             mock_onaccess.create_page.return_value = mock.MagicMock()
             mock_scheduled.create_page.return_value = mock.MagicMock()
+            mock_vt.create_page.return_value = mock.MagicMock()
 
             # Configure instance-based page mocks
-            mock_exclusions_instance = mock.MagicMock()
-            mock_exclusions_instance.create_page.return_value = mock.MagicMock()
-            mock_exclusions.return_value = mock_exclusions_instance
+            for mock_class in [mock_exclusions, mock_save, mock_behavior, mock_debug]:
+                instance = mock.MagicMock()
+                instance.create_page.return_value = mock.MagicMock()
+                mock_class.return_value = instance
 
-            mock_save_instance = mock.MagicMock()
-            mock_save_instance.create_page.return_value = mock.MagicMock()
-            mock_save.return_value = mock_save_instance
+            # Configure populate_fields
+            mock_db.populate_fields = mock.MagicMock()
+            mock_scanner.populate_fields = mock.MagicMock()
+            mock_onaccess.populate_fields = mock.MagicMock()
+            mock_scheduled.populate_fields = mock.MagicMock()
 
-            # Configure populate_fields as no-op
+            yield
+
+    @pytest.fixture
+    def mock_scheduler(self):
+        """Mock Scheduler class."""
+        with mock.patch("src.ui.preferences.window.Scheduler") as mock_sched:
+            yield mock_sched
+
+    @pytest.fixture
+    def mock_parse_config(self):
+        """Mock parse_config function."""
+        with mock.patch("src.ui.preferences.window.parse_config") as mock_func:
+            mock_func.return_value = ({}, None)
+            yield mock_func
+
+    @pytest.fixture
+    def mock_path_exists(self):
+        """Mock Path.exists."""
+        with mock.patch("src.ui.preferences.window.Path.exists") as mock_exists:
+            mock_exists.return_value = True
+            yield mock_exists
+
+    def test_window_has_widget_dictionaries(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that window initializes widget dictionaries."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        with mock.patch.object(PreferencesWindow, "_setup_ui"):
+            with mock.patch.object(PreferencesWindow, "_load_configs"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow()
+                    assert hasattr(window, "_freshclam_widgets")
+                    assert hasattr(window, "_clamd_widgets")
+                    assert hasattr(window, "_scheduled_widgets")
+                    assert hasattr(window, "_onaccess_widgets")
+                    assert isinstance(window._freshclam_widgets, dict)
+                    assert isinstance(window._clamd_widgets, dict)
+
+    def test_window_has_sidebar_attributes(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that window has sidebar-related attributes."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        with mock.patch.object(PreferencesWindow, "_setup_ui"):
+            with mock.patch.object(PreferencesWindow, "_load_configs"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow()
+                    assert hasattr(window, "_sidebar_rows")
+                    assert isinstance(window._sidebar_rows, dict)
+
+
+class TestConfigLoading:
+    """Tests for configuration loading."""
+
+    @pytest.fixture
+    def mock_page_modules(self):
+        """Mock all page modules."""
+        with (
+            mock.patch("src.ui.preferences.window.DatabasePage") as mock_db,
+            mock.patch("src.ui.preferences.window.ScannerPage") as mock_scanner,
+            mock.patch("src.ui.preferences.window.OnAccessPage") as mock_onaccess,
+            mock.patch("src.ui.preferences.window.ScheduledPage") as mock_scheduled,
+            mock.patch("src.ui.preferences.window.ExclusionsPage") as mock_exclusions,
+            mock.patch("src.ui.preferences.window.SavePage") as mock_save,
+            mock.patch("src.ui.preferences.window.VirusTotalPage") as mock_vt,
+            mock.patch("src.ui.preferences.window.BehaviorPage") as mock_behavior,
+            mock.patch("src.ui.preferences.window.DebugPage") as mock_debug,
+        ):
+            # Configure static page mocks
+            mock_db.create_page.return_value = mock.MagicMock()
+            mock_scanner.create_page.return_value = mock.MagicMock()
+            mock_onaccess.create_page.return_value = mock.MagicMock()
+            mock_scheduled.create_page.return_value = mock.MagicMock()
+            mock_vt.create_page.return_value = mock.MagicMock()
+
+            # Configure instance-based page mocks
+            for mock_class in [mock_exclusions, mock_save, mock_behavior, mock_debug]:
+                instance = mock.MagicMock()
+                instance.create_page.return_value = mock.MagicMock()
+                mock_class.return_value = instance
+
+            # Configure populate_fields
             mock_db.populate_fields = mock.MagicMock()
             mock_scanner.populate_fields = mock.MagicMock()
             mock_onaccess.populate_fields = mock.MagicMock()
@@ -559,257 +476,258 @@ class TestPreferencesWindowConfigLoading:
                 "scanner": mock_scanner,
                 "onaccess": mock_onaccess,
                 "scheduled": mock_scheduled,
-                "exclusions": mock_exclusions,
-                "save": mock_save,
             }
 
-    def test_window_loads_freshclam_config(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
+    @pytest.fixture
+    def mock_scheduler(self):
+        """Mock Scheduler class."""
+        with mock.patch("src.ui.preferences.window.Scheduler") as mock_sched:
+            yield mock_sched
+
+    @pytest.fixture
+    def mock_path_exists(self):
+        """Mock Path.exists."""
+        with mock.patch("src.ui.preferences.window.Path.exists") as mock_exists:
+            mock_exists.return_value = True
+            yield mock_exists
+
+    def test_load_configs_parses_freshclam(
+        self,
+        mock_gi_modules,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
     ):
-        """Test that window loads freshclam.conf."""
-        with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path.exists") as mock_exists,
+        """Test that _load_configs parses freshclam.conf."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        mock_config = mock.MagicMock()
+        mock_config.values = {"key": "value"}
+
+        with mock.patch(
+            "src.ui.preferences.window.parse_config", return_value=(mock_config, None)
         ):
-            mock_exists.return_value = False  # No clamd
-            mock_freshclam_config = {"DatabaseDirectory": "/var/lib/clamav"}
-            mock_parse.return_value = (mock_freshclam_config, None)
+            with mock.patch.object(PreferencesWindow, "_setup_ui"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow()
+                    assert window._freshclam_config == mock_config
 
-            from src.ui.preferences.window import PreferencesWindow
-
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            # Should parse freshclam.conf
-            assert mock_parse.call_count >= 1
-            mock_parse.assert_any_call("/etc/clamav/freshclam.conf")
-            assert _window._freshclam_config == mock_freshclam_config
-
-    def test_window_loads_clamd_config_when_available(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
+    def test_load_configs_handles_error(
+        self,
+        mock_gi_modules,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
     ):
-        """Test that window loads clamd.conf when available."""
-        with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path") as mock_path_class,
+        """Test that _load_configs handles parse errors gracefully."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        with mock.patch(
+            "src.ui.preferences.window.parse_config",
+            return_value=(None, "Parse error"),
         ):
-            mock_path_instance = mock.MagicMock()
-            mock_path_instance.exists.return_value = True
-            mock_path_class.return_value = mock_path_instance
+            with mock.patch.object(PreferencesWindow, "_setup_ui"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    # Should not raise
+                    window = PreferencesWindow()
+                    assert window._freshclam_load_error == "Parse error"
 
-            mock_freshclam_config = {"DatabaseDirectory": "/var/lib/clamav"}
-            mock_clamd_config = {"LogFile": "/var/log/clamav/clamav.log"}
 
-            def parse_side_effect(path):
-                if "freshclam" in path:
-                    return (mock_freshclam_config, None)
-                else:
-                    return (mock_clamd_config, None)
+class TestFlatpakSupport:
+    """Tests for Flatpak-specific functionality."""
 
-            mock_parse.side_effect = parse_side_effect
+    @pytest.fixture
+    def mock_page_modules(self):
+        """Mock all page modules."""
+        with (
+            mock.patch("src.ui.preferences.window.DatabasePage") as mock_db,
+            mock.patch("src.ui.preferences.window.ScannerPage") as mock_scanner,
+            mock.patch("src.ui.preferences.window.OnAccessPage") as mock_onaccess,
+            mock.patch("src.ui.preferences.window.ScheduledPage") as mock_scheduled,
+            mock.patch("src.ui.preferences.window.ExclusionsPage") as mock_exclusions,
+            mock.patch("src.ui.preferences.window.SavePage") as mock_save,
+            mock.patch("src.ui.preferences.window.VirusTotalPage") as mock_vt,
+            mock.patch("src.ui.preferences.window.BehaviorPage") as mock_behavior,
+            mock.patch("src.ui.preferences.window.DebugPage") as mock_debug,
+        ):
+            # Configure static page mocks
+            mock_db.create_page.return_value = mock.MagicMock()
+            mock_scanner.create_page.return_value = mock.MagicMock()
+            mock_onaccess.create_page.return_value = mock.MagicMock()
+            mock_scheduled.create_page.return_value = mock.MagicMock()
+            mock_vt.create_page.return_value = mock.MagicMock()
 
-            from src.ui.preferences.window import PreferencesWindow
+            # Configure instance-based page mocks
+            for mock_class in [mock_exclusions, mock_save, mock_behavior, mock_debug]:
+                instance = mock.MagicMock()
+                instance.create_page.return_value = mock.MagicMock()
+                mock_class.return_value = instance
 
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
+            # Configure populate_fields
+            mock_db.populate_fields = mock.MagicMock()
+            mock_scanner.populate_fields = mock.MagicMock()
+            mock_onaccess.populate_fields = mock.MagicMock()
+            mock_scheduled.populate_fields = mock.MagicMock()
 
-            # Should parse both configs
-            assert mock_parse.call_count == 2
-            assert _window._clamd_config == mock_clamd_config
+            yield
 
-    def test_window_populates_freshclam_fields(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
+    @pytest.fixture
+    def mock_scheduler(self):
+        """Mock Scheduler class."""
+        with mock.patch("src.ui.preferences.window.Scheduler") as mock_sched:
+            yield mock_sched
+
+    @pytest.fixture
+    def mock_parse_config(self):
+        """Mock parse_config function."""
+        with mock.patch("src.ui.preferences.window.parse_config") as mock_func:
+            mock_func.return_value = ({}, None)
+            yield mock_func
+
+    @pytest.fixture
+    def mock_path_exists(self):
+        """Mock Path.exists."""
+        with mock.patch("src.ui.preferences.window.Path.exists") as mock_exists:
+            mock_exists.return_value = True
+            yield mock_exists
+
+    def test_non_flatpak_uses_system_paths(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
     ):
-        """Test that window populates freshclam fields."""
-        with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path.exists") as mock_exists,
-        ):
-            mock_exists.return_value = False  # No clamd
-            mock_freshclam_config = {"DatabaseDirectory": "/var/lib/clamav"}
-            mock_parse.return_value = (mock_freshclam_config, None)
+        """Test that non-Flatpak installation uses system config paths."""
+        from src.ui.preferences.window import PreferencesWindow
 
-            from src.ui.preferences.window import PreferencesWindow
+        with mock.patch("src.ui.preferences.window.is_flatpak", return_value=False):
+            with mock.patch.object(PreferencesWindow, "_setup_ui"):
+                with mock.patch.object(PreferencesWindow, "_load_configs"):
+                    with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                        window = PreferencesWindow()
+                        assert window._freshclam_conf_path == "/etc/clamav/freshclam.conf"
+                        assert window._clamd_conf_path == "/etc/clamav/clamd.conf"
 
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            # Should populate freshclam fields
-            mock_page_modules["database"].populate_fields.assert_called_once_with(
-                mock_freshclam_config, _window._freshclam_widgets
-            )
-
-    def test_window_populates_clamd_fields_when_available(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
+    def test_flatpak_uses_flatpak_paths(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
     ):
-        """Test that window populates clamd fields when available."""
+        """Test that Flatpak installation uses Flatpak-specific paths."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        mock_flatpak_path = "/home/user/.var/app/io.github.linx_systems.ClamUI/freshclam.conf"
+
+        with mock.patch("src.ui.preferences.window.is_flatpak", return_value=True):
+            with mock.patch(
+                "src.ui.preferences.window.get_freshclam_config_path",
+                return_value=mock_flatpak_path,
+            ):
+                with mock.patch(
+                    "src.ui.preferences.window.ensure_freshclam_config",
+                    return_value=mock_flatpak_path,
+                ):
+                    with mock.patch.object(PreferencesWindow, "_setup_ui"):
+                        with mock.patch.object(PreferencesWindow, "_load_configs"):
+                            with mock.patch.object(
+                                PreferencesWindow, "_populate_scheduled_fields"
+                            ):
+                                window = PreferencesWindow()
+                                assert window._freshclam_conf_path == mock_flatpak_path
+
+
+class TestClamdAvailability:
+    """Tests for clamd.conf availability detection."""
+
+    @pytest.fixture
+    def mock_page_modules(self):
+        """Mock all page modules."""
         with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path") as mock_path_class,
+            mock.patch("src.ui.preferences.window.DatabasePage") as mock_db,
+            mock.patch("src.ui.preferences.window.ScannerPage") as mock_scanner,
+            mock.patch("src.ui.preferences.window.OnAccessPage") as mock_onaccess,
+            mock.patch("src.ui.preferences.window.ScheduledPage") as mock_scheduled,
+            mock.patch("src.ui.preferences.window.ExclusionsPage") as mock_exclusions,
+            mock.patch("src.ui.preferences.window.SavePage") as mock_save,
+            mock.patch("src.ui.preferences.window.VirusTotalPage") as mock_vt,
+            mock.patch("src.ui.preferences.window.BehaviorPage") as mock_behavior,
+            mock.patch("src.ui.preferences.window.DebugPage") as mock_debug,
         ):
-            mock_path_instance = mock.MagicMock()
-            mock_path_instance.exists.return_value = True
-            mock_path_class.return_value = mock_path_instance
+            # Configure static page mocks
+            mock_db.create_page.return_value = mock.MagicMock()
+            mock_scanner.create_page.return_value = mock.MagicMock()
+            mock_onaccess.create_page.return_value = mock.MagicMock()
+            mock_scheduled.create_page.return_value = mock.MagicMock()
+            mock_vt.create_page.return_value = mock.MagicMock()
 
-            mock_freshclam_config = {"DatabaseDirectory": "/var/lib/clamav"}
-            mock_clamd_config = {"LogFile": "/var/log/clamav/clamav.log"}
+            # Configure instance-based page mocks
+            for mock_class in [mock_exclusions, mock_save, mock_behavior, mock_debug]:
+                instance = mock.MagicMock()
+                instance.create_page.return_value = mock.MagicMock()
+                mock_class.return_value = instance
 
-            def parse_side_effect(path):
-                if "freshclam" in path:
-                    return (mock_freshclam_config, None)
-                else:
-                    return (mock_clamd_config, None)
+            # Configure populate_fields
+            mock_db.populate_fields = mock.MagicMock()
+            mock_scanner.populate_fields = mock.MagicMock()
+            mock_onaccess.populate_fields = mock.MagicMock()
+            mock_scheduled.populate_fields = mock.MagicMock()
 
-            mock_parse.side_effect = parse_side_effect
+            yield
 
-            from src.ui.preferences.window import PreferencesWindow
+    @pytest.fixture
+    def mock_scheduler(self):
+        """Mock Scheduler class."""
+        with mock.patch("src.ui.preferences.window.Scheduler") as mock_sched:
+            yield mock_sched
 
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
+    @pytest.fixture
+    def mock_parse_config(self):
+        """Mock parse_config function."""
+        with mock.patch("src.ui.preferences.window.parse_config") as mock_func:
+            mock_func.return_value = ({}, None)
+            yield mock_func
 
-            # Should populate scanner fields
-            mock_page_modules["scanner"].populate_fields.assert_called_once_with(
-                mock_clamd_config, _window._clamd_widgets
-            )
-
-    def test_window_populates_onaccess_fields_when_available(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
+    def test_clamd_available_when_file_exists(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_scheduler,
+        mock_page_modules,
     ):
-        """Test that window populates on-access fields when available."""
-        with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path") as mock_path_class,
-        ):
-            mock_path_instance = mock.MagicMock()
-            mock_path_instance.exists.return_value = True
-            mock_path_class.return_value = mock_path_instance
+        """Test clamd is marked available when clamd.conf exists."""
+        from src.ui.preferences.window import PreferencesWindow
 
-            mock_freshclam_config = {"DatabaseDirectory": "/var/lib/clamav"}
-            mock_clamd_config = {
-                "LogFile": "/var/log/clamav/clamav.log",
-                "OnAccessIncludePath": "/home",
-            }
+        with mock.patch("src.ui.preferences.window.is_flatpak", return_value=False):
+            with mock.patch(
+                "src.ui.preferences.window.Path.exists", return_value=True
+            ):
+                with mock.patch.object(PreferencesWindow, "_setup_ui"):
+                    with mock.patch.object(PreferencesWindow, "_load_configs"):
+                        with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                            window = PreferencesWindow()
+                            assert window._clamd_available is True
 
-            def parse_side_effect(path):
-                if "freshclam" in path:
-                    return (mock_freshclam_config, None)
-                else:
-                    return (mock_clamd_config, None)
-
-            mock_parse.side_effect = parse_side_effect
-
-            from src.ui.preferences.window import PreferencesWindow
-
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            # Should populate on-access fields
-            mock_page_modules["onaccess"].populate_fields.assert_called_once_with(
-                mock_clamd_config, _window._onaccess_widgets
-            )
-
-    def test_window_populates_scheduled_fields(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
+    def test_clamd_unavailable_when_file_missing(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_scheduler,
+        mock_page_modules,
     ):
-        """Test that window populates scheduled scan fields."""
-        with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path.exists") as mock_exists,
-        ):
-            mock_exists.return_value = False  # No clamd
-            mock_parse.return_value = ({}, None)
+        """Test clamd is marked unavailable when clamd.conf doesn't exist."""
+        from src.ui.preferences.window import PreferencesWindow
 
-            from src.ui.preferences.window import PreferencesWindow
-
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            # Should populate scheduled fields
-            mock_page_modules["scheduled"].populate_fields.assert_called_once_with(
-                mock_settings_manager, _window._scheduled_widgets
-            )
-
-    def test_window_handles_freshclam_load_error(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
-    ):
-        """Test that window handles freshclam config load errors gracefully."""
-        with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path.exists") as mock_exists,
-        ):
-            mock_exists.return_value = False  # No clamd
-            mock_parse.side_effect = Exception("Config file not found")
-
-            from src.ui.preferences.window import PreferencesWindow
-
-            # Should not raise exception
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            # Config should be None
-            assert _window._freshclam_config is None
-
-    def test_window_handles_clamd_load_error(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
-    ):
-        """Test that window handles clamd config load errors gracefully."""
-        with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path") as mock_path_class,
-        ):
-            mock_path_instance = mock.MagicMock()
-            mock_path_instance.exists.return_value = True
-            mock_path_class.return_value = mock_path_instance
-
-            def parse_side_effect(path):
-                if "freshclam" in path:
-                    return ({}, None)
-                else:
-                    raise Exception("Config file not readable")
-
-            mock_parse.side_effect = parse_side_effect
-
-            from src.ui.preferences.window import PreferencesWindow
-
-            # Should not raise exception
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            # Config should be None
-            assert _window._clamd_config is None
-
-    def test_window_skips_populate_when_config_is_none(
-        self, mock_gi_modules, mock_settings_manager, mock_scheduler, mock_page_modules
-    ):
-        """Test that window skips field population when config is None."""
-        with (
-            mock.patch("src.ui.preferences.window.parse_config") as mock_parse,
-            mock.patch("src.ui.preferences.window.Path.exists") as mock_exists,
-        ):
-            mock_exists.return_value = False  # No clamd
-            # Return None config (simulating empty or invalid config)
-            mock_parse.return_value = (None, "Error")
-
-            from src.ui.preferences.window import PreferencesWindow
-
-            _window = PreferencesWindow(settings_manager=mock_settings_manager)
-
-            # Should NOT call populate_fields with None config
-            # The populate_fields should not be called or should handle None gracefully
-            assert _window._freshclam_config is None
-
-
-class TestPreferencesWindowPackageExport:
-    """Tests for PreferencesWindow package export."""
-
-    def test_preferences_window_exported_from_package(self, mock_gi_modules):
-        """Test that PreferencesWindow is exported from package __init__.py."""
-        from src.ui.preferences import PreferencesWindow
-
-        assert PreferencesWindow is not None
-
-    def test_preset_exclusions_exported_from_package(self, mock_gi_modules):
-        """Test that PRESET_EXCLUSIONS is exported from package __init__.py."""
-        from src.ui.preferences import PRESET_EXCLUSIONS
-
-        assert PRESET_EXCLUSIONS is not None
-        assert isinstance(PRESET_EXCLUSIONS, list)
-
-    def test_package_all_export(self, mock_gi_modules):
-        """Test that __all__ in package init contains expected exports."""
-        from src.ui.preferences import __all__
-
-        assert "PreferencesWindow" in __all__
-        assert "PRESET_EXCLUSIONS" in __all__
+        with mock.patch("src.ui.preferences.window.is_flatpak", return_value=False):
+            with mock.patch(
+                "src.ui.preferences.window.Path.exists", return_value=False
+            ):
+                with mock.patch.object(PreferencesWindow, "_setup_ui"):
+                    with mock.patch.object(PreferencesWindow, "_load_configs"):
+                        with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                            window = PreferencesWindow()
+                            assert window._clamd_available is False

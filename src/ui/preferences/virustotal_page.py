@@ -25,6 +25,7 @@ from ...core.keyring_manager import (
 )
 from ..compat import create_toolbar_view
 from ..utils import resolve_icon_name
+from .base import create_navigation_row, create_status_row, styled_prefix_icon, update_status_row
 
 if TYPE_CHECKING:
     from ...core.settings_manager import SettingsManager
@@ -106,21 +107,13 @@ class VirusTotalPage:
         group.set_description("Configure your VirusTotal API key for file scanning")
 
         # Current status row
-        status_row = Adw.ActionRow()
-        status_row.set_title("Status")
-
-        # Check if API key is configured
         current_key = get_api_key(settings_manager)
-        if current_key:
-            status_row.set_subtitle(f"Configured ({mask_api_key(current_key)})")
-            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
-            status_icon.add_css_class("success")
-        else:
-            status_row.set_subtitle("Not configured")
-            status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
-            status_icon.add_css_class("warning")
-
-        status_row.add_suffix(status_icon)
+        status_row, status_icon = create_status_row(
+            title="Status",
+            status_ok=current_key is not None,
+            ok_message=f"Configured ({mask_api_key(current_key)})" if current_key else "",
+            error_message="Not configured",
+        )
         page._status_row = status_row
         page._status_icon = status_icon
         group.add(status_row)
@@ -175,19 +168,12 @@ class VirusTotalPage:
         group.add(button_box)
 
         # Get API key link
-        link_row = Adw.ActionRow()
-        link_row.set_title("Get a free API key")
-        link_row.set_subtitle("Create an account at virustotal.com")
-        link_row.set_activatable(True)
+        link_row = create_navigation_row(
+            title="Get a free API key",
+            subtitle="Create an account at virustotal.com",
+            icon_name="network-server-symbolic",
+        )
         link_row.connect("activated", lambda row: VirusTotalPage._on_get_api_key_clicked())
-
-        link_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("network-server-symbolic"))
-        link_icon.add_css_class("dim-label")
-        link_row.add_prefix(link_icon)
-
-        chevron = Gtk.Image.new_from_icon_name(resolve_icon_name("go-next-symbolic"))
-        chevron.add_css_class("dim-label")
-        link_row.add_suffix(chevron)
 
         group.add(link_row)
 
@@ -220,6 +206,7 @@ class VirusTotalPage:
         no_key_row.set_model(no_key_model)
         no_key_row.set_title("When API key is missing")
         no_key_row.set_subtitle("Action to take when scanning without API key")
+        no_key_row.add_prefix(styled_prefix_icon("dialog-question-symbolic"))
 
         # Set current selection from settings
         current_action = settings_manager.get("virustotal_remember_no_key_action", "none")
@@ -250,10 +237,7 @@ class VirusTotalPage:
         rate_limit_row = Adw.ActionRow()
         rate_limit_row.set_title("Rate Limit")
         rate_limit_row.set_subtitle("Free tier: 4 requests per minute, 500 per day")
-
-        info_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
-        info_icon.add_css_class("dim-label")
-        rate_limit_row.add_prefix(info_icon)
+        rate_limit_row.add_prefix(styled_prefix_icon("dialog-information-symbolic"))
 
         group.add(rate_limit_row)
 
@@ -261,10 +245,7 @@ class VirusTotalPage:
         size_limit_row = Adw.ActionRow()
         size_limit_row.set_title("Maximum File Size")
         size_limit_row.set_subtitle("Files up to 650 MB can be scanned")
-
-        size_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("drive-harddisk-symbolic"))
-        size_icon.add_css_class("dim-label")
-        size_limit_row.add_prefix(size_icon)
+        size_limit_row.add_prefix(styled_prefix_icon("drive-harddisk-symbolic"))
 
         group.add(size_limit_row)
 
@@ -311,11 +292,14 @@ class VirusTotalPage:
         if success:
             VirusTotalPage._show_toast(page, "API key saved")
 
-            # Update status
-            page._status_row.set_subtitle(f"Configured ({mask_api_key(api_key)})")
-            page._status_icon.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
-            page._status_icon.remove_css_class("warning")
-            page._status_icon.add_css_class("success")
+            # Update status using helper
+            update_status_row(
+                row=page._status_row,
+                status_icon=page._status_icon,
+                status_ok=True,
+                ok_message=f"Configured ({mask_api_key(api_key)})",
+                error_message="",
+            )
 
             # Clear entry and enable delete button
             page._api_key_row.set_text("")
@@ -374,11 +358,14 @@ class VirusTotalPage:
             if success:
                 VirusTotalPage._show_toast(page, "API key deleted")
 
-                # Update status
-                page._status_row.set_subtitle("Not configured")
-                page._status_icon.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
-                page._status_icon.remove_css_class("success")
-                page._status_icon.add_css_class("warning")
+                # Update status using helper
+                update_status_row(
+                    row=page._status_row,
+                    status_icon=page._status_icon,
+                    status_ok=False,
+                    ok_message="",
+                    error_message="Not configured",
+                )
 
                 # Disable delete button
                 page._delete_button.set_sensitive(False)

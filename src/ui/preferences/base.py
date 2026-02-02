@@ -7,10 +7,13 @@ all preference pages, including dialog helpers, permission indicators,
 and file location displays.
 """
 
+import logging
 import os
 import subprocess
 
 import gi
+
+logger = logging.getLogger(__name__)
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -22,6 +25,129 @@ from ..compat import (
     safe_set_subtitle_selectable,
 )
 from ..utils import resolve_icon_name
+
+
+def styled_prefix_icon(icon_name: str) -> Gtk.Image:
+    """
+    Create a properly styled prefix icon for ActionRow widgets.
+
+    This helper creates icons following GNOME Settings visual patterns:
+    - 12px start margin for proper spacing
+    - dim-label CSS class for subtle appearance
+
+    Args:
+        icon_name: The symbolic icon name (e.g., "folder-symbolic")
+
+    Returns:
+        Configured Gtk.Image ready to be added as row prefix
+    """
+    icon = Gtk.Image.new_from_icon_name(resolve_icon_name(icon_name))
+    icon.set_margin_start(12)
+    icon.add_css_class("dim-label")
+    return icon
+
+
+def create_status_row(
+    title: str,
+    status_ok: bool,
+    ok_message: str,
+    error_message: str,
+) -> tuple[Adw.ActionRow, Gtk.Image]:
+    """
+    Create a status row with semantic icon (replaces emoji in subtitles).
+
+    This helper follows GNOME Settings visual patterns by using proper
+    semantic icons instead of emoji characters for status indication.
+
+    Args:
+        title: Row title text
+        status_ok: Whether the status is OK (True) or has an error (False)
+        ok_message: Message to show when status is OK
+        error_message: Message to show when status has an error
+
+    Returns:
+        Tuple of (row, status_icon) - store status_icon for later updates
+    """
+    row = Adw.ActionRow()
+    row.set_title(title)
+
+    if status_ok:
+        row.set_subtitle(ok_message)
+        status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
+        status_icon.add_css_class("success")
+    else:
+        row.set_subtitle(error_message)
+        status_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
+        status_icon.add_css_class("warning")
+
+    row.add_suffix(status_icon)
+    return row, status_icon
+
+
+def update_status_row(
+    row: Adw.ActionRow,
+    status_icon: Gtk.Image,
+    status_ok: bool,
+    ok_message: str,
+    error_message: str,
+) -> None:
+    """
+    Update an existing status row with new status.
+
+    Args:
+        row: The ActionRow to update
+        status_icon: The status icon widget to update
+        status_ok: Whether the status is OK (True) or has an error (False)
+        ok_message: Message to show when status is OK
+        error_message: Message to show when status has an error
+    """
+    if status_ok:
+        row.set_subtitle(ok_message)
+        status_icon.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
+        status_icon.remove_css_class("warning")
+        status_icon.add_css_class("success")
+    else:
+        row.set_subtitle(error_message)
+        status_icon.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
+        status_icon.remove_css_class("success")
+        status_icon.add_css_class("warning")
+
+
+def create_navigation_row(
+    title: str,
+    subtitle: str | None = None,
+    icon_name: str | None = None,
+) -> Adw.ActionRow:
+    """
+    Create a navigation row with chevron suffix.
+
+    This helper creates rows following GNOME Settings visual patterns
+    for navigation items that open dialogs or external links.
+
+    Args:
+        title: Row title text
+        subtitle: Optional subtitle text
+        icon_name: Optional prefix icon name
+
+    Returns:
+        Configured Adw.ActionRow ready to connect to "activated" signal
+    """
+    row = Adw.ActionRow()
+    row.set_title(title)
+    if subtitle:
+        row.set_subtitle(subtitle)
+    row.set_activatable(True)
+
+    if icon_name:
+        icon = styled_prefix_icon(icon_name)
+        row.add_prefix(icon)
+
+    # Add chevron to indicate it's clickable
+    chevron = Gtk.Image.new_from_icon_name(resolve_icon_name("go-next-symbolic"))
+    chevron.add_css_class("dim-label")
+    row.add_suffix(chevron)
+
+    return row
 
 
 def create_password_entry_row(title: str) -> Adw.ActionRow:

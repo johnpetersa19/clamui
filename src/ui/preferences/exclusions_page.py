@@ -6,7 +6,11 @@ This module provides the ExclusionsPage class which handles the UI and logic
 for managing scan exclusion patterns, including preset and custom exclusions.
 """
 
+import logging
+
 import gi
+
+logger = logging.getLogger(__name__)
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -100,8 +104,8 @@ class ExclusionsPage(PreferencesPageMixin):
         preset_group.set_description("Common patterns to exclude. Auto-saved.")
 
         for preset in PRESET_EXCLUSIONS:
-            # Create a row for each preset
-            row = create_switch_row()
+            # Create a row for each preset with folder icon
+            row = create_switch_row("folder-symbolic")
             row.set_title(preset["description"])
             row.set_subtitle(preset["pattern"])
             row.set_active(preset["enabled"])
@@ -115,7 +119,7 @@ class ExclusionsPage(PreferencesPageMixin):
         self._custom_exclusions_group.set_description("Your exclusion patterns. Auto-saved.")
 
         # Custom exclusion entry row
-        self._custom_entry_row = create_entry_row()
+        self._custom_entry_row = create_entry_row("list-add-symbolic")
         self._custom_entry_row.set_title("Add Pattern (e.g., /path/to/exclude or *.tmp)")
         self._custom_entry_row.set_show_apply_button(False)
 
@@ -158,7 +162,7 @@ class ExclusionsPage(PreferencesPageMixin):
             pattern: The exclusion pattern to add
             enabled: Whether the exclusion is enabled (default: True)
         """
-        row = create_switch_row()
+        row = create_switch_row("folder-symbolic")
         row.set_title(pattern)
         row.set_active(enabled)
 

@@ -513,40 +513,32 @@ class TestScannerPageDaemonStatus:
 
     def test_on_refresh_daemon_status_updates_when_connected(self, mock_gi_modules):
         """Test _on_refresh_daemon_status updates status when daemon is connected."""
-        gtk = mock_gi_modules["gtk"]
         mock_status_row = mock.MagicMock()
-        mock_image = mock.MagicMock()
-        # Make the status row iterable and return the image
-        mock_status_row.__iter__.return_value = [mock_image]
-        # Make isinstance check pass for Gtk.Image
-        gtk.Image = type(mock_image)
+        mock_status_icon = mock.MagicMock()
 
         from src.ui.preferences.scanner_page import ScannerPage
 
         with mock.patch("src.core.utils.check_clamd_connection") as mock_check_clamd:
             mock_check_clamd.return_value = (True, "Connected")
 
-            ScannerPage._on_refresh_daemon_status(mock_status_row)
+            ScannerPage._on_refresh_daemon_status(mock_status_row, mock_status_icon)
 
             # Should update subtitle to show connected
             mock_status_row.set_subtitle.assert_called()
             args = mock_status_row.set_subtitle.call_args[0]
-            assert "Daemon available" in args[0] or "✓" in args[0]
+            assert "Daemon available" in args[0]
 
     def test_on_refresh_daemon_status_updates_when_not_connected(self, mock_gi_modules):
         """Test _on_refresh_daemon_status updates status when daemon is not connected."""
-        gtk = mock_gi_modules["gtk"]
         mock_status_row = mock.MagicMock()
-        mock_image = mock.MagicMock()
-        mock_status_row.__iter__.return_value = [mock_image]
-        gtk.Image = type(mock_image)
+        mock_status_icon = mock.MagicMock()
 
         from src.ui.preferences.scanner_page import ScannerPage
 
         with mock.patch("src.core.utils.check_clamd_connection") as mock_check_clamd:
             mock_check_clamd.return_value = (False, "Connection refused")
 
-            ScannerPage._on_refresh_daemon_status(mock_status_row)
+            ScannerPage._on_refresh_daemon_status(mock_status_row, mock_status_icon)
 
             # Should update subtitle to show not connected
             mock_status_row.set_subtitle.assert_called()

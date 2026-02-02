@@ -6,9 +6,12 @@ This module provides the ScheduledPage class which handles the UI and logic
 for configuring scheduled scans using systemd timers or cron.
 """
 
+import logging
 from pathlib import Path
 
 import gi
+
+logger = logging.getLogger(__name__)
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -16,7 +19,7 @@ from gi.repository import Adw, Gtk
 
 from ..compat import create_entry_row, create_switch_row
 from ..utils import resolve_icon_name
-from .base import PreferencesPageMixin
+from .base import PreferencesPageMixin, create_spin_row, styled_prefix_icon
 
 
 class ScheduledPage(PreferencesPageMixin):
@@ -87,7 +90,7 @@ class ScheduledPage(PreferencesPageMixin):
         group.set_description("Configure automatic scanning. Save with 'Save &amp; Apply'.")
 
         # Enable scheduled scans switch
-        enable_scheduled_row = create_switch_row()
+        enable_scheduled_row = create_switch_row("emblem-system-symbolic")
         enable_scheduled_row.set_title("Enable Scheduled Scans")
         enable_scheduled_row.set_subtitle("Run automatic scans at specified intervals")
         widgets_dict["enabled"] = enable_scheduled_row
@@ -95,6 +98,7 @@ class ScheduledPage(PreferencesPageMixin):
 
         # Schedule frequency dropdown
         frequency_row = Adw.ComboRow()
+        frequency_row.add_prefix(styled_prefix_icon("view-refresh-symbolic"))
         frequency_model = Gtk.StringList()
         frequency_model.append("Hourly")
         frequency_model.append("Daily")
@@ -107,7 +111,7 @@ class ScheduledPage(PreferencesPageMixin):
         group.add(frequency_row)
 
         # Time picker (schedule_time)
-        time_row = create_entry_row()
+        time_row = create_entry_row("alarm-symbolic")
         time_row.set_title("Scan Time (24-hour format, e.g. 02:00)")
         time_row.set_text("02:00")
         widgets_dict["time"] = time_row
@@ -115,6 +119,7 @@ class ScheduledPage(PreferencesPageMixin):
 
         # Day of week dropdown (for weekly scans)
         day_of_week_row = Adw.ComboRow()
+        day_of_week_row.add_prefix(styled_prefix_icon("x-office-calendar-symbolic"))
         day_of_week_model = Gtk.StringList()
         for day in [
             "Monday",
@@ -134,9 +139,6 @@ class ScheduledPage(PreferencesPageMixin):
         group.add(day_of_week_row)
 
         # Day of month spinner (for monthly scans)
-        # Using compatible helper for libadwaita 1.0+
-        from .base import create_spin_row
-
         day_of_month_row, day_of_month_spin = create_spin_row(
             title="Day of Month",
             subtitle="For monthly scans (1-28)",
@@ -145,18 +147,19 @@ class ScheduledPage(PreferencesPageMixin):
             step=1,
             page_step=5,
         )
+        day_of_month_row.add_prefix(styled_prefix_icon("x-office-calendar-symbolic"))
         widgets_dict["day_of_month"] = day_of_month_spin
         group.add(day_of_month_row)
 
         # Scan targets entry (schedule_targets)
-        targets_row = create_entry_row()
+        targets_row = create_entry_row("folder-symbolic")
         targets_row.set_title("Scan Targets (comma-separated paths)")
         targets_row.set_text(str(Path.home()))
         widgets_dict["targets"] = targets_row
         group.add(targets_row)
 
         # Skip on battery switch
-        skip_battery_row = create_switch_row()
+        skip_battery_row = create_switch_row("battery-symbolic")
         skip_battery_row.set_title("Skip on Battery")
         skip_battery_row.set_subtitle("Don't run scheduled scans when on battery power")
         skip_battery_row.set_active(True)
@@ -164,7 +167,7 @@ class ScheduledPage(PreferencesPageMixin):
         group.add(skip_battery_row)
 
         # Auto-quarantine switch
-        auto_quarantine_row = create_switch_row()
+        auto_quarantine_row = create_switch_row("security-high-symbolic")
         auto_quarantine_row.set_title("Auto-Quarantine")
         auto_quarantine_row.set_subtitle("Automatically quarantine detected threats")
         auto_quarantine_row.set_active(False)
