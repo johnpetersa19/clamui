@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 from .base import PreferencesPageMixin
 from .behavior_page import BehaviorPage
 from .database_page import DatabasePage
+from .debug_page import DebugPage
 from .exclusions_page import ExclusionsPage
 from .onaccess_page import OnAccessPage
 from .save_page import SavePage
@@ -192,6 +193,11 @@ class PreferencesWindow(Adw.PreferencesWindow, PreferencesPageMixin):
         )
         behavior_page = behavior_page_instance.create_page()
         self.add(behavior_page)
+
+        # Create Debug page (logging and diagnostics) - instance-based
+        debug_page_instance = DebugPage(self._settings_manager, parent_window=self)
+        debug_page = debug_page_instance.create_page()
+        self.add(debug_page)
 
         # Create Save & Apply page - instance-based
         save_page_instance = SavePage(

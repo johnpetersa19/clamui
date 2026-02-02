@@ -38,6 +38,28 @@ def _setup_path():
 # Set up path before importing application modules
 _setup_path()
 
+
+def _configure_logging():
+    """
+    Configure the logging system early in startup.
+
+    This must be called before importing modules that use logging
+    so they inherit the correct log level and handlers.
+    """
+    from .core.logging_config import configure_logging
+    from .core.settings_manager import SettingsManager
+
+    settings = SettingsManager()
+    configure_logging(
+        log_level=settings.get("debug_log_level", "WARNING"),
+        max_bytes=settings.get("debug_log_max_size_mb", 5) * 1024 * 1024,
+        backup_count=settings.get("debug_log_max_files", 3),
+    )
+
+
+# Configure logging before other imports
+_configure_logging()
+
 # Import the application class
 # Note: Tray indicator is handled by app.py with graceful degradation
 # GTK3/GTK4 cannot coexist in the same process, so tray is disabled

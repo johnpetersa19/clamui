@@ -45,6 +45,10 @@ class SettingsManager:
         # VirusTotal settings
         "virustotal_api_key": None,  # Fallback storage if keyring unavailable
         "virustotal_remember_no_key_action": "none",  # "none", "open_website", "prompt"
+        # Debug logging settings
+        "debug_log_level": "WARNING",  # "DEBUG", "INFO", "WARNING", "ERROR"
+        "debug_log_max_size_mb": 5,  # Max size per log file in MB
+        "debug_log_max_files": 3,  # Number of backup files to keep
     }
 
     def __init__(self, config_dir: Path | None = None):

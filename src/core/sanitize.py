@@ -11,6 +11,7 @@ threat names, ClamAV output) before storing in log entries. It protects against:
 - Newline injection in single-line fields that could forge log entries
 """
 
+import os
 import re
 
 # ANSI escape sequence pattern (CSI sequences and other escape codes)
@@ -144,3 +145,40 @@ def sanitize_log_text(text: str | None) -> str:
         # All other control characters are silently removed
 
     return "".join(result)
+
+
+def sanitize_path_for_logging(text: str | None) -> str:
+    """
+    Sanitize text for logging by replacing home directory with ~.
+
+    This provides privacy protection in log files that might be shared
+    or exported, preventing accidental exposure of usernames in paths
+    like /home/username/Documents/file.txt.
+
+    Replaces all occurrences of the home directory anywhere in the text,
+    making it suitable for both individual paths and formatted log messages.
+
+    Args:
+        text: The text to sanitize. If None, returns empty string.
+
+    Returns:
+        Text with all home directory occurrences replaced by ~
+
+    Example:
+        >>> sanitize_path_for_logging("/home/user/Documents/file.txt")
+        "~/Documents/file.txt"
+        >>> sanitize_path_for_logging("Processing /home/user/file.txt now")
+        "Processing ~/file.txt now"
+        >>> sanitize_path_for_logging("/etc/clamav/clamd.conf")
+        "/etc/clamav/clamd.conf"
+        >>> sanitize_path_for_logging(None)
+        ""
+    """
+    if text is None:
+        return ""
+
+    # Get the user's home directory
+    home_dir = os.path.expanduser("~")
+
+    # Replace all occurrences of home directory with ~
+    return text.replace(home_dir, "~")
