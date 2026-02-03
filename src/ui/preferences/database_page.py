@@ -7,6 +7,7 @@ for configuring ClamAV database update settings (freshclam.conf).
 """
 
 import logging
+from urllib.parse import urlparse
 
 import gi
 
@@ -25,6 +26,68 @@ from .base import (
     populate_text_field,
     styled_prefix_icon,
 )
+
+# Suggested third-party signature databases (free, no registration required)
+SUGGESTED_SIGNATURE_URLS = [
+    {
+        "url": "https://urlhaus.abuse.ch/downloads/urlhaus.ndb",
+        "name": "URLhaus",
+        "description": "Malware URL blocklist (updated every minute)",
+    },
+]
+
+
+def _parse_custom_urls(text: str) -> list[str]:
+    """
+    Parse pasted text into individual URLs.
+
+    Handles:
+    - Single URL
+    - Multi-line URLs (newline separated)
+    - Config format: "DatabaseCustomURL https://..." lines
+    - Mixed content with auto prefix stripping
+
+    Args:
+        text: Raw pasted text
+
+    Returns:
+        List of cleaned URLs
+    """
+    urls = []
+    prefix = "DatabaseCustomURL"
+    valid_schemes = ("http://", "https://", "ftp://", "ftps://", "file://")
+
+    for line in text.strip().split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        # Strip "DatabaseCustomURL " prefix if present (case-insensitive)
+        if line.lower().startswith(prefix.lower()):
+            line = line[len(prefix) :].strip()
+
+        # Validate it looks like a URL
+        if any(line.lower().startswith(scheme) for scheme in valid_schemes):
+            urls.append(line)
+
+    return urls
+
+
+def _get_url_domain(url: str) -> str:
+    """
+    Extract domain from URL for display.
+
+    Args:
+        url: Full URL string
+
+    Returns:
+        Domain/hostname or empty string if parsing fails
+    """
+    try:
+        parsed = urlparse(url)
+        return parsed.netloc or parsed.path.split("/")[0]
+    except Exception:
+        return ""
 
 
 class DatabasePage(PreferencesPageMixin):
@@ -75,6 +138,9 @@ class DatabasePage(PreferencesPageMixin):
 
         # Create update behavior group
         DatabasePage._create_updates_group(page, widgets_dict, temp_instance)
+
+        # Create custom signature URLs group
+        DatabasePage._create_custom_urls_group(page, widgets_dict, temp_instance)
 
         # Create proxy settings group
         DatabasePage._create_proxy_group(page, widgets_dict, temp_instance)
@@ -196,6 +262,165 @@ class DatabasePage(PreferencesPageMixin):
         page.add(group)
 
     @staticmethod
+    def _create_custom_urls_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
+        """
+        Create the Custom Signature Databases preferences group.
+
+        Allows users to add third-party signature database URLs (e.g., SecuriteInfo).
+        Supports smart paste parsing that strips 'DatabaseCustomURL' prefixes.
+
+        Contains:
+        - List of custom URLs with remove buttons
+        - Entry row for adding new URLs (single or multi-line paste)
+
+        Args:
+            page: The preferences page to add the group to
+            widgets_dict: Dictionary to store widget references
+            helper: Helper instance with _create_permission_indicator method
+        """
+        group = Adw.PreferencesGroup()
+        group.set_title("Custom Signature Databases")
+        group.set_description(
+            "Third-party signature URLs (e.g., SecuriteInfo). "
+            "Paste URLs or config lines - 'DatabaseCustomURL' prefix auto-stripped."
+        )
+        group.set_header_suffix(helper._create_permission_indicator())
+
+        # Initialize tracking for URL rows
+        widgets_dict["_custom_url_rows"] = []
+        widgets_dict["_custom_url_group"] = group
+
+        # Entry row for adding new URLs
+        entry_row = create_entry_row("list-add-symbolic")
+        entry_row.set_title("Add URL(s)")
+        entry_row.set_subtitle("Paste URL or multi-line config block")
+        entry_row.set_input_purpose(Gtk.InputPurpose.URL)
+        entry_row.set_show_apply_button(False)
+
+        # Button box for Add and Suggested buttons
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        button_box.set_valign(Gtk.Align.CENTER)
+
+        # Add button
+        add_button = Gtk.Button()
+        add_button.set_label("Add")
+        add_button.set_tooltip_text("Add custom signature URL(s)")
+        add_button.connect(
+            "clicked", DatabasePage._on_add_custom_url_clicked, entry_row, widgets_dict
+        )
+        button_box.append(add_button)
+
+        # Suggested button
+        suggested_button = Gtk.Button()
+        suggested_button.set_label("Suggested")
+        suggested_button.set_tooltip_text("Add free community signature databases (URLhaus)")
+        suggested_button.add_css_class("suggested-action")
+        suggested_button.connect("clicked", DatabasePage._on_add_suggested_clicked, widgets_dict)
+        button_box.append(suggested_button)
+
+        entry_row.add_suffix(button_box)
+
+        widgets_dict["_custom_url_entry"] = entry_row
+        group.add(entry_row)
+
+        page.add(group)
+
+    @staticmethod
+    def _on_add_custom_url_clicked(_button, entry_row, widgets_dict: dict):
+        """
+        Handle adding URLs from entry field.
+
+        Args:
+            _button: The button that was clicked (unused, required by GTK signal)
+            entry_row: The entry row containing the URL text
+            widgets_dict: Dictionary containing widget references
+        """
+        text = entry_row.get_text().strip()
+        if not text:
+            return
+
+        urls = _parse_custom_urls(text)
+        existing = {url for _, url in widgets_dict.get("_custom_url_rows", [])}
+
+        for url in urls:
+            if url not in existing:
+                DatabasePage._add_custom_url_row(url, widgets_dict)
+
+        entry_row.set_text("")
+
+    @staticmethod
+    def _add_custom_url_row(url: str, widgets_dict: dict):
+        """
+        Add a row for a custom URL with remove button.
+
+        Args:
+            url: The URL to add
+            widgets_dict: Dictionary containing widget references
+        """
+        row = Adw.ActionRow()
+        row.set_title(url)
+        row.set_subtitle(_get_url_domain(url))
+        row.add_prefix(styled_prefix_icon("web-browser-symbolic"))
+
+        # Remove button
+        remove_btn = Gtk.Button()
+        remove_btn.set_icon_name(resolve_icon_name("user-trash-symbolic") or "user-trash-symbolic")
+        remove_btn.add_css_class("flat")
+        remove_btn.set_valign(Gtk.Align.CENTER)
+        remove_btn.set_tooltip_text("Remove this URL")
+        remove_btn.connect(
+            "clicked", DatabasePage._on_remove_custom_url_clicked, row, url, widgets_dict
+        )
+        row.add_suffix(remove_btn)
+
+        group = widgets_dict.get("_custom_url_group")
+        if group:
+            # Insert before the entry row (entry row is always last)
+            # We use add() which appends, so we need to reorder
+            # For simplicity, just add to the group - GTK will handle ordering
+            group.add(row)
+
+        widgets_dict["_custom_url_rows"].append((row, url))
+
+    @staticmethod
+    def _on_remove_custom_url_clicked(_button, row, url: str, widgets_dict: dict):
+        """
+        Remove a custom URL row.
+
+        Args:
+            _button: The button that was clicked (unused, required by GTK signal)
+            row: The row to remove
+            url: The URL being removed
+            widgets_dict: Dictionary containing widget references
+        """
+        group = widgets_dict.get("_custom_url_group")
+        if group:
+            group.remove(row)
+
+        widgets_dict["_custom_url_rows"] = [
+            (r, u) for r, u in widgets_dict.get("_custom_url_rows", []) if u != url
+        ]
+
+    @staticmethod
+    def _on_add_suggested_clicked(_button, widgets_dict: dict):
+        """
+        Handle adding suggested signature URLs.
+
+        Adds free, community-maintained signature databases that don't require
+        registration (e.g., URLhaus).
+
+        Args:
+            _button: The button that was clicked (unused, required by GTK signal)
+            widgets_dict: Dictionary containing widget references
+        """
+        existing = {url for _, url in widgets_dict.get("_custom_url_rows", [])}
+
+        for sig in SUGGESTED_SIGNATURE_URLS:
+            url = sig["url"]
+            if url not in existing:
+                DatabasePage._add_custom_url_row(url, widgets_dict)
+
+    @staticmethod
     def _create_proxy_group(page: Adw.PreferencesPage, widgets_dict: dict, helper):
         """
         Create the Proxy Settings preferences group.
@@ -296,6 +521,12 @@ class DatabasePage(PreferencesPageMixin):
         for key in ("Checks", "HTTPProxyPort"):
             populate_int_field(config, widgets_dict, key)
 
+        # Load existing DatabaseCustomURL entries
+        if config.has_key("DatabaseCustomURL"):
+            for url in config.get_values("DatabaseCustomURL"):
+                if url:  # Skip empty values
+                    DatabasePage._add_custom_url_row(url, widgets_dict)
+
     @staticmethod
     def collect_data(widgets_dict: dict) -> dict:
         """
@@ -355,6 +586,11 @@ class DatabasePage(PreferencesPageMixin):
         proxy_pass = widgets_dict["HTTPProxyPassword"].get_text()
         if proxy_pass:
             updates["HTTPProxyPassword"] = proxy_pass
+
+        # Collect DatabaseCustomURL list (multi-value option)
+        custom_urls = [url for _, url in widgets_dict.get("_custom_url_rows", [])]
+        if custom_urls:
+            updates["DatabaseCustomURL"] = custom_urls  # List for multi-value
 
         return updates
 

@@ -460,3 +460,153 @@ class TestDatabasePageHelper:
         # Should be able to create an instance
         instance = _DatabasePageHelper()
         assert instance is not None
+
+
+class TestParseCustomUrls:
+    """Tests for _parse_custom_urls function."""
+
+    def test_single_url(self, mock_gi_modules):
+        """Single URL is parsed correctly."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        result = _parse_custom_urls("https://example.com/sigs.ndb")
+        assert result == ["https://example.com/sigs.ndb"]
+
+    def test_multiline_urls(self, mock_gi_modules):
+        """Multiple URLs separated by newlines."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = """https://example.com/sig1.ndb
+https://example.com/sig2.hdb"""
+        result = _parse_custom_urls(text)
+        assert result == [
+            "https://example.com/sig1.ndb",
+            "https://example.com/sig2.hdb",
+        ]
+
+    def test_strips_databasecustomurl_prefix(self, mock_gi_modules):
+        """DatabaseCustomURL prefix is stripped."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = "DatabaseCustomURL https://example.com/sigs.ndb"
+        result = _parse_custom_urls(text)
+        assert result == ["https://example.com/sigs.ndb"]
+
+    def test_prefix_case_insensitive(self, mock_gi_modules):
+        """Prefix stripping is case-insensitive."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = "databasecustomurl https://example.com/sigs.ndb"
+        result = _parse_custom_urls(text)
+        assert result == ["https://example.com/sigs.ndb"]
+
+    def test_skips_comments(self, mock_gi_modules):
+        """Comment lines are skipped."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = """# This is a comment
+https://example.com/sigs.ndb
+# Another comment"""
+        result = _parse_custom_urls(text)
+        assert result == ["https://example.com/sigs.ndb"]
+
+    def test_skips_empty_lines(self, mock_gi_modules):
+        """Empty lines are skipped."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = """
+
+https://example.com/sigs.ndb
+
+"""
+        result = _parse_custom_urls(text)
+        assert result == ["https://example.com/sigs.ndb"]
+
+    def test_skips_invalid_urls(self, mock_gi_modules):
+        """Invalid URLs (no scheme) are skipped."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = """https://example.com/valid.ndb
+www.example.com/invalid.ndb
+example.com/also-invalid.ndb"""
+        result = _parse_custom_urls(text)
+        assert result == ["https://example.com/valid.ndb"]
+
+    def test_supports_all_schemes(self, mock_gi_modules):
+        """All valid schemes are accepted."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = """https://example.com/https.ndb
+http://example.com/http.ndb
+ftp://example.com/ftp.ndb
+ftps://example.com/ftps.ndb
+file:///var/lib/clamav/local.ndb"""
+        result = _parse_custom_urls(text)
+        assert len(result) == 5
+        assert "https://example.com/https.ndb" in result
+        assert "http://example.com/http.ndb" in result
+        assert "ftp://example.com/ftp.ndb" in result
+        assert "ftps://example.com/ftps.ndb" in result
+        assert "file:///var/lib/clamav/local.ndb" in result
+
+    def test_mixed_format(self, mock_gi_modules):
+        """Mix of prefixed and raw URLs."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = """DatabaseCustomURL https://example.com/prefixed.ndb
+https://example.com/raw.ndb"""
+        result = _parse_custom_urls(text)
+        assert result == [
+            "https://example.com/prefixed.ndb",
+            "https://example.com/raw.ndb",
+        ]
+
+    def test_empty_string(self, mock_gi_modules):
+        """Empty string returns empty list."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        result = _parse_custom_urls("")
+        assert result == []
+
+    def test_whitespace_only(self, mock_gi_modules):
+        """Whitespace-only string returns empty list."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        result = _parse_custom_urls("   \n  \n   ")
+        assert result == []
+
+    def test_urlhaus_real_url(self, mock_gi_modules):
+        """URLhaus URL is parsed correctly."""
+        from src.ui.preferences.database_page import _parse_custom_urls
+
+        text = "DatabaseCustomURL https://urlhaus.abuse.ch/downloads/urlhaus.ndb"
+        result = _parse_custom_urls(text)
+        assert result == ["https://urlhaus.abuse.ch/downloads/urlhaus.ndb"]
+
+
+class TestSuggestedSignatureUrls:
+    """Tests for SUGGESTED_SIGNATURE_URLS constant."""
+
+    def test_suggested_urls_exists(self, mock_gi_modules):
+        """SUGGESTED_SIGNATURE_URLS constant exists."""
+        from src.ui.preferences.database_page import SUGGESTED_SIGNATURE_URLS
+
+        assert SUGGESTED_SIGNATURE_URLS is not None
+        assert isinstance(SUGGESTED_SIGNATURE_URLS, list)
+
+    def test_suggested_urls_contains_urlhaus(self, mock_gi_modules):
+        """SUGGESTED_SIGNATURE_URLS contains URLhaus."""
+        from src.ui.preferences.database_page import SUGGESTED_SIGNATURE_URLS
+
+        urls = [sig["url"] for sig in SUGGESTED_SIGNATURE_URLS]
+        assert "https://urlhaus.abuse.ch/downloads/urlhaus.ndb" in urls
+
+    def test_suggested_urls_have_required_fields(self, mock_gi_modules):
+        """Each suggested URL has required fields."""
+        from src.ui.preferences.database_page import SUGGESTED_SIGNATURE_URLS
+
+        for sig in SUGGESTED_SIGNATURE_URLS:
+            assert "url" in sig
+            assert "name" in sig
+            assert "description" in sig
+            assert sig["url"].startswith(("http://", "https://"))
