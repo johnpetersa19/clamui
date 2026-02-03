@@ -171,6 +171,32 @@ class ProfileManager:
             profiles = list(self._profiles.values())
         return self._storage.save_profiles(profiles)
 
+    def restore_default_profiles(self) -> int:
+        """
+        Restore all default profiles to their original state.
+
+        Deletes existing default profiles (is_default=True) and recreates them
+        from DEFAULT_PROFILES. Custom profiles are preserved.
+
+        Returns:
+            Number of profiles restored
+        """
+        with self._lock:
+            # Find and remove all default profiles
+            default_ids = [
+                profile_id for profile_id, profile in self._profiles.items() if profile.is_default
+            ]
+            for profile_id in default_ids:
+                del self._profiles[profile_id]
+
+        # Save the changes (custom profiles only now)
+        self._save()
+
+        # Recreate defaults from scratch
+        self._ensure_default_profiles()
+
+        return len(default_ids)
+
     def _generate_id(self) -> str:
         """Generate a unique profile ID."""
         return str(uuid.uuid4())

@@ -1651,3 +1651,133 @@ class TestXdgMigration:
         assert settings.get("another") == 123
         # Migration state should be added
         assert settings["_migrations"]["xdg_migration_version"] == 1
+
+
+class TestRestoreDefaultProfiles:
+    """Tests for restore_default_profiles functionality."""
+
+    @pytest.fixture
+    def temp_config_dir(self, tmp_path):
+        """Create a temporary directory for profile storage."""
+        return tmp_path
+
+    @pytest.fixture
+    def manager(self, temp_config_dir):
+        """Create a ProfileManager with a temporary directory."""
+        return ProfileManager(config_dir=temp_config_dir)
+
+    def test_restore_default_profiles_resets_modified_defaults(self, manager):
+        """Test that modified default profiles are restored to original state."""
+        # Get original Quick Scan
+        original_quick_scan = manager.get_profile_by_name("Quick Scan")
+        assert original_quick_scan is not None
+
+        # Modify the default profile
+        manager.update_profile(original_quick_scan.id, targets=["/custom/modified/path"])
+
+        # Verify modification
+        modified = manager.get_profile_by_name("Quick Scan")
+        assert modified.targets == ["/custom/modified/path"]
+
+        # Restore defaults
+        count = manager.restore_default_profiles()
+
+        # Verify count
+        assert count == 3  # Quick Scan, Full Scan, Home Folder
+
+        # Verify restored profile has original targets (not the modified ones)
+        restored = manager.get_profile_by_name("Quick Scan")
+        assert restored is not None
+        assert restored.targets != ["/custom/modified/path"]
+        assert restored.is_default is True
+
+    def test_restore_default_profiles_preserves_custom(self, manager):
+        """Test that custom profiles are not affected by restore."""
+        # Create a custom profile
+        custom = manager.create_profile(
+            name="My Custom Profile",
+            targets=["/custom/path"],
+            exclusions={"paths": ["/custom/exclude"]},
+            description="A custom profile",
+        )
+        custom_id = custom.id
+
+        # Restore defaults
+        manager.restore_default_profiles()
+
+        # Verify custom profile still exists unchanged
+        retrieved = manager.get_profile(custom_id)
+        assert retrieved is not None
+        assert retrieved.name == "My Custom Profile"
+        assert retrieved.targets == ["/custom/path"]
+        assert retrieved.exclusions == {"paths": ["/custom/exclude"]}
+        assert retrieved.is_default is False
+
+    def test_restore_default_profiles_returns_count(self, manager):
+        """Test that restore returns the correct count of restored profiles."""
+        count = manager.restore_default_profiles()
+        assert count == 3  # Quick Scan, Full Scan, Home Folder
+
+    def test_restore_default_profiles_recreates_deleted_defaults(self, temp_config_dir):
+        """Test that restore recreates deleted default profiles."""
+        # Create manager and manually delete a default profile's ID
+        manager = ProfileManager(config_dir=temp_config_dir)
+
+        # Get all default profile IDs
+        initial_defaults = [p for p in manager.list_profiles() if p.is_default]
+        initial_count = len(initial_defaults)
+
+        # Manually remove one default profile (simulating corruption)
+        with manager._lock:
+            first_default_id = initial_defaults[0].id
+            del manager._profiles[first_default_id]
+        manager._save()
+
+        # Verify it's gone
+        remaining = [p for p in manager.list_profiles() if p.is_default]
+        assert len(remaining) == initial_count - 1
+
+        # Restore defaults
+        manager.restore_default_profiles()
+
+        # Verify all defaults are back
+        after_restore = [p for p in manager.list_profiles() if p.is_default]
+        assert len(after_restore) == 3
+        assert {p.name for p in after_restore} == {"Quick Scan", "Full Scan", "Home Folder"}
+
+    def test_restore_default_profiles_generates_new_ids(self, manager):
+        """Test that restored profiles get new IDs."""
+        # Get original IDs
+        original_ids = {p.id for p in manager.list_profiles() if p.is_default}
+
+        # Restore defaults
+        manager.restore_default_profiles()
+
+        # Get new IDs
+        new_ids = {p.id for p in manager.list_profiles() if p.is_default}
+
+        # IDs should be different
+        assert original_ids != new_ids
+
+    def test_restore_default_profiles_with_multiple_custom_profiles(self, manager):
+        """Test restore with multiple custom profiles."""
+        # Create multiple custom profiles
+        manager.create_profile(name="Custom 1", targets=["/path1"], exclusions={})
+        manager.create_profile(name="Custom 2", targets=["/path2"], exclusions={})
+        manager.create_profile(name="Custom 3", targets=["/path3"], exclusions={})
+
+        # Modify a default profile
+        quick_scan = manager.get_profile_by_name("Quick Scan")
+        manager.update_profile(quick_scan.id, targets=["/modified"])
+
+        # Restore defaults
+        manager.restore_default_profiles()
+
+        # Verify all custom profiles still exist
+        profiles = manager.list_profiles()
+        custom_names = {p.name for p in profiles if not p.is_default}
+        assert custom_names == {"Custom 1", "Custom 2", "Custom 3"}
+
+        # Verify defaults were restored
+        default_names = {p.name for p in profiles if p.is_default}
+        assert default_names == {"Quick Scan", "Full Scan", "Home Folder"}

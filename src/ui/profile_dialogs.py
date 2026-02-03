@@ -1041,6 +1041,13 @@ class ProfileListDialog(Adw.Window):
         # Create header bar with new profile button
         header_bar = Adw.HeaderBar()
 
+        # Restore defaults button (left side)
+        restore_button = Gtk.Button()
+        restore_button.set_icon_name(resolve_icon_name("view-refresh-symbolic"))
+        restore_button.set_tooltip_text("Restore default profiles")
+        restore_button.connect("clicked", self._on_restore_defaults_clicked)
+        header_bar.pack_start(restore_button)
+
         # Import profile button
         import_button = Gtk.Button()
         import_button.set_icon_name(resolve_icon_name("document-open-symbolic"))
@@ -1199,6 +1206,25 @@ class ProfileListDialog(Adw.Window):
     def _on_import_clicked(self, button):
         """Handle import button click."""
         self.import_profile()
+
+    def _on_restore_defaults_clicked(self, button):
+        """Handle restore defaults button click."""
+        dialog = RestoreDefaultsDialog()
+        dialog.connect("response", self._on_restore_response)
+        dialog.set_transient_for(self)
+        dialog.present()
+
+    def _on_restore_response(self, dialog, response: str):
+        """
+        Handle restore defaults dialog response.
+
+        Args:
+            dialog: The dialog instance
+            response: The dialog response ("restore" or "cancel")
+        """
+        if response == "restore" and self._profile_manager is not None:
+            self._profile_manager.restore_default_profiles()
+            self._refresh_profile_list()
 
     def _on_new_profile_clicked(self, button):
         """Handle new profile button click."""
