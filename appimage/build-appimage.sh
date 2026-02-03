@@ -579,7 +579,7 @@ copy_clamui_source() {
 	echo
 
 	PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-	CLAMUI_DEST="$APPDIR/usr/lib/python${PYTHON_VER}/site-packages/clamui"
+	CLAMUI_DEST="$APPDIR/usr/lib/python${PYTHON_VER}/site-packages/src"
 
 	log_info "Copying ClamUI source to $CLAMUI_DEST..."
 
@@ -951,7 +951,7 @@ fi
 export XDG_DATA_DIRS="\$HERE/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
 # Launch ClamUI
-exec "\$HERE/usr/bin/python3" -c "from clamui.main import main; main()" "\$@"
+exec "\$HERE/usr/bin/python3" -c "from src.main import main; main()" "\$@"
 APPRUN
 
 	chmod 755 "$APPDIR/AppRun"

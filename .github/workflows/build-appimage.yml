@@ -44,8 +44,8 @@ jobs:
 
           # Test 2: ClamUI module imports successfully
           ./squashfs-root/usr/bin/python3 -c "
-          import clamui.main
-          print('clamui.main: OK')
+          import src.main
+          print('src.main: OK')
           "
 
           # Test 3: GTK4/Adwaita bindings load
@@ -57,9 +57,9 @@ jobs:
 
           # Test 4: Core modules import (validates bundling)
           ./squashfs-root/usr/bin/python3 -c "
-          from clamui.core.scanner import Scanner
-          from clamui.core.settings_manager import SettingsManager
-          from clamui.core.quarantine.manager import QuarantineManager
+          from src.core.scanner import Scanner
+          from src.core.settings_manager import SettingsManager
+          from src.core.quarantine.manager import QuarantineManager
           print('Core modules: OK')
           "
 
