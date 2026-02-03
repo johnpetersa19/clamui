@@ -694,11 +694,8 @@ class TestProfileDialogMultiFileSelection:
         """Test that selecting multiple files via dialog adds all to targets."""
         from unittest.mock import MagicMock
 
-        from gi.repository import GLib
-
         dialog = dialog_class()
 
-        # Mock GLib.Error for successful case
         mock_result = MagicMock()
 
         # Create mock file list with multiple files
@@ -717,13 +714,9 @@ class TestProfileDialogMultiFileSelection:
 
         # Create mock dialog that returns our files
         mock_file_dialog = MagicMock()
-        # First try select_multiple_folders_finish (will fail), then open_multiple_finish
-        mock_file_dialog.select_multiple_folders_finish.side_effect = GLib.Error(
-            "not folder selection"
-        )
         mock_file_dialog.open_multiple_finish.return_value = mock_files
 
-        dialog._on_targets_selected(mock_file_dialog, mock_result)
+        dialog._on_target_files_selected(mock_file_dialog, mock_result)
 
         data = dialog.get_profile_data()
         assert len(data["targets"]) == 3
@@ -766,7 +759,7 @@ class TestProfileDialogMultiFolderSelection:
         mock_file_dialog = MagicMock()
         mock_file_dialog.select_multiple_folders_finish.return_value = mock_folders
 
-        dialog._on_targets_selected(mock_file_dialog, mock_result)
+        dialog._on_target_folders_selected(mock_file_dialog, mock_result)
 
         data = dialog.get_profile_data()
         assert len(data["targets"]) == 2
@@ -806,7 +799,7 @@ class TestProfileDialogTargetDuplicateDetection:
         mock_file_dialog = MagicMock()
         mock_file_dialog.select_multiple_folders_finish.return_value = mock_folders
 
-        dialog._on_targets_selected(mock_file_dialog, mock_result)
+        dialog._on_target_folders_selected(mock_file_dialog, mock_result)
 
         data = dialog.get_profile_data()
         # Should still only have one entry, not two
@@ -837,7 +830,7 @@ class TestProfileDialogTargetDuplicateDetection:
         mock_file_dialog = MagicMock()
         mock_file_dialog.select_multiple_folders_finish.return_value = mock_folders
 
-        dialog._on_targets_selected(mock_file_dialog, mock_result)
+        dialog._on_target_folders_selected(mock_file_dialog, mock_result)
 
         data = dialog.get_profile_data()
         # Should have 2 targets (original + new one, but not duplicate)

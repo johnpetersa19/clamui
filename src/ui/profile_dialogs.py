@@ -306,13 +306,13 @@ class ProfileDialog(Adw.Window):
     def _on_add_target_folder_clicked(self, button):
         """Handle add target folder button click."""
         self._open_file_dialog(
-            select_folder=True, multiple=True, callback=self._on_targets_selected
+            select_folder=True, multiple=True, callback=self._on_target_folders_selected
         )
 
     def _on_add_target_file_clicked(self, button):
         """Handle add target file button click."""
         self._open_file_dialog(
-            select_folder=False, multiple=True, callback=self._on_targets_selected
+            select_folder=False, multiple=True, callback=self._on_target_files_selected
         )
 
     def _on_add_exclusion_path_clicked(self, button):
@@ -368,33 +368,34 @@ class ProfileDialog(Adw.Window):
             else:
                 dialog.open(window, None, callback)
 
-    def _on_targets_selected(self, dialog, result):
-        """Handle multi-select target selection result."""
+    def _on_target_files_selected(self, dialog, result):
+        """Handle multiple file selection for targets."""
         try:
-            # Try multi-folder selection first
-            try:
-                files = dialog.select_multiple_folders_finish(result)
-            except GLib.Error:
-                # Not a folder selection, try file selection
-                try:
-                    files = dialog.open_multiple_finish(result)
-                except GLib.Error:
-                    return  # User cancelled
-
+            files = dialog.open_multiple_finish(result)
             if files is None:
                 return
-
-            # Iterate through the ListModel of Gio.File objects
-            # Duplicate detection is handled in _add_target_to_list
-            for i in range(files.get_n_items()):
-                file = files.get_item(i)
-                if file:
-                    path = file.get_path()
-                    if path and path not in self._targets:
-                        self._add_target_to_list(path)
-
+            self._process_selected_targets(files)
         except GLib.Error:
             pass  # User cancelled
+
+    def _on_target_folders_selected(self, dialog, result):
+        """Handle multiple folder selection for targets."""
+        try:
+            files = dialog.select_multiple_folders_finish(result)
+            if files is None:
+                return
+            self._process_selected_targets(files)
+        except GLib.Error:
+            pass  # User cancelled
+
+    def _process_selected_targets(self, files):
+        """Process selected files/folders and add to target list."""
+        for i in range(files.get_n_items()):
+            file = files.get_item(i)
+            if file:
+                path = file.get_path()
+                if path and path not in self._targets:
+                    self._add_target_to_list(path)
 
     def _on_exclusion_paths_selected(self, dialog, result):
         """Handle multi-select exclusion path selection result."""
@@ -856,6 +857,123 @@ class DeleteProfileDialog(Adw.Window):
     def _on_delete_clicked(self, button):
         """Handle delete button click."""
         self.emit("response", "delete")
+        self.close()
+
+    def get_heading(self) -> str:
+        """Get the dialog heading/title (for test compatibility)."""
+        return self._heading
+
+    def get_body(self) -> str:
+        """Get the dialog body text (for test compatibility)."""
+        return self._body
+
+
+class RestoreDefaultsDialog(Adw.Window):
+    """
+    Confirmation dialog for restoring default profiles.
+
+    Uses Adw.Window instead of Adw.AlertDialog for compatibility with
+    libadwaita < 1.5 (Ubuntu 22.04, Pop!_OS 22.04).
+
+    Usage:
+        def on_response(dialog, response):
+            if response == "restore":
+                # Restore default profiles
+                pass
+
+        dialog = RestoreDefaultsDialog()
+        dialog.connect("response", on_response)
+        dialog.set_transient_for(parent_window)
+        dialog.present()
+    """
+
+    __gsignals__ = {"response": (GObject.SignalFlags.RUN_LAST, None, (str,))}
+
+    def __init__(self, **kwargs):
+        """
+        Initialize the restore defaults confirmation dialog.
+
+        Args:
+            **kwargs: Additional arguments passed to parent
+        """
+        super().__init__(**kwargs)
+
+        self._heading = "Restore Default Profiles?"
+        self._body = (
+            "This will reset Quick Scan, Full Scan, and Home Folder profiles "
+            "to their original settings. Any changes you made to these profiles "
+            "will be lost.\n\nYour custom profiles will not be affected."
+        )
+
+        self.set_title(self._heading)
+        self.set_default_size(400, -1)  # Natural height
+
+        # Configure as modal dialog
+        self.set_modal(True)
+        self.set_deletable(True)
+
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Set up the dialog UI."""
+        # Create main container with toolbar view for header bar
+        toolbar_view = create_toolbar_view()
+
+        # Create header bar
+        header_bar = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header_bar)
+
+        # Main content box
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        content_box.set_margin_top(12)
+        content_box.set_margin_bottom(24)
+
+        # Info icon (not warning since this is restorative, not destructive)
+        info_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
+        info_icon.set_pixel_size(48)
+        info_icon.add_css_class("accent")
+        info_icon.set_halign(Gtk.Align.CENTER)
+        content_box.append(info_icon)
+
+        # Body text
+        body_label = Gtk.Label()
+        body_label.set_text(self._body)
+        body_label.set_wrap(True)
+        body_label.set_xalign(0.5)
+        body_label.set_justify(Gtk.Justification.CENTER)
+        content_box.append(body_label)
+
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        button_box.set_halign(Gtk.Align.CENTER)
+        button_box.set_margin_top(12)
+
+        # Cancel button
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", self._on_cancel_clicked)
+        button_box.append(cancel_button)
+
+        # Restore button (suggested-action since it's restorative, not destructive)
+        restore_button = Gtk.Button(label="Restore")
+        restore_button.add_css_class("suggested-action")
+        restore_button.connect("clicked", self._on_restore_clicked)
+        button_box.append(restore_button)
+
+        content_box.append(button_box)
+
+        toolbar_view.set_content(content_box)
+        self.set_content(toolbar_view)
+
+    def _on_cancel_clicked(self, button):
+        """Handle cancel button click."""
+        self.emit("response", "cancel")
+        self.close()
+
+    def _on_restore_clicked(self, button):
+        """Handle restore button click."""
+        self.emit("response", "restore")
         self.close()
 
     def get_heading(self) -> str:
