@@ -53,6 +53,22 @@ class UpdateStatus(Enum):
     CANCELLED = "cancelled"  # Update was cancelled
 
 
+class UpdateMethod(Enum):
+    """How the update was triggered."""
+
+    SERVICE_SIGNAL = "service_signal"  # Via SIGUSR1 to freshclam service
+    MANUAL = "manual"  # Via pkexec freshclam subprocess
+
+
+class FreshclamServiceStatus(Enum):
+    """Status of the freshclam systemd service."""
+
+    RUNNING = "running"  # Service active, can trigger via signal
+    STOPPED = "stopped"  # Service exists but not running
+    NOT_FOUND = "not_found"  # No systemd service detected
+    UNKNOWN = "unknown"  # Error checking status
+
+
 @dataclass
 class UpdateResult:
     """Result of a database update operation."""
@@ -63,6 +79,7 @@ class UpdateResult:
     exit_code: int
     databases_updated: int
     error_message: str | None
+    update_method: UpdateMethod = UpdateMethod.MANUAL
 
     @property
     def is_success(self) -> bool:
@@ -104,7 +121,131 @@ class FreshclamUpdater:
         """
         return check_freshclam_installed()
 
-    def update_sync(self, force: bool = False) -> UpdateResult:
+    def check_freshclam_service(self) -> tuple[FreshclamServiceStatus, str | None]:
+        """
+        Check if freshclam is running as a systemd service.
+
+        Checks for both 'clamav-freshclam.service' (Debian/Ubuntu/Fedora/Arch)
+        and 'freshclam.service' (openSUSE).
+
+        Returns:
+            Tuple of (status, pid_or_error_message)
+            - RUNNING: (RUNNING, pid_string)
+            - STOPPED: (STOPPED, None)
+            - NOT_FOUND: (NOT_FOUND, None)
+            - UNKNOWN: (UNKNOWN, error_message)
+        """
+        # Flatpak cannot reliably detect host systemd services
+        if is_flatpak():
+            return FreshclamServiceStatus.NOT_FOUND, None
+
+        # Service names to check (in order of preference)
+        service_names = ["clamav-freshclam.service", "freshclam.service"]
+
+        for service_name in service_names:
+            try:
+                # Check if service is active
+                result = subprocess.run(
+                    wrap_host_command(["systemctl", "is-active", service_name]),
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+
+                if result.returncode == 0 and result.stdout.strip() == "active":
+                    # Service is active, get the PID
+                    try:
+                        pid_result = subprocess.run(
+                            wrap_host_command(["pidof", "freshclam"]),
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        if pid_result.returncode == 0:
+                            pid = pid_result.stdout.strip().split()[0]  # Take first PID
+                            logger.debug(
+                                "Found running freshclam service: %s (PID %s)",
+                                service_name,
+                                pid,
+                            )
+                            return FreshclamServiceStatus.RUNNING, pid
+                    except (subprocess.TimeoutExpired, OSError) as e:
+                        logger.warning("Failed to get freshclam PID: %s", e)
+                        # Service is active but couldn't get PID
+                        return FreshclamServiceStatus.RUNNING, None
+
+                elif result.returncode == 0 or "inactive" in result.stdout.strip().lower():
+                    # Service exists but is stopped
+                    logger.debug("Service %s exists but is not running", service_name)
+                    return FreshclamServiceStatus.STOPPED, None
+
+            except subprocess.TimeoutExpired:
+                logger.warning("Timeout checking service %s", service_name)
+                continue
+            except OSError as e:
+                logger.warning("Error checking service %s: %s", service_name, e)
+                continue
+
+        # No service found
+        return FreshclamServiceStatus.NOT_FOUND, None
+
+    def trigger_service_update(self) -> tuple[bool, str]:
+        """
+        Trigger a database update via the freshclam service using SIGUSR1.
+
+        This is a non-blocking operation - the service handles the update
+        in the background. Check service logs (journalctl -u clamav-freshclam)
+        for results.
+
+        Returns:
+            Tuple of (success, message)
+        """
+        # Check service status first
+        status, pid = self.check_freshclam_service()
+
+        if status != FreshclamServiceStatus.RUNNING:
+            return False, f"Freshclam service not running (status: {status.value})"
+
+        if not pid:
+            # Try to get PID again
+            try:
+                pid_result = subprocess.run(
+                    wrap_host_command(["pidof", "freshclam"]),
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if pid_result.returncode == 0:
+                    pid = pid_result.stdout.strip().split()[0]
+                else:
+                    return False, "Could not determine freshclam PID"
+            except (subprocess.TimeoutExpired, OSError) as e:
+                return False, f"Failed to get freshclam PID: {e}"
+
+        # Send SIGUSR1 to trigger update
+        try:
+            # Use kill command to send signal (works without root for processes owned by same user)
+            result = subprocess.run(
+                wrap_host_command(["kill", "-s", "SIGUSR1", pid]),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+
+            if result.returncode == 0:
+                logger.info("Sent SIGUSR1 to freshclam service (PID %s)", pid)
+                return True, f"Update signal sent to freshclam service (PID {pid})"
+            else:
+                error = result.stderr.strip() or "Unknown error"
+                logger.warning("Failed to send signal to freshclam: %s", error)
+                return False, f"Failed to send signal: {error}"
+
+        except subprocess.TimeoutExpired:
+            return False, "Timeout sending signal to freshclam"
+        except OSError as e:
+            return False, f"Error sending signal: {e}"
+
+    def update_sync(self, force: bool = False, prefer_service: bool = True) -> UpdateResult:
         """
         Execute a synchronous database update.
 
@@ -115,13 +256,17 @@ class FreshclamUpdater:
             force: If True, backup existing databases, delete them, then download
                    fresh copies from mirrors. Previous databases are restored if
                    the update fails.
+            prefer_service: If True (default), attempt to trigger update via
+                           freshclam systemd service using SIGUSR1 when available.
+                           Falls back to manual method if service not running.
+                           Force updates always use manual method.
 
         Returns:
             UpdateResult with update details
         """
         start_time = time.monotonic()
 
-        # Check freshclam is available
+        # Check freshclam is available first (needed for both service and manual methods)
         is_installed, version_or_error = check_freshclam_installed()
         if not is_installed:
             result = UpdateResult(
@@ -135,6 +280,35 @@ class FreshclamUpdater:
             duration = time.monotonic() - start_time
             self._save_update_log(result, duration)
             return result
+
+        # Try service-based update if preferred and not force mode
+        # Force mode requires deleting databases which needs root privileges
+        if prefer_service and not force:
+            service_status, pid = self.check_freshclam_service()
+            if service_status == FreshclamServiceStatus.RUNNING:
+                success, message = self.trigger_service_update()
+                if success:
+                    # Service update triggered successfully
+                    # Note: The actual update happens in the background
+                    result = UpdateResult(
+                        status=UpdateStatus.SUCCESS,
+                        stdout=message,
+                        stderr="",
+                        exit_code=0,
+                        databases_updated=0,  # Unknown - happens in background
+                        error_message=None,
+                        update_method=UpdateMethod.SERVICE_SIGNAL,
+                    )
+                    duration = time.monotonic() - start_time
+                    self._save_update_log(result, duration)
+                    return result
+                else:
+                    # Service trigger failed, fall back to manual method
+                    logger.info(
+                        "Service update trigger failed (%s), falling back to manual method",
+                        message,
+                    )
+        # Continue with manual update method
 
         # If force update, backup existing databases (for potential restore)
         # Note: In native mode, deletion happens via pkexec in _build_command
@@ -342,7 +516,12 @@ class FreshclamUpdater:
             self._cleanup_backup()
             return result
 
-    def update_async(self, callback: Callable[[UpdateResult], None], force: bool = False) -> None:
+    def update_async(
+        self,
+        callback: Callable[[UpdateResult], None],
+        force: bool = False,
+        prefer_service: bool = True,
+    ) -> None:
         """
         Execute an asynchronous database update.
 
@@ -354,10 +533,12 @@ class FreshclamUpdater:
             force: If True, backup existing databases, delete them, then download
                    fresh copies from mirrors. Previous databases are restored if
                    the update fails.
+            prefer_service: If True (default), attempt to trigger update via
+                           freshclam systemd service using SIGUSR1 when available.
         """
 
         def update_thread():
-            result = self.update_sync(force=force)
+            result = self.update_sync(force=force, prefer_service=prefer_service)
             # Schedule callback on main thread
             GLib.idle_add(callback, result)
 

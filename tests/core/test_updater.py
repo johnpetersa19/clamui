@@ -573,7 +573,7 @@ class TestFreshclamUpdaterExtractErrorMessage:
 
 
 class TestFreshclamUpdaterUpdateSync:
-    """Tests for FreshclamUpdater.update_sync()."""
+    """Tests for FreshclamUpdater.update_sync() with manual method (prefer_service=False)."""
 
     def test_successful_update(self, updater_module):
         """Test successful database update."""
@@ -597,7 +597,7 @@ class TestFreshclamUpdaterUpdateSync:
                             mock_popen.return_value = mock_process
 
                             updater = FreshclamUpdater(log_manager=mock_log_manager)
-                            result = updater.update_sync()
+                            result = updater.update_sync(prefer_service=False)
 
                             assert result.status == UpdateStatus.SUCCESS
                             assert result.databases_updated == 1
@@ -623,7 +623,7 @@ class TestFreshclamUpdaterUpdateSync:
                             mock_popen.return_value = mock_process
 
                             updater = FreshclamUpdater(log_manager=mock_log_manager)
-                            result = updater.update_sync()
+                            result = updater.update_sync(prefer_service=False)
 
                             assert result.status == UpdateStatus.UP_TO_DATE
                             assert result.databases_updated == 0
@@ -650,7 +650,7 @@ class TestFreshclamUpdaterUpdateSync:
                             mock_popen.return_value = mock_process
 
                             updater = FreshclamUpdater(log_manager=mock_log_manager)
-                            result = updater.update_sync()
+                            result = updater.update_sync(prefer_service=False)
 
                             assert result.status == UpdateStatus.ERROR
                             assert result.has_error is True
@@ -666,7 +666,7 @@ class TestFreshclamUpdaterUpdateSync:
             return_value=(False, "freshclam not found"),
         ):
             updater = FreshclamUpdater(log_manager=mock_log_manager)
-            result = updater.update_sync()
+            result = updater.update_sync(prefer_service=False)
 
             assert result.status == UpdateStatus.ERROR
             assert "freshclam" in result.stderr.lower() or "not" in result.stderr.lower()
@@ -685,7 +685,7 @@ class TestFreshclamUpdaterUpdateSync:
                             mock_popen.side_effect = FileNotFoundError("freshclam not found")
 
                             updater = FreshclamUpdater(log_manager=mock_log_manager)
-                            result = updater.update_sync()
+                            result = updater.update_sync(prefer_service=False)
 
                             assert result.status == UpdateStatus.ERROR
                             assert "not found" in result.error_message.lower()
@@ -704,7 +704,7 @@ class TestFreshclamUpdaterUpdateSync:
                             mock_popen.side_effect = PermissionError("Access denied")
 
                             updater = FreshclamUpdater(log_manager=mock_log_manager)
-                            result = updater.update_sync()
+                            result = updater.update_sync(prefer_service=False)
 
                             assert result.status == UpdateStatus.ERROR
                             assert "Permission denied" in result.error_message
@@ -723,7 +723,7 @@ class TestFreshclamUpdaterUpdateSync:
                             mock_popen.side_effect = RuntimeError("Unexpected error")
 
                             updater = FreshclamUpdater(log_manager=mock_log_manager)
-                            result = updater.update_sync()
+                            result = updater.update_sync(prefer_service=False)
 
                             assert result.status == UpdateStatus.ERROR
                             assert "Update failed" in result.error_message
@@ -755,7 +755,7 @@ class TestFreshclamUpdaterUpdateSync:
                             mock_process.poll = MagicMock(return_value=0)  # Process already done
                             mock_popen.return_value = mock_process
 
-                            result = updater.update_sync()
+                            result = updater.update_sync(prefer_service=False)
 
                             assert result.status == UpdateStatus.CANCELLED
 
@@ -915,7 +915,7 @@ class TestFreshclamUpdaterCommunicateTimeout:
                             mock_popen.return_value = mock_process
 
                             updater = FreshclamUpdater(log_manager=mock_log_manager)
-                            result = updater.update_sync()
+                            result = updater.update_sync(prefer_service=False)
 
                             # Should have called kill after timeout
                             mock_process.kill.assert_called()
@@ -962,7 +962,7 @@ class TestFreshclamUpdaterUpdateAsync:
                                 mock_popen.return_value = mock_process
 
                                 updater = FreshclamUpdater(log_manager=mock_log_manager)
-                                updater.update_async(mock_callback)
+                                updater.update_async(mock_callback, prefer_service=False)
 
                                 # Wait for thread to complete
                                 import time
@@ -1546,3 +1546,1114 @@ class TestFreshclamUpdaterDeleteLocalDatabases:
         assert success is True
         assert error is None
         assert count == 0
+
+
+# =============================================================================
+# UpdateMethod Enum Tests
+# =============================================================================
+
+
+class TestUpdateMethod:
+    """Tests for the UpdateMethod enum."""
+
+    def test_service_signal_value(self, updater_module):
+        """Test UpdateMethod.SERVICE_SIGNAL has correct value."""
+        from src.core.updater import UpdateMethod
+
+        assert UpdateMethod.SERVICE_SIGNAL.value == "service_signal"
+
+    def test_manual_value(self, updater_module):
+        """Test UpdateMethod.MANUAL has correct value."""
+        from src.core.updater import UpdateMethod
+
+        assert UpdateMethod.MANUAL.value == "manual"
+
+
+# =============================================================================
+# FreshclamServiceStatus Enum Tests
+# =============================================================================
+
+
+class TestFreshclamServiceStatus:
+    """Tests for the FreshclamServiceStatus enum."""
+
+    def test_running_value(self, updater_module):
+        """Test FreshclamServiceStatus.RUNNING has correct value."""
+        from src.core.updater import FreshclamServiceStatus
+
+        assert FreshclamServiceStatus.RUNNING.value == "running"
+
+    def test_stopped_value(self, updater_module):
+        """Test FreshclamServiceStatus.STOPPED has correct value."""
+        from src.core.updater import FreshclamServiceStatus
+
+        assert FreshclamServiceStatus.STOPPED.value == "stopped"
+
+    def test_not_found_value(self, updater_module):
+        """Test FreshclamServiceStatus.NOT_FOUND has correct value."""
+        from src.core.updater import FreshclamServiceStatus
+
+        assert FreshclamServiceStatus.NOT_FOUND.value == "not_found"
+
+    def test_unknown_value(self, updater_module):
+        """Test FreshclamServiceStatus.UNKNOWN has correct value."""
+        from src.core.updater import FreshclamServiceStatus
+
+        assert FreshclamServiceStatus.UNKNOWN.value == "unknown"
+
+
+# =============================================================================
+# UpdateResult with update_method Tests
+# =============================================================================
+
+
+class TestUpdateResultMethod:
+    """Tests for UpdateResult.update_method field."""
+
+    def test_default_update_method_is_manual(self, updater_module):
+        """Test UpdateResult defaults to MANUAL update method."""
+        from src.core.updater import UpdateMethod, UpdateResult, UpdateStatus
+
+        result = UpdateResult(
+            status=UpdateStatus.SUCCESS,
+            stdout="output",
+            stderr="",
+            exit_code=0,
+            databases_updated=1,
+            error_message=None,
+        )
+        assert result.update_method == UpdateMethod.MANUAL
+
+    def test_update_method_can_be_service_signal(self, updater_module):
+        """Test UpdateResult can use SERVICE_SIGNAL method."""
+        from src.core.updater import UpdateMethod, UpdateResult, UpdateStatus
+
+        result = UpdateResult(
+            status=UpdateStatus.SUCCESS,
+            stdout="Signal sent",
+            stderr="",
+            exit_code=0,
+            databases_updated=0,
+            error_message=None,
+            update_method=UpdateMethod.SERVICE_SIGNAL,
+        )
+        assert result.update_method == UpdateMethod.SERVICE_SIGNAL
+
+
+# =============================================================================
+# check_freshclam_service() Tests
+# =============================================================================
+
+
+class TestCheckFreshclamService:
+    """Tests for FreshclamUpdater.check_freshclam_service() method."""
+
+    def test_returns_not_found_in_flatpak(self, updater_module):
+        """Test returns NOT_FOUND when running in Flatpak."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=True):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.NOT_FOUND
+        assert pid is None
+
+    def test_returns_running_when_service_active(self, updater_module):
+        """Test returns RUNNING when systemd service is active."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        # Mock systemctl is-active returning active
+        mock_systemctl = MagicMock()
+        mock_systemctl.returncode = 0
+        mock_systemctl.stdout = "active"
+
+        # Mock pidof returning a PID
+        mock_pidof = MagicMock()
+        mock_pidof.returncode = 0
+        mock_pidof.stdout = "12345"
+
+        def mock_run(cmd, *args, **kwargs):
+            if "is-active" in cmd:
+                return mock_systemctl
+            elif "pidof" in cmd:
+                return mock_pidof
+            return MagicMock(returncode=1, stdout="")
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", side_effect=mock_run):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.RUNNING
+        assert pid == "12345"
+
+    def test_returns_stopped_when_service_inactive(self, updater_module):
+        """Test returns STOPPED when systemd service exists but is inactive."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        # Mock systemctl is-active returning inactive
+        mock_systemctl = MagicMock()
+        mock_systemctl.returncode = 0
+        mock_systemctl.stdout = "inactive"
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", return_value=mock_systemctl):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.STOPPED
+        assert pid is None
+
+    def test_returns_not_found_when_no_service_exists(self, updater_module):
+        """Test returns NOT_FOUND when no systemd service exists."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        # Mock systemctl returning error (service not found)
+        mock_result = MagicMock()
+        mock_result.returncode = 4  # systemctl unit not found
+        mock_result.stdout = ""
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", return_value=mock_result):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.NOT_FOUND
+        assert pid is None
+
+    def test_checks_both_service_names(self, updater_module):
+        """Test checks both clamav-freshclam.service and freshclam.service."""
+        from src.core.updater import FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+        checked_services = []
+
+        def mock_run(cmd, *args, **kwargs):
+            if "is-active" in cmd:
+                checked_services.append(cmd[-1])  # Last arg is service name
+            mock_result = MagicMock()
+            mock_result.returncode = 4
+            mock_result.stdout = ""
+            return mock_result
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", side_effect=mock_run):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    updater.check_freshclam_service()
+
+        assert "clamav-freshclam.service" in checked_services
+        assert "freshclam.service" in checked_services
+
+
+# =============================================================================
+# trigger_service_update() Tests
+# =============================================================================
+
+
+class TestTriggerServiceUpdate:
+    """Tests for FreshclamUpdater.trigger_service_update() method."""
+
+    def test_returns_error_when_service_not_running(self, updater_module):
+        """Test returns error when freshclam service is not running."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.NOT_FOUND, None),
+            ):
+                success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "not running" in message.lower()
+
+    def test_sends_sigusr1_when_service_running(self, updater_module):
+        """Test sends SIGUSR1 signal to freshclam process."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        # Mock kill command succeeding
+        mock_kill = MagicMock()
+        mock_kill.returncode = 0
+        mock_kill.stderr = ""
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+            ):
+                with patch("subprocess.run", return_value=mock_kill) as mock_run:
+                    with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                        success, message = updater.trigger_service_update()
+
+        assert success is True
+        assert "12345" in message
+        # Verify kill was called with SIGUSR1
+        call_args = mock_run.call_args[0][0]
+        assert "kill" in call_args
+        assert "SIGUSR1" in call_args
+
+    def test_returns_error_when_signal_fails(self, updater_module):
+        """Test returns error when kill command fails."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        # Mock kill command failing
+        mock_kill = MagicMock()
+        mock_kill.returncode = 1
+        mock_kill.stderr = "Operation not permitted"
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+            ):
+                with patch("subprocess.run", return_value=mock_kill):
+                    with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                        success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "failed" in message.lower()
+
+
+# =============================================================================
+# update_sync() with prefer_service Tests
+# =============================================================================
+
+
+class TestUpdateSyncPreferService:
+    """Tests for update_sync() with prefer_service parameter."""
+
+    def test_uses_service_when_available_and_preferred(self, updater_module):
+        """Test uses service method when service is running and prefer_service=True."""
+        from src.core.updater import (
+            FreshclamServiceStatus,
+            FreshclamUpdater,
+            UpdateMethod,
+            UpdateStatus,
+        )
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch(
+                "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+            ):
+                updater = FreshclamUpdater(log_manager=mock_log_manager)
+                with patch.object(
+                    updater,
+                    "check_freshclam_service",
+                    return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+                ):
+                    with patch.object(
+                        updater,
+                        "trigger_service_update",
+                        return_value=(True, "Signal sent to PID 12345"),
+                    ):
+                        result = updater.update_sync(force=False, prefer_service=True)
+
+        assert result.status == UpdateStatus.SUCCESS
+        assert result.update_method == UpdateMethod.SERVICE_SIGNAL
+        assert "12345" in result.stdout
+
+    def test_falls_back_to_manual_when_service_not_running(self, updater_module):
+        """Test falls back to manual method when service is not running."""
+        from src.core.updater import (
+            FreshclamServiceStatus,
+            FreshclamUpdater,
+            UpdateMethod,
+            UpdateStatus,
+        )
+
+        mock_log_manager = MagicMock()
+
+        # Mock successful manual update
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("daily.cvd updated (version: 26929", "")
+        mock_process.returncode = 0
+        mock_process.poll.return_value = 0
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch(
+                "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+            ):
+                with patch("shutil.which", return_value="/usr/bin/pkexec"):
+                    with patch("subprocess.Popen", return_value=mock_process):
+                        with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                            updater = FreshclamUpdater(log_manager=mock_log_manager)
+                            with patch.object(
+                                updater,
+                                "check_freshclam_service",
+                                return_value=(FreshclamServiceStatus.NOT_FOUND, None),
+                            ):
+                                result = updater.update_sync(force=False, prefer_service=True)
+
+        assert result.status == UpdateStatus.SUCCESS
+        assert result.update_method == UpdateMethod.MANUAL
+
+    def test_uses_manual_for_force_update(self, updater_module):
+        """Test always uses manual method for force updates."""
+        from src.core.updater import (
+            FreshclamServiceStatus,
+            FreshclamUpdater,
+            UpdateMethod,
+        )
+
+        mock_log_manager = MagicMock()
+
+        # Mock successful manual update
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("daily.cvd updated (version: 26929", "")
+        mock_process.returncode = 0
+        mock_process.poll.return_value = 0
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch(
+                "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+            ):
+                with patch("shutil.which", return_value="/usr/bin/pkexec"):
+                    with patch("subprocess.Popen", return_value=mock_process):
+                        with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                            updater = FreshclamUpdater(log_manager=mock_log_manager)
+                            # Service is running but force=True should skip it
+                            with patch.object(
+                                updater,
+                                "check_freshclam_service",
+                                return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+                            ) as mock_check:
+                                result = updater.update_sync(force=True, prefer_service=True)
+
+        # check_freshclam_service should NOT be called for force updates
+        mock_check.assert_not_called()
+        assert result.update_method == UpdateMethod.MANUAL
+
+    def test_uses_manual_when_prefer_service_false(self, updater_module):
+        """Test uses manual method when prefer_service=False."""
+        from src.core.updater import (
+            FreshclamUpdater,
+            UpdateMethod,
+        )
+
+        mock_log_manager = MagicMock()
+
+        # Mock successful manual update
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("daily.cvd updated (version: 26929", "")
+        mock_process.returncode = 0
+        mock_process.poll.return_value = 0
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch(
+                "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+            ):
+                with patch("shutil.which", return_value="/usr/bin/pkexec"):
+                    with patch("subprocess.Popen", return_value=mock_process):
+                        with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                            updater = FreshclamUpdater(log_manager=mock_log_manager)
+                            with patch.object(
+                                updater,
+                                "check_freshclam_service",
+                            ) as mock_check:
+                                result = updater.update_sync(force=False, prefer_service=False)
+
+        # check_freshclam_service should NOT be called when prefer_service=False
+        mock_check.assert_not_called()
+        assert result.update_method == UpdateMethod.MANUAL
+
+    def test_falls_back_when_service_trigger_fails(self, updater_module):
+        """Test falls back to manual method when service trigger fails."""
+        from src.core.updater import (
+            FreshclamServiceStatus,
+            FreshclamUpdater,
+            UpdateMethod,
+            UpdateStatus,
+        )
+
+        mock_log_manager = MagicMock()
+
+        # Mock successful manual update (fallback)
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("daily.cvd updated (version: 26929", "")
+        mock_process.returncode = 0
+        mock_process.poll.return_value = 0
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch(
+                "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+            ):
+                with patch("shutil.which", return_value="/usr/bin/pkexec"):
+                    with patch("subprocess.Popen", return_value=mock_process):
+                        with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                            updater = FreshclamUpdater(log_manager=mock_log_manager)
+                            with patch.object(
+                                updater,
+                                "check_freshclam_service",
+                                return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+                            ):
+                                with patch.object(
+                                    updater,
+                                    "trigger_service_update",
+                                    return_value=(False, "Permission denied"),
+                                ):
+                                    result = updater.update_sync(force=False, prefer_service=True)
+
+        # Should fall back to manual method
+        assert result.status == UpdateStatus.SUCCESS
+        assert result.update_method == UpdateMethod.MANUAL
+
+
+# =============================================================================
+# Additional check_freshclam_service() Tests
+# =============================================================================
+
+
+class TestCheckFreshclamServiceAdditional:
+    """Additional tests for check_freshclam_service() edge cases."""
+
+    def test_handles_systemctl_timeout(self, updater_module):
+        """Test handles timeout when checking systemctl."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch(
+                "subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="systemctl", timeout=5)
+            ):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        # Should return NOT_FOUND after all services timeout
+        assert status == FreshclamServiceStatus.NOT_FOUND
+        assert pid is None
+
+    def test_handles_oserror_during_check(self, updater_module):
+        """Test handles OSError when checking systemctl."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", side_effect=OSError("Command not found")):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.NOT_FOUND
+        assert pid is None
+
+    def test_returns_running_without_pid_when_pidof_fails(self, updater_module):
+        """Test returns RUNNING with None PID when pidof fails."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        def mock_run(cmd, *args, **kwargs):
+            if "is-active" in cmd:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = "active"
+                return result
+            elif "pidof" in cmd:
+                raise subprocess.TimeoutExpired(cmd="pidof", timeout=5)
+            return MagicMock(returncode=1, stdout="")
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", side_effect=mock_run):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.RUNNING
+        assert pid is None
+
+    def test_takes_first_pid_when_multiple_returned(self, updater_module):
+        """Test takes first PID when pidof returns multiple PIDs."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        def mock_run(cmd, *args, **kwargs):
+            if "is-active" in cmd:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = "active"
+                return result
+            elif "pidof" in cmd:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = "12345 67890 11111"  # Multiple PIDs
+                return result
+            return MagicMock(returncode=1, stdout="")
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", side_effect=mock_run):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.RUNNING
+        assert pid == "12345"  # First PID
+
+    def test_detects_opensuse_service_name(self, updater_module):
+        """Test detects freshclam.service (openSUSE naming)."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        def mock_run(cmd, *args, **kwargs):
+            if "is-active" in cmd:
+                service_name = cmd[-1]
+                result = MagicMock()
+                if service_name == "clamav-freshclam.service":
+                    result.returncode = 4  # Not found
+                    result.stdout = ""
+                elif service_name == "freshclam.service":
+                    result.returncode = 0
+                    result.stdout = "active"
+                return result
+            elif "pidof" in cmd:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = "99999"
+                return result
+            return MagicMock(returncode=1, stdout="")
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", side_effect=mock_run):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.RUNNING
+        assert pid == "99999"
+
+    def test_pidof_oserror_returns_running_without_pid(self, updater_module):
+        """Test returns RUNNING without PID when pidof raises OSError."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        def mock_run(cmd, *args, **kwargs):
+            if "is-active" in cmd:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = "active"
+                return result
+            elif "pidof" in cmd:
+                raise OSError("pidof not found")
+            return MagicMock(returncode=1, stdout="")
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", side_effect=mock_run):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.RUNNING
+        assert pid is None
+
+
+# =============================================================================
+# Additional trigger_service_update() Tests
+# =============================================================================
+
+
+class TestTriggerServiceUpdateAdditional:
+    """Additional tests for trigger_service_update() edge cases."""
+
+    def test_fetches_pid_when_not_provided_by_check(self, updater_module):
+        """Test fetches PID when check_freshclam_service returns None PID."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        # Mock pidof and kill
+        def mock_run(cmd, *args, **kwargs):
+            if "pidof" in cmd:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = "54321"
+                return result
+            elif "kill" in cmd:
+                result = MagicMock()
+                result.returncode = 0
+                result.stderr = ""
+                return result
+            return MagicMock(returncode=1, stdout="")
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, None),  # No PID
+            ):
+                with patch("subprocess.run", side_effect=mock_run):
+                    with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                        success, message = updater.trigger_service_update()
+
+        assert success is True
+        assert "54321" in message
+
+    def test_fails_when_pid_cannot_be_determined(self, updater_module):
+        """Test fails when PID cannot be determined."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        # Mock pidof failing
+        mock_pidof = MagicMock()
+        mock_pidof.returncode = 1
+        mock_pidof.stdout = ""
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, None),
+            ):
+                with patch("subprocess.run", return_value=mock_pidof):
+                    with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                        success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "could not determine" in message.lower()
+
+    def test_handles_kill_timeout(self, updater_module):
+        """Test handles timeout when kill command times out."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+            ):
+                with patch(
+                    "subprocess.run",
+                    side_effect=subprocess.TimeoutExpired(cmd="kill", timeout=5),
+                ):
+                    with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                        success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "timeout" in message.lower()
+
+    def test_handles_kill_oserror(self, updater_module):
+        """Test handles OSError when kill command fails."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+            ):
+                with patch("subprocess.run", side_effect=OSError("No such process")):
+                    with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                        success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "error" in message.lower()
+
+    def test_handles_pidof_timeout_during_trigger(self, updater_module):
+        """Test handles pidof timeout when fetching PID during trigger."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, None),
+            ):
+                with patch(
+                    "subprocess.run",
+                    side_effect=subprocess.TimeoutExpired(cmd="pidof", timeout=5),
+                ):
+                    with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                        success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "failed to get" in message.lower()
+
+    def test_handles_pidof_oserror_during_trigger(self, updater_module):
+        """Test handles pidof OSError when fetching PID during trigger."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, None),
+            ):
+                with patch("subprocess.run", side_effect=OSError("pidof not found")):
+                    with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                        success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "failed to get" in message.lower()
+
+    def test_returns_error_for_stopped_service(self, updater_module):
+        """Test returns error when service is stopped."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.STOPPED, None),
+            ):
+                success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "not running" in message.lower()
+        assert "stopped" in message.lower()
+
+    def test_returns_error_for_unknown_status(self, updater_module):
+        """Test returns error when service status is unknown."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.UNKNOWN, None),
+            ):
+                success, message = updater.trigger_service_update()
+
+        assert success is False
+        assert "not running" in message.lower()
+
+
+# =============================================================================
+# Additional UpdateResult Tests
+# =============================================================================
+
+
+class TestUpdateResultAdditional:
+    """Additional tests for UpdateResult with update_method."""
+
+    def test_is_success_works_with_service_method(self, updater_module):
+        """Test is_success property works correctly with SERVICE_SIGNAL method."""
+        from src.core.updater import UpdateMethod, UpdateResult, UpdateStatus
+
+        result = UpdateResult(
+            status=UpdateStatus.SUCCESS,
+            stdout="Signal sent",
+            stderr="",
+            exit_code=0,
+            databases_updated=0,
+            error_message=None,
+            update_method=UpdateMethod.SERVICE_SIGNAL,
+        )
+        assert result.is_success is True
+        assert result.has_error is False
+
+    def test_has_error_works_with_service_method(self, updater_module):
+        """Test has_error property works correctly with SERVICE_SIGNAL method."""
+        from src.core.updater import UpdateMethod, UpdateResult, UpdateStatus
+
+        result = UpdateResult(
+            status=UpdateStatus.ERROR,
+            stdout="",
+            stderr="Signal failed",
+            exit_code=1,
+            databases_updated=0,
+            error_message="Failed to send signal",
+            update_method=UpdateMethod.SERVICE_SIGNAL,
+        )
+        assert result.is_success is False
+        assert result.has_error is True
+
+    def test_up_to_date_with_manual_method(self, updater_module):
+        """Test UP_TO_DATE status with MANUAL method."""
+        from src.core.updater import UpdateMethod, UpdateResult, UpdateStatus
+
+        result = UpdateResult(
+            status=UpdateStatus.UP_TO_DATE,
+            stdout="Database is up to date",
+            stderr="",
+            exit_code=0,
+            databases_updated=0,
+            error_message=None,
+            update_method=UpdateMethod.MANUAL,
+        )
+        assert result.is_success is True
+        assert result.has_error is False
+        assert result.update_method == UpdateMethod.MANUAL
+
+
+# =============================================================================
+# Additional update_sync() Service Tests
+# =============================================================================
+
+
+class TestUpdateSyncServiceAdditional:
+    """Additional tests for update_sync() with service integration."""
+
+    def test_service_update_saves_log(self, updater_module):
+        """Test service update saves log entry."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater, UpdateMethod
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch(
+                "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+            ):
+                updater = FreshclamUpdater(log_manager=mock_log_manager)
+                with patch.object(
+                    updater,
+                    "check_freshclam_service",
+                    return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+                ):
+                    with patch.object(
+                        updater,
+                        "trigger_service_update",
+                        return_value=(True, "Signal sent to PID 12345"),
+                    ):
+                        result = updater.update_sync(force=False, prefer_service=True)
+
+        # Verify log was saved
+        mock_log_manager.save_log.assert_called_once()
+        assert result.update_method == UpdateMethod.SERVICE_SIGNAL
+
+    def test_service_update_result_has_correct_fields(self, updater_module):
+        """Test service update result has correct fields populated."""
+        from src.core.updater import (
+            FreshclamServiceStatus,
+            FreshclamUpdater,
+            UpdateMethod,
+            UpdateStatus,
+        )
+
+        mock_log_manager = MagicMock()
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch(
+                "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+            ):
+                updater = FreshclamUpdater(log_manager=mock_log_manager)
+                with patch.object(
+                    updater,
+                    "check_freshclam_service",
+                    return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+                ):
+                    with patch.object(
+                        updater,
+                        "trigger_service_update",
+                        return_value=(True, "Signal sent to PID 12345"),
+                    ):
+                        result = updater.update_sync(force=False, prefer_service=True)
+
+        assert result.status == UpdateStatus.SUCCESS
+        assert result.update_method == UpdateMethod.SERVICE_SIGNAL
+        assert result.exit_code == 0
+        assert result.databases_updated == 0  # Unknown for service updates
+        assert result.error_message is None
+        assert "12345" in result.stdout
+
+    def test_freshclam_not_installed_skips_service_check(self, updater_module):
+        """Test that freshclam not installed returns error without checking service."""
+        from src.core.updater import FreshclamUpdater, UpdateMethod, UpdateStatus
+
+        mock_log_manager = MagicMock()
+
+        with patch(
+            "src.core.updater.check_freshclam_installed",
+            return_value=(False, "freshclam not found"),
+        ):
+            updater = FreshclamUpdater(log_manager=mock_log_manager)
+            with patch.object(updater, "check_freshclam_service") as mock_check:
+                result = updater.update_sync(force=False, prefer_service=True)
+
+        # Service check should not be called when freshclam not installed
+        mock_check.assert_not_called()
+        assert result.status == UpdateStatus.ERROR
+        assert result.update_method == UpdateMethod.MANUAL
+
+
+# =============================================================================
+# update_async() with Service Tests
+# =============================================================================
+
+
+class TestUpdateAsyncService:
+    """Tests for update_async() with service integration."""
+
+    def test_async_uses_service_when_available(self, updater_module):
+        """Test async update uses service when available."""
+        from src.core.updater import (
+            FreshclamServiceStatus,
+            FreshclamUpdater,
+            UpdateMethod,
+            UpdateStatus,
+        )
+
+        mock_log_manager = MagicMock()
+        mock_callback = MagicMock()
+        mock_glib = updater_module["glib"]
+
+        with patch("src.core.updater.GLib", mock_glib):
+            with patch("src.core.updater.is_flatpak", return_value=False):
+                with patch(
+                    "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+                ):
+                    updater = FreshclamUpdater(log_manager=mock_log_manager)
+                    with patch.object(
+                        updater,
+                        "check_freshclam_service",
+                        return_value=(FreshclamServiceStatus.RUNNING, "12345"),
+                    ):
+                        with patch.object(
+                            updater,
+                            "trigger_service_update",
+                            return_value=(True, "Signal sent"),
+                        ):
+                            updater.update_async(mock_callback, prefer_service=True)
+
+                            # Wait for thread
+                            import time
+
+                            time.sleep(0.2)
+
+        # Verify callback was called with service result
+        mock_callback.assert_called_once()
+        result = mock_callback.call_args[0][0]
+        assert result.status == UpdateStatus.SUCCESS
+        assert result.update_method == UpdateMethod.SERVICE_SIGNAL
+
+    def test_async_falls_back_to_manual(self, updater_module):
+        """Test async update falls back to manual when service unavailable."""
+        from src.core.updater import (
+            FreshclamServiceStatus,
+            FreshclamUpdater,
+            UpdateMethod,
+            UpdateStatus,
+        )
+
+        mock_log_manager = MagicMock()
+        mock_callback = MagicMock()
+        mock_glib = updater_module["glib"]
+
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("daily.cvd updated (version: 26929", "")
+        mock_process.returncode = 0
+        mock_process.poll.return_value = 0
+
+        with patch("src.core.updater.GLib", mock_glib):
+            with patch("src.core.updater.is_flatpak", return_value=False):
+                with patch(
+                    "src.core.updater.check_freshclam_installed", return_value=(True, "0.103.8")
+                ):
+                    with patch("shutil.which", return_value="/usr/bin/pkexec"):
+                        with patch("subprocess.Popen", return_value=mock_process):
+                            with patch(
+                                "src.core.updater.wrap_host_command", side_effect=lambda x: x
+                            ):
+                                updater = FreshclamUpdater(log_manager=mock_log_manager)
+                                with patch.object(
+                                    updater,
+                                    "check_freshclam_service",
+                                    return_value=(FreshclamServiceStatus.NOT_FOUND, None),
+                                ):
+                                    updater.update_async(mock_callback, prefer_service=True)
+
+                                    import time
+
+                                    time.sleep(0.2)
+
+        mock_callback.assert_called_once()
+        result = mock_callback.call_args[0][0]
+        assert result.status == UpdateStatus.SUCCESS
+        assert result.update_method == UpdateMethod.MANUAL
+
+
+# =============================================================================
+# FreshclamServiceStatus Enum Completeness Tests
+# =============================================================================
+
+
+class TestFreshclamServiceStatusCompleteness:
+    """Tests for FreshclamServiceStatus enum completeness."""
+
+    def test_all_status_values_exist(self, updater_module):
+        """Test all expected status values exist."""
+        from src.core.updater import FreshclamServiceStatus
+
+        assert hasattr(FreshclamServiceStatus, "RUNNING")
+        assert hasattr(FreshclamServiceStatus, "STOPPED")
+        assert hasattr(FreshclamServiceStatus, "NOT_FOUND")
+        assert hasattr(FreshclamServiceStatus, "UNKNOWN")
+
+    def test_status_count(self, updater_module):
+        """Test correct number of status values."""
+        from src.core.updater import FreshclamServiceStatus
+
+        assert len(FreshclamServiceStatus) == 4
+
+
+# =============================================================================
+# UpdateMethod Enum Completeness Tests
+# =============================================================================
+
+
+class TestUpdateMethodCompleteness:
+    """Tests for UpdateMethod enum completeness."""
+
+    def test_all_method_values_exist(self, updater_module):
+        """Test all expected method values exist."""
+        from src.core.updater import UpdateMethod
+
+        assert hasattr(UpdateMethod, "SERVICE_SIGNAL")
+        assert hasattr(UpdateMethod, "MANUAL")
+
+    def test_method_count(self, updater_module):
+        """Test correct number of method values."""
+        from src.core.updater import UpdateMethod
+
+        assert len(UpdateMethod) == 2

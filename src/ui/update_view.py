@@ -9,7 +9,13 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
-from ..core.updater import FreshclamUpdater, UpdateResult, UpdateStatus
+from ..core.updater import (
+    FreshclamServiceStatus,
+    FreshclamUpdater,
+    UpdateMethod,
+    UpdateResult,
+    UpdateStatus,
+)
 from ..core.utils import check_freshclam_installed
 from .compat import create_banner
 from .utils import add_row_icon, resolve_icon_name
@@ -43,6 +49,9 @@ class UpdateView(Gtk.Box):
 
         # Freshclam availability
         self._freshclam_available = False
+
+        # Service status
+        self._service_status = FreshclamServiceStatus.UNKNOWN
 
         # Set up the UI
         self._setup_ui()
@@ -184,10 +193,14 @@ class UpdateView(Gtk.Box):
 
     def _create_status_bar(self):
         """Create the status bar at the bottom."""
-        # Status bar
-        status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        status_box.set_halign(Gtk.Align.CENTER)
-        status_box.set_spacing(6)
+        # Status bar container
+        status_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        status_container.set_spacing(6)
+
+        # Freshclam status row
+        freshclam_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        freshclam_box.set_halign(Gtk.Align.CENTER)
+        freshclam_box.set_spacing(6)
 
         # Freshclam status icon
         self._freshclam_status_icon = Gtk.Image()
@@ -200,13 +213,32 @@ class UpdateView(Gtk.Box):
         self._freshclam_status_label.set_text("Checking freshclam...")
         self._freshclam_status_label.add_css_class("dim-label")
 
-        status_box.append(self._freshclam_status_icon)
-        status_box.append(self._freshclam_status_label)
+        freshclam_box.append(self._freshclam_status_icon)
+        freshclam_box.append(self._freshclam_status_label)
+        status_container.append(freshclam_box)
 
-        self.append(status_box)
+        # Service status row
+        service_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        service_box.set_halign(Gtk.Align.CENTER)
+        service_box.set_spacing(6)
+
+        # Service status icon
+        self._service_status_icon = Gtk.Image()
+        self._service_status_icon.set_from_icon_name(resolve_icon_name("system-run-symbolic"))
+
+        # Service status label
+        self._service_status_label = Gtk.Label()
+        self._service_status_label.set_text("Checking service...")
+        self._service_status_label.add_css_class("dim-label")
+
+        service_box.append(self._service_status_icon)
+        service_box.append(self._service_status_label)
+        status_container.append(service_box)
+
+        self.append(status_container)
 
     def _check_freshclam_status(self):
-        """Check freshclam installation status and update UI."""
+        """Check freshclam installation status and service status, then update UI."""
         is_installed, version_or_error = check_freshclam_installed()
 
         if is_installed:
@@ -220,6 +252,9 @@ class UpdateView(Gtk.Box):
             # Enable update buttons
             self._update_button.set_sensitive(True)
             self._force_update_button.set_sensitive(True)
+
+            # Check service status
+            self._check_service_status()
         else:
             self._freshclam_available = False
             self._freshclam_status_icon.set_from_icon_name(
@@ -234,7 +269,36 @@ class UpdateView(Gtk.Box):
             self._status_banner.set_title(version_or_error or "freshclam not installed")
             self._status_banner.set_revealed(True)
 
+            # Hide service status when freshclam not available
+            self._service_status_label.set_text("Service: N/A")
+            self._service_status = FreshclamServiceStatus.NOT_FOUND
+
         return False  # Don't repeat
+
+    def _check_service_status(self):
+        """Check freshclam service status and update UI."""
+        self._service_status, pid = self._updater.check_freshclam_service()
+
+        # Remove any existing CSS classes
+        for css_class in ["success", "warning", "error"]:
+            self._service_status_icon.remove_css_class(css_class)
+
+        if self._service_status == FreshclamServiceStatus.RUNNING:
+            self._service_status_icon.set_from_icon_name(
+                resolve_icon_name("media-playback-start-symbolic")
+            )
+            self._service_status_icon.add_css_class("success")
+            pid_info = f" (PID {pid})" if pid else ""
+            self._service_status_label.set_text(f"Service: Active{pid_info}")
+        elif self._service_status == FreshclamServiceStatus.STOPPED:
+            self._service_status_icon.set_from_icon_name(
+                resolve_icon_name("media-playback-stop-symbolic")
+            )
+            self._service_status_icon.add_css_class("warning")
+            self._service_status_label.set_text("Service: Stopped")
+        else:  # NOT_FOUND or UNKNOWN
+            self._service_status_icon.set_from_icon_name(resolve_icon_name("system-run-symbolic"))
+            self._service_status_label.set_text("Service: Manual Mode")
 
     def _on_status_banner_dismissed(self, banner):
         """
@@ -362,11 +426,17 @@ class UpdateView(Gtk.Box):
         Args:
             result: The update result to display
         """
+        # Check if this was a service-triggered update
+        is_service_update = result.update_method == UpdateMethod.SERVICE_SIGNAL
+
         # Update status banner based on result
         if result.status == UpdateStatus.SUCCESS:
-            self._status_banner.set_title(
-                f"Database updated successfully ({result.databases_updated} database(s) updated)"
-            )
+            if is_service_update:
+                self._status_banner.set_title("Update signal sent to freshclam service")
+            else:
+                self._status_banner.set_title(
+                    f"Database updated successfully ({result.databases_updated} database(s) updated)"
+                )
             set_status_class(self._status_banner, StatusLevel.SUCCESS)
         elif result.status == UpdateStatus.UP_TO_DATE:
             self._status_banner.set_title("Database is already up to date")
@@ -385,7 +455,10 @@ class UpdateView(Gtk.Box):
 
         # Header with update status
         if result.status == UpdateStatus.SUCCESS:
-            lines.append("UPDATE COMPLETE - DATABASE UPDATED")
+            if is_service_update:
+                lines.append("UPDATE SIGNAL SENT TO FRESHCLAM SERVICE")
+            else:
+                lines.append("UPDATE COMPLETE - DATABASE UPDATED")
         elif result.status == UpdateStatus.UP_TO_DATE:
             lines.append("UPDATE COMPLETE - ALREADY UP TO DATE")
         elif result.status == UpdateStatus.CANCELLED:
@@ -399,9 +472,17 @@ class UpdateView(Gtk.Box):
         # Summary
         lines.append("Summary:")
         lines.append(f"  Status: {result.status.value}")
+        lines.append(f"  Method: {result.update_method.value}")
         if result.databases_updated > 0:
             lines.append(f"  Databases updated: {result.databases_updated}")
         lines.append("")
+
+        # Service-specific message
+        if is_service_update and result.status == UpdateStatus.SUCCESS:
+            lines.append("Note: The freshclam service is handling the update in the background.")
+            lines.append("Check service logs for detailed progress:")
+            lines.append("  journalctl -u clamav-freshclam.service -f")
+            lines.append("")
 
         # Error message if present
         if result.error_message:
