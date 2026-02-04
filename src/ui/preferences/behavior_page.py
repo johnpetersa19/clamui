@@ -59,6 +59,8 @@ class BehaviorPage(PreferencesPageMixin):
         self._parent_window = parent_window
         self._close_behavior_row = None
         self._close_behavior_handler_id = None
+        self._live_progress_row = None
+        self._live_progress_handler_id = None
 
     def create_page(self) -> Adw.PreferencesPage:
         """
@@ -85,6 +87,10 @@ class BehaviorPage(PreferencesPageMixin):
                 "require a system tray to be active."
             )
             page.add(info_group)
+
+        # Scan Behavior group
+        scan_group = self._create_scan_behavior_group()
+        page.add(scan_group)
 
         # File Manager Integration group (only in Flatpak)
         if is_flatpak():
@@ -127,6 +133,66 @@ class BehaviorPage(PreferencesPageMixin):
         group.add(self._close_behavior_row)
 
         return group
+
+    def _create_scan_behavior_group(self) -> Adw.PreferencesGroup:
+        """
+        Create the Scan Behavior preferences group.
+
+        Returns:
+            Configured Adw.PreferencesGroup for scan behavior settings
+        """
+        group = Adw.PreferencesGroup()
+        group.set_title("Scan Behavior")
+        group.set_description("Configure how scans are displayed")
+
+        # Live progress toggle
+        self._live_progress_row = Adw.SwitchRow()
+        self._live_progress_row.set_title("Show Live Scan Progress")
+        self._live_progress_row.set_subtitle(
+            "Display files being scanned in real-time with detailed progress"
+        )
+        self._live_progress_row.add_prefix(styled_prefix_icon("view-refresh-symbolic"))
+
+        # Connect signal
+        self._live_progress_handler_id = self._live_progress_row.connect(
+            "notify::active", self._on_live_progress_changed
+        )
+
+        # Load current value
+        self._load_live_progress()
+
+        group.add(self._live_progress_row)
+
+        return group
+
+    def _load_live_progress(self):
+        """Load the current live progress setting into the SwitchRow."""
+        if self._settings_manager is None or self._live_progress_row is None:
+            return
+
+        enabled = self._settings_manager.get("show_live_progress", True)
+
+        # Block signal during load to avoid triggering save
+        handler_id = self._live_progress_handler_id
+        if handler_id is not None:
+            self._live_progress_row.handler_block(handler_id)
+        self._live_progress_row.set_active(enabled)
+        if handler_id is not None:
+            self._live_progress_row.handler_unblock(handler_id)
+
+    def _on_live_progress_changed(self, row, pspec):
+        """
+        Handle live progress SwitchRow changes.
+
+        Args:
+            row: The SwitchRow that was changed
+            pspec: The property specification (unused)
+        """
+        if self._settings_manager is None:
+            return
+
+        enabled = row.get_active()
+        self._settings_manager.set("show_live_progress", enabled)
 
     def _create_file_manager_group(self) -> Adw.PreferencesGroup:
         """

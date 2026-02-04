@@ -23,9 +23,10 @@ from .scanner_base import (
     create_cancelled_result,
     create_error_result,
     save_scan_log,
+    stream_process_output,
     terminate_process_gracefully,
 )
-from .scanner_types import ScanResult, ScanStatus, ThreatDetail
+from .scanner_types import ScanProgress, ScanResult, ScanStatus, ThreatDetail
 from .settings_manager import SettingsManager
 from .threat_classifier import (
     categorize_threat,
@@ -94,6 +95,7 @@ class DaemonScanner:
         recursive: bool = True,
         profile_exclusions: dict | None = None,
         count_targets: bool = True,
+        progress_callback: Callable[[ScanProgress], None] | None = None,
     ) -> ScanResult:
         """
         Execute a synchronous scan using clamdscan.
@@ -109,6 +111,9 @@ class DaemonScanner:
                 If False, scanned_files and scanned_dirs will be 0 in the result,
                 but scanning will be faster for large directories by avoiding
                 a separate tree walk. Default is True for backwards compatibility.
+            progress_callback: Optional callback for real-time progress updates.
+                              If provided, verbose mode is used and callback receives
+                              ScanProgress updates as files are scanned.
 
         Returns:
             ScanResult with scan details
@@ -134,9 +139,10 @@ class DaemonScanner:
             return result
 
         # Count files/directories before scanning (clamdscan doesn't report these)
-        # Skip counting if count_targets is False for performance on large directories
+        # Always count if progress_callback is provided, or if count_targets is True
+        should_count = count_targets or progress_callback is not None
         file_count, dir_count = (
-            self._count_scan_targets(path, profile_exclusions) if count_targets else (0, 0)
+            self._count_scan_targets(path, profile_exclusions) if should_count else (0, 0)
         )
 
         # Check if cancelled during counting phase
@@ -145,8 +151,10 @@ class DaemonScanner:
             self._save_scan_log(result, time.monotonic() - start_time)
             return result
 
-        # Build clamdscan command
-        cmd = self._build_command(path, recursive, profile_exclusions)
+        # Build clamdscan command (use verbose mode if progress callback provided)
+        cmd = self._build_command(
+            path, recursive, profile_exclusions, verbose=progress_callback is not None
+        )
 
         try:
             with self._process_lock:
@@ -155,9 +163,16 @@ class DaemonScanner:
                 )
 
             try:
-                stdout, stderr, was_cancelled = communicate_with_cancel_check(
-                    self._current_process, self._cancel_event.is_set
-                )
+                if progress_callback is not None:
+                    # Use streaming mode for real-time progress
+                    stdout, stderr, was_cancelled = self._scan_with_progress(
+                        self._current_process, progress_callback, file_count
+                    )
+                else:
+                    # Use standard blocking communication
+                    stdout, stderr, was_cancelled = communicate_with_cancel_check(
+                        self._current_process, self._cancel_event.is_set
+                    )
                 exit_code = self._current_process.returncode
             finally:
                 # Ensure process is cleaned up even if communicate() raises
@@ -210,6 +225,7 @@ class DaemonScanner:
         recursive: bool = True,
         profile_exclusions: dict | None = None,
         count_targets: bool = True,
+        progress_callback: Callable[[ScanProgress], None] | None = None,
     ) -> None:
         """
         Execute an asynchronous scan using clamdscan.
@@ -226,10 +242,15 @@ class DaemonScanner:
                 If False, scanned_files and scanned_dirs will be 0 in the result,
                 but scanning will be faster for large directories by avoiding
                 a separate tree walk. Default is True for backwards compatibility.
+            progress_callback: Optional callback for real-time progress updates.
+                              If provided, callback receives ScanProgress updates
+                              as files are scanned.
         """
 
         def scan_thread():
-            result = self.scan_sync(path, recursive, profile_exclusions, count_targets)
+            result = self.scan_sync(
+                path, recursive, profile_exclusions, count_targets, progress_callback
+            )
             GLib.idle_add(callback, result)
 
         thread = threading.Thread(target=scan_thread)
@@ -252,7 +273,11 @@ class DaemonScanner:
         terminate_process_gracefully(process)
 
     def _build_command(
-        self, path: str, recursive: bool, profile_exclusions: dict | None = None
+        self,
+        path: str,
+        recursive: bool,
+        profile_exclusions: dict | None = None,
+        verbose: bool = False,
     ) -> list[str]:
         """
         Build the clamdscan command arguments.
@@ -264,6 +289,8 @@ class DaemonScanner:
             path: Path to scan
             recursive: Whether to scan recursively (clamdscan is always recursive)
             profile_exclusions: Optional exclusions from a scan profile.
+            verbose: Whether to enable verbose mode for progress tracking.
+                    When True, clamdscan outputs each file as it's scanned.
 
         Returns:
             List of command arguments (wrapped with flatpak-spawn if in Flatpak)
@@ -278,8 +305,12 @@ class DaemonScanner:
         cmd.append("--multiscan")
         cmd.append("--fdpass")
 
-        # Show infected files only
-        cmd.append("-i")
+        # Verbose mode for progress tracking (outputs each file being scanned)
+        if verbose:
+            cmd.append("-v")
+        else:
+            # Show infected files only
+            cmd.append("-i")
 
         # NOTE: clamdscan does NOT support --exclude or --exclude-dir options
         # (it silently ignores them with a warning). Exclusion filtering is
@@ -287,6 +318,75 @@ class DaemonScanner:
 
         cmd.append(path)
         return wrap_host_command(cmd, force_host=True)
+
+    def _scan_with_progress(
+        self,
+        process: subprocess.Popen,
+        progress_callback: Callable[[ScanProgress], None],
+        files_total: int | None,
+    ) -> tuple[str, str, bool]:
+        """
+        Scan with real-time progress updates.
+
+        Streams clamdscan verbose output and parses it to track progress,
+        calling the progress_callback for each file scanned.
+
+        Args:
+            process: The subprocess running clamdscan with -v flag
+            progress_callback: Callback to receive ScanProgress updates
+            files_total: Total number of files to scan (for percentage)
+
+        Returns:
+            Tuple of (stdout, stderr, was_cancelled)
+        """
+        files_scanned = 0
+        infected_count = 0
+        infected_files: list[str] = []
+        current_file = ""
+
+        def on_line(line: str) -> None:
+            nonlocal files_scanned, infected_count, infected_files, current_file
+
+            # Parse verbose clamdscan output
+            # Format for scanning: "/path/to/file: OK" or "/path/to/file: ThreatName FOUND"
+            line = line.strip()
+
+            if ": OK" in line:
+                # Clean file - extract path
+                current_file = line.rsplit(": OK", 1)[0].strip()
+                files_scanned += 1
+
+                # Create and send progress update
+                progress = ScanProgress(
+                    current_file=current_file,
+                    files_scanned=files_scanned,
+                    files_total=files_total,
+                    infected_count=infected_count,
+                    infected_files=infected_files.copy(),
+                )
+                progress_callback(progress)
+
+            elif line.endswith("FOUND"):
+                # Infected file detected
+                # Format: "/path/to/file: ThreatName FOUND"
+                parts = line.rsplit(":", 1)
+                if len(parts) == 2:
+                    file_path = parts[0].strip()
+                    files_scanned += 1
+                    infected_count += 1
+                    infected_files.append(file_path)
+
+                    # Send updated progress with new infection
+                    progress = ScanProgress(
+                        current_file=file_path,
+                        files_scanned=files_scanned,
+                        files_total=files_total,
+                        infected_count=infected_count,
+                        infected_files=infected_files.copy(),
+                    )
+                    progress_callback(progress)
+
+        return stream_process_output(process, self._cancel_event.is_set, on_line)
 
     def _count_scan_targets(
         self, path: str, profile_exclusions: dict | None = None

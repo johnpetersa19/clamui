@@ -6,6 +6,7 @@ Scan interface component for ClamUI with folder picker, scan button, and results
 import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,10 +14,10 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
 from ..core.quarantine import QuarantineManager
-from ..core.scanner import Scanner, ScanResult, ScanStatus
+from ..core.scanner import Scanner, ScanProgress, ScanResult, ScanStatus
 from ..core.utils import (
     format_scan_path,
     is_flatpak,
@@ -103,6 +104,14 @@ class ScanView(Gtk.Box):
         self._progress_label: Gtk.Label | None = None
         self._pulse_timeout_id: int | None = None
 
+        # Live progress state
+        self._file_label: Gtk.Label | None = None  # Current file being scanned
+        self._stats_label: Gtk.Label | None = None  # "Scanned X / Y files"
+        self._threat_label: Gtk.Label | None = None  # Real-time threat count
+        self._last_progress_update: float = 0.0  # For throttling UI updates
+        self._updates_paused: bool = False  # Pause updates when view is hidden
+        self._is_view_visible: bool = True  # Track view visibility
+
         # View results section state
         self._view_results_section: Gtk.Box | None = None
         self._view_results_button: Gtk.Button | None = None
@@ -115,6 +124,9 @@ class ScanView(Gtk.Box):
 
         # Set up the UI
         self._setup_ui()
+
+        # Connect to parent changes for visibility tracking
+        self.connect("notify::parent", self._on_parent_changed)
 
     def _setup_ui(self):
         """Set up the scan view UI layout."""
@@ -1055,18 +1067,48 @@ class ScanView(Gtk.Box):
         self._progress_section.set_margin_end(12)
         self._progress_section.set_visible(False)
 
-        # Pulsing progress bar
+        # Progress bar (pulsing or deterministic based on file count)
         self._progress_bar = Gtk.ProgressBar()
         self._progress_bar.add_css_class("progress-bar-compact")
         self._progress_section.append(self._progress_bar)
 
-        # Status label
+        # Status label (general scan status)
         self._progress_label = Gtk.Label()
         self._progress_label.set_label("Scanning...")
         self._progress_label.add_css_class("progress-status")
         self._progress_label.add_css_class("dim-label")
         self._progress_label.set_xalign(0)
         self._progress_section.append(self._progress_label)
+
+        # File label - current file being scanned (for live progress)
+        self._file_label = Gtk.Label()
+        self._file_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+        self._file_label.add_css_class("dim-label")
+        self._file_label.add_css_class("caption")
+        self._file_label.set_xalign(0)
+        self._file_label.set_visible(False)  # Hidden until live progress starts
+        self._progress_section.append(self._file_label)
+
+        # Stats row - contains stats label and threat label
+        stats_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+
+        # Stats label - "Scanned X / Y files"
+        self._stats_label = Gtk.Label()
+        self._stats_label.add_css_class("caption")
+        self._stats_label.add_css_class("dim-label")
+        self._stats_label.set_xalign(0)
+        self._stats_label.set_hexpand(True)
+        self._stats_label.set_visible(False)  # Hidden until live progress starts
+        stats_box.append(self._stats_label)
+
+        # Threat label - real-time infection count
+        self._threat_label = Gtk.Label()
+        self._threat_label.add_css_class("caption")
+        self._threat_label.set_xalign(1)
+        self._threat_label.set_visible(False)  # Hidden until threats found
+        stats_box.append(self._threat_label)
+
+        self._progress_section.append(stats_box)
 
         self.append(self._progress_section)
 
@@ -1090,6 +1132,136 @@ class ScanView(Gtk.Box):
 
         if self._progress_section is not None:
             self._progress_section.set_visible(False)
+
+        # Reset live progress labels
+        if self._file_label is not None:
+            self._file_label.set_visible(False)
+        if self._stats_label is not None:
+            self._stats_label.set_visible(False)
+        if self._threat_label is not None:
+            self._threat_label.set_visible(False)
+            self._threat_label.remove_css_class("error")
+
+    def _on_parent_changed(self, widget, pspec):
+        """
+        Handle parent changes for visibility tracking.
+
+        Pauses UI updates when the view is hidden to conserve resources,
+        and resumes updates when the view becomes visible again.
+        """
+        was_visible = self._is_view_visible
+        self._is_view_visible = self.get_parent() is not None
+
+        if self._is_view_visible and not was_visible:
+            self._on_view_shown()
+        elif not self._is_view_visible and was_visible:
+            self._on_view_hidden()
+
+    def _on_view_hidden(self):
+        """Pause UI updates when view is hidden."""
+        self._updates_paused = True
+        # Don't stop the pulse here - let it continue so the scan continues
+        # Just pause the frequent progress updates
+
+    def _on_view_shown(self):
+        """Resume UI updates when view becomes visible."""
+        self._updates_paused = False
+        # Force an immediate update on next progress callback
+
+    def _update_live_progress(self, progress: ScanProgress):
+        """
+        Update the UI with live scan progress.
+
+        This is called from the scan thread via GLib.idle_add for thread safety.
+        Uses throttling to limit UI updates to ~10/second.
+
+        Args:
+            progress: The ScanProgress with current scan state
+        """
+        if self._updates_paused:
+            return  # Don't update UI when view is hidden
+
+        # Update progress bar
+        if self._progress_bar is not None:
+            if progress.percentage is not None:
+                # Deterministic progress with known file count
+                self._progress_bar.set_fraction(progress.percentage / 100)
+            # If percentage is None, keep pulsing (handled by _start_progress_pulse)
+
+        # Update file label with current file
+        if self._file_label is not None and progress.current_file:
+            display_path = self._format_path_for_display(progress.current_file)
+            self._file_label.set_text(display_path)
+            self._file_label.set_visible(True)
+
+        # Update stats label
+        if self._stats_label is not None:
+            if progress.files_total:
+                self._stats_label.set_text(
+                    f"Scanned {progress.files_scanned:,} / {progress.files_total:,} files"
+                )
+            else:
+                self._stats_label.set_text(f"Scanned {progress.files_scanned:,} files")
+            self._stats_label.set_visible(True)
+
+        # Update threat label if infections found
+        if self._threat_label is not None:
+            if progress.infected_count > 0:
+                self._threat_label.set_text(f"Found {progress.infected_count} threat(s)")
+                self._threat_label.add_css_class("error")
+                self._threat_label.set_visible(True)
+
+    def _format_path_for_display(self, path: str) -> str:
+        """
+        Format a file path for display in the progress area.
+
+        Shows only the filename and parent directory for long paths.
+
+        Args:
+            path: The full file path
+
+        Returns:
+            A truncated path suitable for display
+        """
+        # Use the existing format_scan_path utility
+        display_path = format_scan_path(path)
+
+        # If still too long, show just filename
+        if len(display_path) > 60:
+            path_obj = Path(path)
+            parent = path_obj.parent.name
+            filename = path_obj.name
+            if parent:
+                display_path = f".../{parent}/{filename}"
+            else:
+                display_path = filename
+
+            # Truncate filename if still too long
+            if len(display_path) > 60:
+                display_path = "..." + display_path[-57:]
+
+        return display_path
+
+    def _create_progress_callback(self):
+        """
+        Create a throttled progress callback for the scanner.
+
+        Returns:
+            A callback function that schedules UI updates via GLib.idle_add
+            with throttling to limit updates to ~10/second.
+        """
+        MIN_UPDATE_INTERVAL = 0.1  # 100ms between updates
+
+        def progress_callback(progress: ScanProgress):
+            now = time.monotonic()
+            if now - self._last_progress_update < MIN_UPDATE_INTERVAL:
+                return  # Throttle - skip this update
+            self._last_progress_update = now
+
+            # Schedule UI update on main thread
+            GLib.idle_add(self._update_live_progress, progress)
+
+        return progress_callback
 
     def _create_view_results_section(self):
         """Create the view results button section (initially hidden)."""
@@ -1257,6 +1429,10 @@ class ScanView(Gtk.Box):
         self._selection_group.set_sensitive(False)
         self._cancel_button.set_visible(True)
 
+        # Reset progress tracking state
+        self._last_progress_update = 0.0
+        self._updates_paused = False
+
         # Update cancel button text based on number of targets
         path_count = len(self._selected_paths)
         if path_count > 1:
@@ -1272,6 +1448,11 @@ class ScanView(Gtk.Box):
         # Hide previous results button
         self._hide_view_results()
 
+        # Check if live progress is enabled
+        show_live_progress = True
+        if self._settings_manager is not None:
+            show_live_progress = self._settings_manager.get("show_live_progress", True)
+
         # Show progress section with status message
         if self._progress_section is not None:
             # Format path for display (handles Flatpak portal paths and truncation)
@@ -1279,9 +1460,15 @@ class ScanView(Gtk.Box):
                 display_path = format_scan_path(self._selected_paths[0])
                 if len(display_path) > 50:
                     display_path = "..." + display_path[-47:]
-                self._progress_label.set_label(f"Scanning {display_path}")
+                if show_live_progress:
+                    self._progress_label.set_label("Counting files...")
+                else:
+                    self._progress_label.set_label(f"Scanning {display_path}")
             else:
-                self._progress_label.set_label(f"Scanning {path_count} items...")
+                if show_live_progress:
+                    self._progress_label.set_label("Counting files...")
+                else:
+                    self._progress_label.set_label(f"Scanning {path_count} items...")
             self._progress_section.set_visible(True)
             self._start_progress_pulse()
 
@@ -1326,6 +1513,22 @@ class ScanView(Gtk.Box):
                 GLib.idle_add(self._on_scan_complete, result)
                 return
 
+            # Check if live progress is enabled
+            show_live_progress = True
+            if self._settings_manager is not None:
+                show_live_progress = self._settings_manager.get("show_live_progress", True)
+
+            # Create progress callback if live progress is enabled
+            progress_callback = self._create_progress_callback() if show_live_progress else None
+
+            # Get profile exclusions if a profile is selected
+            profile_exclusions = None
+            if self._selected_profile is not None:
+                profile_exclusions = {
+                    "paths": self._selected_profile.exclusions.get("paths", []),
+                    "patterns": self._selected_profile.exclusions.get("patterns", []),
+                }
+
             # Track aggregated results
             total_scanned_files = 0
             total_scanned_dirs = 0
@@ -1350,8 +1553,13 @@ class ScanView(Gtk.Box):
                 # Update progress to show current target
                 GLib.idle_add(self._update_scan_progress, idx, target_count, target_path)
 
-                # Scan this target
-                result = self._scanner.scan_sync(target_path)
+                # Scan this target with progress callback if enabled
+                result = self._scanner.scan_sync(
+                    target_path,
+                    recursive=True,
+                    profile_exclusions=profile_exclusions,
+                    progress_callback=progress_callback,
+                )
 
                 # Check if scan was cancelled (either this target or cancel all)
                 if result.status == ScanStatus.CANCELLED or self._cancel_all_requested:

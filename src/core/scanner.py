@@ -5,6 +5,7 @@ Scanner module for ClamUI providing ClamAV subprocess execution and async scanni
 
 import fnmatch
 import logging
+import os
 import re
 import subprocess
 import threading
@@ -23,9 +24,10 @@ from .scanner_base import (
     create_cancelled_result,
     create_error_result,
     save_scan_log,
+    stream_process_output,
     terminate_process_gracefully,
 )
-from .scanner_types import ScanResult, ScanStatus, ThreatDetail
+from .scanner_types import ScanProgress, ScanResult, ScanStatus, ThreatDetail
 from .settings_manager import SettingsManager
 from .threat_classifier import (
     categorize_threat,
@@ -100,6 +102,7 @@ def validate_pattern(pattern: str) -> bool:
 # Re-export types for backwards compatibility
 __all__ = [
     "ScanStatus",
+    "ScanProgress",
     "ThreatDetail",
     "ScanResult",
     "Scanner",
@@ -201,7 +204,11 @@ class Scanner:
             return check_clamav_installed()
 
     def scan_sync(
-        self, path: str, recursive: bool = True, profile_exclusions: dict | None = None
+        self,
+        path: str,
+        recursive: bool = True,
+        profile_exclusions: dict | None = None,
+        progress_callback: Callable[[ScanProgress], None] | None = None,
     ) -> ScanResult:
         """
         Execute a synchronous scan on the given path.
@@ -214,6 +221,9 @@ class Scanner:
             recursive: Whether to scan directories recursively
             profile_exclusions: Optional exclusions from a scan profile.
                                Format: {"paths": ["/path1", ...], "patterns": ["*.ext", ...]}
+            progress_callback: Optional callback for real-time progress updates.
+                              If provided, verbose mode is used and callback receives
+                              ScanProgress updates as files are scanned.
 
         Returns:
             ScanResult with scan details
@@ -236,13 +246,17 @@ class Scanner:
 
         # For daemon-only mode, delegate entirely to daemon scanner
         if backend == "daemon":
-            return self._get_daemon_scanner().scan_sync(path, recursive, profile_exclusions)
+            return self._get_daemon_scanner().scan_sync(
+                path, recursive, profile_exclusions, progress_callback=progress_callback
+            )
 
         # For auto mode, try daemon first if available
         if backend == "auto":
             is_daemon_available, _ = check_clamd_connection()
             if is_daemon_available:
-                return self._get_daemon_scanner().scan_sync(path, recursive, profile_exclusions)
+                return self._get_daemon_scanner().scan_sync(
+                    path, recursive, profile_exclusions, progress_callback=progress_callback
+                )
 
         # Fall through to clamscan for "clamscan" mode or auto fallback
         is_installed, version_or_error = check_clamav_installed()
@@ -251,8 +265,20 @@ class Scanner:
             self._save_scan_log(result, time.monotonic() - start_time)
             return result
 
-        # Build clamscan command
-        cmd = self._build_command(path, recursive, profile_exclusions)
+        # Count files for progress tracking (if callback is provided)
+        files_total: int | None = None
+        if progress_callback is not None:
+            files_total = self._count_files(path, profile_exclusions)
+            # Check if cancelled during file counting
+            if self._cancel_event.is_set():
+                result = create_cancelled_result(path)
+                self._save_scan_log(result, time.monotonic() - start_time)
+                return result
+
+        # Build clamscan command (use verbose mode if progress callback provided)
+        cmd = self._build_command(
+            path, recursive, profile_exclusions, verbose=progress_callback is not None
+        )
 
         try:
             with self._process_lock:
@@ -261,9 +287,16 @@ class Scanner:
                 )
 
             try:
-                stdout, stderr, was_cancelled = communicate_with_cancel_check(
-                    self._current_process, self._cancel_event.is_set
-                )
+                if progress_callback is not None:
+                    # Use streaming mode for real-time progress
+                    stdout, stderr, was_cancelled = self._scan_with_progress(
+                        self._current_process, progress_callback, files_total
+                    )
+                else:
+                    # Use standard blocking communication
+                    stdout, stderr, was_cancelled = communicate_with_cancel_check(
+                        self._current_process, self._cancel_event.is_set
+                    )
                 exit_code = self._current_process.returncode
             finally:
                 # Ensure process is cleaned up even if communicate() raises
@@ -300,12 +333,191 @@ class Scanner:
             self._save_scan_log(result, time.monotonic() - start_time)
             return result
 
+    def _count_files(self, path: str, profile_exclusions: dict | None = None) -> int:
+        """
+        Pre-count files for progress calculation.
+
+        Uses os.scandir for fast counting, respecting exclusion patterns.
+
+        Args:
+            path: Path to scan
+            profile_exclusions: Optional exclusions from a scan profile
+
+        Returns:
+            Total number of files that will be scanned
+        """
+        scan_path = Path(path)
+
+        # Single file scan
+        if scan_path.is_file():
+            return 1
+
+        # Not a valid path
+        if not scan_path.is_dir():
+            return 0
+
+        # Collect exclusion patterns
+        exclude_patterns: list[str] = []
+        exclude_dirs: list[str] = []
+
+        # Global exclusions from settings
+        if self._settings_manager is not None:
+            exclusions = self._settings_manager.get("exclusion_patterns", [])
+            for exclusion in exclusions:
+                if not exclusion.get("enabled", True):
+                    continue
+                pattern = exclusion.get("pattern", "")
+                if not pattern:
+                    continue
+                exclusion_type = exclusion.get("type", "pattern")
+                if exclusion_type == "directory":
+                    exclude_dirs.append(pattern)
+                else:
+                    exclude_patterns.append(pattern)
+
+        # Profile exclusions
+        if profile_exclusions:
+            for excl_path in profile_exclusions.get("paths", []):
+                if excl_path:
+                    if excl_path.startswith("~"):
+                        excl_path = str(Path(excl_path).expanduser())
+                    exclude_dirs.append(excl_path)
+
+            for pattern in profile_exclusions.get("patterns", []):
+                if pattern:
+                    exclude_patterns.append(pattern)
+
+        file_count = 0
+
+        try:
+            for root, dirs, files in os.walk(path):
+                # Check for cancellation during counting
+                if self._cancel_event.is_set():
+                    logger.info("File counting cancelled by user")
+                    return 0
+
+                # Filter out excluded directories (modifies dirs in-place)
+                dirs[:] = [
+                    d
+                    for d in dirs
+                    if not self._is_path_excluded(
+                        os.path.join(root, d), d, exclude_dirs, is_dir=True
+                    )
+                ]
+
+                # Count files that aren't excluded
+                for f in files:
+                    file_path = os.path.join(root, f)
+                    if not self._is_path_excluded(file_path, f, exclude_patterns, is_dir=False):
+                        file_count += 1
+        except (PermissionError, OSError):
+            # If we can't access the directory, return 0
+            pass
+
+        return file_count
+
+    def _is_path_excluded(
+        self, full_path: str, name: str, patterns: list[str], is_dir: bool
+    ) -> bool:
+        """
+        Check if a path matches any exclusion pattern.
+
+        Args:
+            full_path: Full path to check
+            name: Base name of the file/directory
+            patterns: List of exclusion patterns (glob or path)
+            is_dir: Whether this is a directory
+
+        Returns:
+            True if the path should be excluded
+        """
+        for pattern in patterns:
+            # Check if pattern is an absolute path
+            if pattern.startswith("/") or pattern.startswith("~"):
+                expanded = str(Path(pattern).expanduser()) if pattern.startswith("~") else pattern
+                if full_path.startswith(expanded):
+                    return True
+            # Check glob pattern against filename
+            elif fnmatch.fnmatch(name, pattern) or fnmatch.fnmatch(full_path, pattern):
+                return True
+        return False
+
+    def _scan_with_progress(
+        self,
+        process: subprocess.Popen,
+        progress_callback: Callable[[ScanProgress], None],
+        files_total: int | None,
+    ) -> tuple[str, str, bool]:
+        """
+        Scan with real-time progress updates.
+
+        Streams ClamAV verbose output and parses it to track progress,
+        calling the progress_callback for each file scanned.
+
+        Args:
+            process: The subprocess running clamscan with -v flag
+            progress_callback: Callback to receive ScanProgress updates
+            files_total: Total number of files to scan (for percentage)
+
+        Returns:
+            Tuple of (stdout, stderr, was_cancelled)
+        """
+        files_scanned = 0
+        infected_count = 0
+        infected_files: list[str] = []
+        current_file = ""
+
+        def on_line(line: str) -> None:
+            nonlocal files_scanned, infected_count, infected_files, current_file
+
+            # Parse verbose ClamAV output
+            # Format for scanning: "Scanning /path/to/file"
+            # Format for infected: "/path/to/file: ThreatName FOUND"
+            line = line.strip()
+
+            if line.startswith("Scanning "):
+                # Extract file path from "Scanning /path/to/file"
+                current_file = line[9:]  # Remove "Scanning " prefix
+                files_scanned += 1
+
+                # Create and send progress update
+                progress = ScanProgress(
+                    current_file=current_file,
+                    files_scanned=files_scanned,
+                    files_total=files_total,
+                    infected_count=infected_count,
+                    infected_files=infected_files.copy(),
+                )
+                progress_callback(progress)
+
+            elif line.endswith("FOUND"):
+                # Infected file detected
+                # Format: "/path/to/file: ThreatName FOUND"
+                parts = line.rsplit(":", 1)
+                if len(parts) == 2:
+                    file_path = parts[0].strip()
+                    infected_count += 1
+                    infected_files.append(file_path)
+
+                    # Send updated progress with new infection
+                    progress = ScanProgress(
+                        current_file=file_path,
+                        files_scanned=files_scanned,
+                        files_total=files_total,
+                        infected_count=infected_count,
+                        infected_files=infected_files.copy(),
+                    )
+                    progress_callback(progress)
+
+        return stream_process_output(process, self._cancel_event.is_set, on_line)
+
     def scan_async(
         self,
         path: str,
         callback: Callable[[ScanResult], None],
         recursive: bool = True,
         profile_exclusions: dict | None = None,
+        progress_callback: Callable[[ScanProgress], None] | None = None,
     ) -> None:
         """
         Execute an asynchronous scan on the given path.
@@ -319,10 +531,13 @@ class Scanner:
             recursive: Whether to scan directories recursively
             profile_exclusions: Optional exclusions from a scan profile.
                                Format: {"paths": ["/path1", ...], "patterns": ["*.ext", ...]}
+            progress_callback: Optional callback for real-time progress updates.
+                              If provided, callback receives ScanProgress updates
+                              as files are scanned.
         """
 
         def scan_thread():
-            result = self.scan_sync(path, recursive, profile_exclusions)
+            result = self.scan_sync(path, recursive, profile_exclusions, progress_callback)
             # Schedule callback on main thread
             GLib.idle_add(callback, result)
 
@@ -350,7 +565,11 @@ class Scanner:
             self._daemon_scanner.cancel()
 
     def _build_command(
-        self, path: str, recursive: bool, profile_exclusions: dict | None = None
+        self,
+        path: str,
+        recursive: bool,
+        profile_exclusions: dict | None = None,
+        verbose: bool = False,
     ) -> list[str]:
         """
         Build the clamscan command arguments.
@@ -363,6 +582,8 @@ class Scanner:
             recursive: Whether to scan recursively
             profile_exclusions: Optional exclusions from a scan profile.
                                Format: {"paths": ["/path1", ...], "patterns": ["*.ext", ...]}
+            verbose: Whether to enable verbose mode for progress tracking.
+                    When True, clamscan outputs each file as it's scanned.
 
         Returns:
             List of command arguments (wrapped with flatpak-spawn if in Flatpak)
@@ -379,8 +600,12 @@ class Scanner:
         if recursive and Path(path).is_dir():
             cmd.append("-r")
 
-        # Show infected files only (reduces output noise)
-        cmd.append("-i")
+        # Verbose mode for progress tracking (outputs each file being scanned)
+        if verbose:
+            cmd.append("-v")
+        else:
+            # Show infected files only (reduces output noise)
+            cmd.append("-i")
 
         # Inject exclusion patterns from settings
         if self._settings_manager is not None:

@@ -32,6 +32,44 @@ class ThreatDetail:
 
 
 @dataclass
+class ScanProgress:
+    """Real-time scan progress information.
+
+    This dataclass is used to report progress updates during a scan operation,
+    allowing the UI to display live information about the scanning process.
+    """
+
+    current_file: str
+    """Path of the file currently being scanned."""
+
+    files_scanned: int
+    """Number of files processed so far."""
+
+    files_total: int | None
+    """Total number of files to scan (None if unknown/not counted)."""
+
+    infected_count: int
+    """Number of infections found so far."""
+
+    infected_files: list[str]
+    """List of infected file paths found so far."""
+
+    bytes_scanned: int = 0
+    """Number of bytes processed (if available from scanner output)."""
+
+    @property
+    def percentage(self) -> float | None:
+        """Calculate scan completion percentage.
+
+        Returns:
+            Percentage (0-100) if files_total is known and > 0, None otherwise.
+        """
+        if self.files_total and self.files_total > 0:
+            return (self.files_scanned / self.files_total) * 100
+        return None
+
+
+@dataclass
 class ScanResult:
     """Result of a scan operation."""
 

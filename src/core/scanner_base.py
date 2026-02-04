@@ -5,12 +5,14 @@ Shared utilities for ClamAV scanner implementations.
 This module provides common functionality used by both Scanner (clamscan) and
 DaemonScanner (clamdscan) to avoid code duplication:
 - Process communication with cancellation support
+- Streaming output with progress callbacks
 - Process termination with graceful shutdown
 - Scan log saving
 - Error result creation
 """
 
 import logging
+import select
 import subprocess
 from collections.abc import Callable
 
@@ -22,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Timeout constants (seconds)
 TERMINATE_GRACE_TIMEOUT = 5  # Time to wait after SIGTERM before SIGKILL
 KILL_WAIT_TIMEOUT = 2  # Time to wait after SIGKILL
+STREAM_POLL_TIMEOUT = 0.1  # Time to wait for output in stream mode
 
 
 def communicate_with_cancel_check(
@@ -64,6 +67,119 @@ def communicate_with_cancel_check(
             return "".join(stdout_parts), "".join(stderr_parts), False
         except subprocess.TimeoutExpired:
             continue  # Loop again, check cancel flag
+
+
+def stream_process_output(
+    process: subprocess.Popen,
+    is_cancelled: Callable[[], bool],
+    on_line: Callable[[str], None],
+    poll_interval: float = STREAM_POLL_TIMEOUT,
+) -> tuple[str, str, bool]:
+    """
+    Stream stdout line-by-line with cancellation support.
+
+    Uses select/poll for non-blocking reads to maintain cancellation responsiveness.
+    Each line from stdout is passed to the on_line callback in real-time.
+
+    Args:
+        process: The subprocess to communicate with (must have stdout=PIPE, stderr=PIPE).
+        is_cancelled: Callable that returns True if operation was cancelled.
+        on_line: Callback function called with each line from stdout.
+        poll_interval: Time to wait for output before checking cancellation (seconds).
+
+    Returns:
+        Tuple of (stdout, stderr, was_cancelled).
+        Note: stdout contains all accumulated output for final parsing.
+    """
+    stdout_parts: list[str] = []
+    stderr_parts: list[str] = []
+
+    if process.stdout is None or process.stderr is None:
+        # Fallback to blocking communicate if pipes not available
+        logger.warning("stream_process_output called without stdout/stderr pipes")
+        return communicate_with_cancel_check(process, is_cancelled)
+
+    # Get file descriptor for stdout
+    stdout_fd = process.stdout.fileno()
+    incomplete_line = ""
+
+    try:
+        while True:
+            # Check for cancellation first
+            if is_cancelled():
+                try:
+                    process.terminate()
+                    # Drain remaining output
+                    remaining_stdout, remaining_stderr = process.communicate(timeout=2.0)
+                    if remaining_stdout:
+                        stdout_parts.append(remaining_stdout)
+                    if remaining_stderr:
+                        stderr_parts.append(remaining_stderr)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+                return "".join(stdout_parts), "".join(stderr_parts), True
+
+            # Check if process has finished
+            if process.poll() is not None:
+                # Process finished - read any remaining output
+                remaining_stdout = process.stdout.read()
+                remaining_stderr = process.stderr.read()
+                if remaining_stdout:
+                    # Process remaining data including incomplete line
+                    data = incomplete_line + remaining_stdout
+                    lines = data.split("\n")
+                    for line in lines:
+                        if line:  # Skip empty lines from split
+                            on_line(line)
+                    stdout_parts.append(data)
+                elif incomplete_line:
+                    # Process the final incomplete line
+                    on_line(incomplete_line)
+                    stdout_parts.append(incomplete_line)
+                if remaining_stderr:
+                    stderr_parts.append(remaining_stderr)
+                break
+
+            # Use select to wait for data with timeout
+            readable, _, _ = select.select([stdout_fd], [], [], poll_interval)
+
+            if readable:
+                # Read available data (non-blocking due to select)
+                chunk = process.stdout.read(4096)
+                if not chunk:
+                    # EOF reached
+                    continue
+
+                # Accumulate for final parsing
+                stdout_parts.append(chunk)
+
+                # Process lines for callback
+                data = incomplete_line + chunk
+                lines = data.split("\n")
+
+                # The last element might be incomplete (no newline yet)
+                incomplete_line = lines[-1]
+
+                # Process complete lines
+                for line in lines[:-1]:
+                    if line:  # Skip empty lines
+                        on_line(line)
+
+    except OSError as e:
+        logger.warning(f"Error streaming process output: {e}")
+        # Try to get any remaining output
+        try:
+            remaining_stdout, remaining_stderr = process.communicate(timeout=2.0)
+            if remaining_stdout:
+                stdout_parts.append(remaining_stdout)
+            if remaining_stderr:
+                stderr_parts.append(remaining_stderr)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+    return "".join(stdout_parts), "".join(stderr_parts), False
 
 
 def cleanup_process(process: subprocess.Popen | None) -> None:
