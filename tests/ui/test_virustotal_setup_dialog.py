@@ -247,8 +247,6 @@ class TestVirusTotalSetupDialogFreeTier:
 
     def test_api_link_is_correct(self, vt_setup_dialog_module):
         """Test API key link is correct."""
-        vt_setup_dialog_module  # Access module
-
         # Verify URL constant is defined
         assert hasattr(vt_setup_dialog_module, "VT_API_KEY_URL")
         assert "virustotal.com" in vt_setup_dialog_module.VT_API_KEY_URL

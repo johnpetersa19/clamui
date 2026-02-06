@@ -483,9 +483,7 @@ class TestValidateOption:
         """Test validate_option accepts http:// URL."""
         from src.core.clamav_config import validate_option
 
-        is_valid, error = validate_option(
-            "DatabaseCustomURL", "http://example.com/signatures.hdb"
-        )
+        is_valid, error = validate_option("DatabaseCustomURL", "http://example.com/signatures.hdb")
         assert is_valid is True
         assert error is None
 
@@ -493,9 +491,7 @@ class TestValidateOption:
         """Test validate_option accepts ftp:// URL."""
         from src.core.clamav_config import validate_option
 
-        is_valid, error = validate_option(
-            "DatabaseCustomURL", "ftp://ftp.example.com/sigs.hdb"
-        )
+        is_valid, error = validate_option("DatabaseCustomURL", "ftp://ftp.example.com/sigs.hdb")
         assert is_valid is True
         assert error is None
 
@@ -503,9 +499,7 @@ class TestValidateOption:
         """Test validate_option accepts ftps:// URL."""
         from src.core.clamav_config import validate_option
 
-        is_valid, error = validate_option(
-            "DatabaseCustomURL", "ftps://secure.example.com/sigs.hdb"
-        )
+        is_valid, error = validate_option("DatabaseCustomURL", "ftps://secure.example.com/sigs.hdb")
         assert is_valid is True
         assert error is None
 
@@ -513,9 +507,7 @@ class TestValidateOption:
         """Test validate_option accepts file:// URL."""
         from src.core.clamav_config import validate_option
 
-        is_valid, error = validate_option(
-            "DatabaseCustomURL", "file:///var/lib/clamav/local.hdb"
-        )
+        is_valid, error = validate_option("DatabaseCustomURL", "file:///var/lib/clamav/local.hdb")
         assert is_valid is True
         assert error is None
 
@@ -531,9 +523,7 @@ class TestValidateOption:
         """Test validate_option rejects invalid URL scheme."""
         from src.core.clamav_config import validate_option
 
-        is_valid, error = validate_option(
-            "DatabaseCustomURL", "gopher://old.example.com/sigs.hdb"
-        )
+        is_valid, error = validate_option("DatabaseCustomURL", "gopher://old.example.com/sigs.hdb")
         assert is_valid is False
         assert "URL must start with" in error
 
@@ -541,9 +531,7 @@ class TestValidateOption:
         """Test validate_option rejects URL without scheme."""
         from src.core.clamav_config import validate_option
 
-        is_valid, error = validate_option(
-            "DatabaseCustomURL", "www.example.com/sigs.hdb"
-        )
+        is_valid, error = validate_option("DatabaseCustomURL", "www.example.com/sigs.hdb")
         assert is_valid is False
         assert "URL must start with" in error
 
@@ -551,9 +539,7 @@ class TestValidateOption:
         """Test validate_option accepts URL scheme case-insensitively."""
         from src.core.clamav_config import validate_option
 
-        is_valid, error = validate_option(
-            "DatabaseCustomURL", "HTTPS://example.com/sigs.hdb"
-        )
+        is_valid, error = validate_option("DatabaseCustomURL", "HTTPS://example.com/sigs.hdb")
         assert is_valid is True
         assert error is None
 
@@ -561,9 +547,7 @@ class TestValidateOption:
         """Test validate_option accepts PrivateMirror URL."""
         from src.core.clamav_config import validate_option
 
-        is_valid, error = validate_option(
-            "PrivateMirror", "https://mirror.internal.com/clamav/"
-        )
+        is_valid, error = validate_option("PrivateMirror", "https://mirror.internal.com/clamav/")
         assert is_valid is True
         assert error is None
 

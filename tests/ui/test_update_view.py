@@ -229,7 +229,6 @@ class TestUpdateViewStatusBanner:
         UpdateView = update_view_module.UpdateView
         UpdateStatus = update_view_module.UpdateStatus
         UpdateResult = update_view_module.UpdateResult
-        StatusLevel = update_view_module.StatusLevel
 
         # Create an instance
         with mock.patch.object(UpdateView, "_setup_ui"):
@@ -510,7 +509,7 @@ class TestUpdateViewButtonHandlers:
             view._updater = mock.MagicMock()
 
             # Mock _set_updating_state to avoid side effects
-            with mock.patch.object(view, "_set_updating_state") as mock_state:
+            with mock.patch.object(view, "_set_updating_state"):
                 view._on_cancel_clicked(mock.MagicMock())
 
                 # Verify updater was cancelled

@@ -137,7 +137,7 @@ class TestPreferencesWindowInitialization:
         with mock.patch.object(PreferencesWindow, "_setup_ui") as mock_setup:
             with mock.patch.object(PreferencesWindow, "_load_configs"):
                 with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
-                    window = PreferencesWindow()
+                    PreferencesWindow()
                     mock_setup.assert_called_once()
 
     def test_initialization_calls_load_configs(
@@ -154,7 +154,7 @@ class TestPreferencesWindowInitialization:
         with mock.patch.object(PreferencesWindow, "_setup_ui"):
             with mock.patch.object(PreferencesWindow, "_load_configs") as mock_load:
                 with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
-                    window = PreferencesWindow()
+                    PreferencesWindow()
                     mock_load.assert_called_once()
 
     def test_initialization_with_settings_manager(
@@ -184,7 +184,9 @@ class TestNavigationItems:
         from src.ui.preferences.window import NAVIGATION_ITEMS
 
         assert isinstance(NAVIGATION_ITEMS, (list, tuple))
-        assert len(NAVIGATION_ITEMS) == 9  # behavior, exclusions, database, scanner, scheduled, onaccess, virustotal, debug, save
+        assert (
+            len(NAVIGATION_ITEMS) == 9
+        )  # behavior, exclusions, database, scanner, scheduled, onaccess, virustotal, debug, save
 
         # Check structure of each item
         for item in NAVIGATION_ITEMS:
@@ -504,9 +506,7 @@ class TestConfigLoading:
         mock_config = mock.MagicMock()
         mock_config.values = {"key": "value"}
 
-        with mock.patch(
-            "src.ui.preferences.window.parse_config", return_value=(mock_config, None)
-        ):
+        with mock.patch("src.ui.preferences.window.parse_config", return_value=(mock_config, None)):
             with mock.patch.object(PreferencesWindow, "_setup_ui"):
                 with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
                     window = PreferencesWindow()
@@ -634,9 +634,7 @@ class TestFlatpakSupport:
                 ):
                     with mock.patch.object(PreferencesWindow, "_setup_ui"):
                         with mock.patch.object(PreferencesWindow, "_load_configs"):
-                            with mock.patch.object(
-                                PreferencesWindow, "_populate_scheduled_fields"
-                            ):
+                            with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
                                 window = PreferencesWindow()
                                 assert window._freshclam_conf_path == mock_flatpak_path
 
@@ -703,9 +701,7 @@ class TestClamdAvailability:
         from src.ui.preferences.window import PreferencesWindow
 
         with mock.patch("src.ui.preferences.window.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.ui.preferences.window.Path.exists", return_value=True
-            ):
+            with mock.patch("src.ui.preferences.window.Path.exists", return_value=True):
                 with mock.patch.object(PreferencesWindow, "_setup_ui"):
                     with mock.patch.object(PreferencesWindow, "_load_configs"):
                         with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
@@ -723,9 +719,7 @@ class TestClamdAvailability:
         from src.ui.preferences.window import PreferencesWindow
 
         with mock.patch("src.ui.preferences.window.is_flatpak", return_value=False):
-            with mock.patch(
-                "src.ui.preferences.window.Path.exists", return_value=False
-            ):
+            with mock.patch("src.ui.preferences.window.Path.exists", return_value=False):
                 with mock.patch.object(PreferencesWindow, "_setup_ui"):
                     with mock.patch.object(PreferencesWindow, "_load_configs"):
                         with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
