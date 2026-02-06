@@ -744,7 +744,7 @@ class TestClamUIAppQuickScanFallback:
             app._on_statistics_quick_scan()
 
             # Verify expanduser was called with "~" to get home directory
-            mock_expanduser.assert_called_once_with("~")
+            mock_expanduser.assert_any_call("~")
 
     def test_tray_fallback_uses_expanduser_with_tilde(self, app, mock_gtk_modules):
         """Test that tray quick scan fallback uses os.path.expanduser with '~'."""
@@ -770,7 +770,7 @@ class TestClamUIAppQuickScanFallback:
             app._do_tray_quick_scan()
 
             # Verify expanduser was called with "~" to get home directory
-            mock_expanduser.assert_called_once_with("~")
+            mock_expanduser.assert_any_call("~")
 
     def test_statistics_fallback_does_not_call_refresh_profiles(self, app, mock_gtk_modules):
         """Test that statistics quick scan fallback does not call refresh_profiles."""

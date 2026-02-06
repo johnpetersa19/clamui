@@ -1054,7 +1054,7 @@ class TestTrayManagerReadStderr:
         mock_process.stderr = mock_stderr
         manager._process = mock_process
 
-        with caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG, logger="src.ui.tray_manager"):
             manager._read_stderr()
 
         assert "[TrayService] Debug message" in caplog.text
@@ -1078,7 +1078,7 @@ class TestTrayManagerReadStderr:
         mock_process.stderr = mock_stderr
         manager._process = mock_process
 
-        with caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG, logger="src.ui.tray_manager"):
             manager._read_stderr()
 
         # Should only log the non-empty message
@@ -1106,7 +1106,7 @@ class TestTrayManagerReadStderr:
         mock_process.stderr = mock_stderr
         manager._process = mock_process
 
-        with caplog.at_level(logging.DEBUG):
+        with caplog.at_level(logging.DEBUG, logger="src.ui.tray_manager"):
             manager._read_stderr()
 
         assert "[TrayService] First message" in caplog.text

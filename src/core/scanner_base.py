@@ -12,6 +12,7 @@ DaemonScanner (clamdscan) to avoid code duplication:
 """
 
 import logging
+import os
 import select
 import subprocess
 from collections.abc import Callable
@@ -107,24 +108,54 @@ def stream_process_output(
         while True:
             # Check for cancellation first
             if is_cancelled():
+                process.terminate()
                 try:
-                    process.terminate()
-                    # Drain remaining output
-                    remaining_stdout, remaining_stderr = process.communicate(timeout=2.0)
-                    if remaining_stdout:
-                        stdout_parts.append(remaining_stdout)
-                    if remaining_stderr:
-                        stderr_parts.append(remaining_stderr)
+                    process.wait(timeout=2.0)
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
+                # Drain remaining output via os.read() to avoid mixing
+                # with the TextIOWrapper used by process.communicate()
+                for fd, parts in [
+                    (stdout_fd, stdout_parts),
+                    (process.stderr.fileno(), stderr_parts),
+                ]:
+                    while True:
+                        try:
+                            raw = os.read(fd, 4096)
+                            if not raw:
+                                break
+                            parts.append(raw.decode("utf-8", errors="replace"))
+                        except OSError:
+                            break
                 return "".join(stdout_parts), "".join(stderr_parts), True
 
             # Check if process has finished
             if process.poll() is not None:
-                # Process finished - read any remaining output
-                remaining_stdout = process.stdout.read()
-                remaining_stderr = process.stderr.read()
+                # Process finished - drain remaining output via os.read()
+                remaining_chunks = []
+                while True:
+                    try:
+                        raw = os.read(stdout_fd, 4096)
+                        if not raw:
+                            break
+                        remaining_chunks.append(raw.decode("utf-8", errors="replace"))
+                    except OSError:
+                        break
+                remaining_stdout = "".join(remaining_chunks)
+
+                stderr_fd = process.stderr.fileno()
+                remaining_stderr_chunks = []
+                while True:
+                    try:
+                        raw = os.read(stderr_fd, 4096)
+                        if not raw:
+                            break
+                        remaining_stderr_chunks.append(raw.decode("utf-8", errors="replace"))
+                    except OSError:
+                        break
+                remaining_stderr = "".join(remaining_stderr_chunks)
+
                 if remaining_stdout:
                     # Process remaining data including incomplete line
                     data = incomplete_line + remaining_stdout
@@ -145,11 +176,16 @@ def stream_process_output(
             readable, _, _ = select.select([stdout_fd], [], [], poll_interval)
 
             if readable:
-                # Read available data (non-blocking due to select)
-                chunk = process.stdout.read(4096)
-                if not chunk:
+                # Use os.read() for truly non-blocking reads.
+                # process.stdout.read(n) uses TextIOWrapper which internally
+                # loops to accumulate n chars, blocking on the pipe even after
+                # select() returns readable.
+                raw_bytes = os.read(stdout_fd, 4096)
+                if not raw_bytes:
                     # EOF reached
                     continue
+
+                chunk = raw_bytes.decode("utf-8", errors="replace")
 
                 # Accumulate for final parsing
                 stdout_parts.append(chunk)
@@ -318,6 +354,9 @@ def create_cancelled_result(
     exit_code: int = -1,
     scanned_files: int = 0,
     scanned_dirs: int = 0,
+    infected_files: list[str] | None = None,
+    infected_count: int = 0,
+    threat_details: list | None = None,
 ) -> ScanResult:
     """
     Create a ScanResult for a cancelled operation.
@@ -329,6 +368,9 @@ def create_cancelled_result(
         exit_code: The process exit code.
         scanned_files: Number of files scanned before cancellation.
         scanned_dirs: Number of directories scanned before cancellation.
+        infected_files: List of infected file paths found before cancellation.
+        infected_count: Number of infected files found before cancellation.
+        threat_details: List of ThreatDetail objects found before cancellation.
 
     Returns:
         A ScanResult with CANCELLED status.
@@ -339,10 +381,10 @@ def create_cancelled_result(
         stdout=stdout,
         stderr=stderr,
         exit_code=exit_code,
-        infected_files=[],
+        infected_files=infected_files or [],
         scanned_files=scanned_files,
         scanned_dirs=scanned_dirs,
-        infected_count=0,
+        infected_count=infected_count,
         error_message="Scan cancelled by user",
-        threat_details=[],
+        threat_details=threat_details or [],
     )

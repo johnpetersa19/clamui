@@ -718,9 +718,9 @@ class TestSavePageSaveConfigsThread:
                 with mock.patch("src.ui.preferences.save_page.GLib"):
                     save_page._save_configs_thread({}, {}, onaccess_updates, {}, mock_button)
 
-                    # Should set values on window's clamd config
-                    save_page._window._clamd_config.set_value.assert_called_with(
-                        "OnAccessIncludePath", ["/home"]
+                    # List values use add_value (after clearing existing) instead of set_value
+                    save_page._window._clamd_config.add_value.assert_called_with(
+                        "OnAccessIncludePath", "/home"
                     )
 
     def test_save_configs_thread_combines_scanner_and_onaccess(self, mock_gi_modules, save_page):
@@ -739,10 +739,11 @@ class TestSavePageSaveConfigsThread:
                         {}, clamd_updates, onaccess_updates, {}, mock_button
                     )
 
-                    # Should set both sets of values on window's clamd config
+                    # Scalar values use set_value
                     save_page._window._clamd_config.set_value.assert_any_call("MaxFileSize", "100M")
-                    save_page._window._clamd_config.set_value.assert_any_call(
-                        "OnAccessIncludePath", ["/home"]
+                    # List values use add_value (after clearing existing)
+                    save_page._window._clamd_config.add_value.assert_any_call(
+                        "OnAccessIncludePath", "/home"
                     )
 
                     # Should write clamd config once

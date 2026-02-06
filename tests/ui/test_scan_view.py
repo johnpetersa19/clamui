@@ -895,7 +895,10 @@ class TestScanWorker:
             mock_scan_view._scan_worker()
 
             # Verify scanner was called with the correct path
-            mock_scan_view._scanner.scan_sync.assert_called_once_with("/home/user/test.txt")
+            mock_scan_view._scanner.scan_sync.assert_called_once()
+            call_args = mock_scan_view._scanner.scan_sync.call_args
+            assert call_args[0][0] == "/home/user/test.txt"
+            assert call_args[1]["recursive"] is True
 
             # Verify _on_scan_complete was scheduled
             assert len(captured_callbacks) >= 1
@@ -1117,22 +1120,22 @@ class TestCancelScan:
             mock_scan_view._scanner.scan_sync.assert_not_called()
 
     def test_cancel_during_scan_stops_at_current_target(self, mock_scan_view):
-        """Test that cancelling during scan stops after current target."""
+        """Test that cancelling during scan stops after current target and aggregates partial results."""
         self._setup_cancel_mocks(mock_scan_view)
 
         # Mock ScanStatus
         mock_cancelled_status = mock.MagicMock()
 
-        def create_result_and_cancel(path):
+        def create_result_and_cancel(path, **kwargs):
             """Create result and set cancel flag after first scan."""
             mock_scan_view._cancel_all_requested = True
             result = mock.MagicMock()
             result.status = mock_cancelled_status
             result.scanned_files = 5
             result.scanned_dirs = 1
-            result.infected_count = 0
-            result.infected_files = []
-            result.threat_details = []
+            result.infected_count = 2
+            result.infected_files = ["/path1/virus1", "/path1/virus2"]
+            result.threat_details = [mock.MagicMock(), mock.MagicMock()]
             result.stdout = ""
             result.stderr = ""
             result.error_message = None
@@ -1151,10 +1154,19 @@ class TestCancelScan:
                 mock_scan_status.ERROR = "error"
                 mock_scan_status.CANCELLED = mock_cancelled_status
 
-                mock_scan_view._scan_worker()
+                with mock.patch("src.ui.scan_view.ScanResult") as mock_scan_result:
+                    mock_scan_view._scan_worker()
 
             # Should only scan first target before cancel takes effect
             assert mock_scan_view._scanner.scan_sync.call_count == 1
+
+            # Verify partial results were aggregated via ScanResult constructor
+            mock_scan_result.assert_called_once()
+            call_kwargs = mock_scan_result.call_args[1]
+            assert call_kwargs["scanned_files"] == 5
+            assert call_kwargs["infected_count"] == 2
+            assert call_kwargs["infected_files"] == ["/path1/virus1", "/path1/virus2"]
+            assert call_kwargs["status"] == mock_cancelled_status
 
 
 class TestScanComplete:
@@ -1434,7 +1446,7 @@ class TestProgressUpdates:
             mock_scan_view._update_scan_progress(2, 5, "/test/path")
 
         label = mock_scan_view._progress_label.set_label.call_args[0][0]
-        assert "2/5" in label
+        assert "2 of 5" in label
 
     def test_update_scan_progress_truncates_long_path(self, mock_scan_view):
         """Test that progress update truncates very long paths."""
@@ -2334,8 +2346,8 @@ class TestScanCompleteOtherStatus:
         mock_scan_view._stop_progress_pulse = mock.MagicMock()
         mock_scan_view._show_view_results = mock.MagicMock()
 
-    def test_on_scan_complete_other_status(self, mock_scan_view):
-        """Test scan complete with status not matching CLEAN/INFECTED/ERROR."""
+    def test_on_scan_complete_cancelled_status(self, mock_scan_view):
+        """Test scan complete with CANCELLED status shows partial results."""
         self._setup_complete_mocks(mock_scan_view)
 
         cancelled_status = mock.MagicMock()
@@ -2343,7 +2355,7 @@ class TestScanCompleteOtherStatus:
 
         result = mock.MagicMock()
         result.status = cancelled_status
-        result.infected_count = 0
+        result.infected_count = 3
         result.error_message = None
         result.stderr = ""
 
@@ -2351,13 +2363,17 @@ class TestScanCompleteOtherStatus:
             mock_scan_status.CLEAN = mock.MagicMock()
             mock_scan_status.INFECTED = mock.MagicMock()
             mock_scan_status.ERROR = mock.MagicMock()
+            mock_scan_status.CANCELLED = cancelled_status
 
-            with mock.patch("src.ui.scan_view.set_status_class"):
+            with mock.patch("src.ui.scan_view.set_status_class") as mock_set_status:
                 mock_scan_view._on_scan_complete(result)
 
-        # Should show view results with 0 threats
-        mock_scan_view._show_view_results.assert_called_with(0)
-        # Should set banner title with status
+                # Should use WARNING status class
+                mock_set_status.assert_called()
+
+        # Should show view results with actual threat count
+        mock_scan_view._show_view_results.assert_called_with(3)
+        # Should set banner title to "Scan cancelled"
         mock_scan_view._status_banner.set_title.assert_called()
         call_arg = mock_scan_view._status_banner.set_title.call_args[0][0]
         assert "cancelled" in call_arg.lower()

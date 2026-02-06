@@ -48,22 +48,51 @@ def parse_file_arguments(request):
     mock_gi.version_info = (3, 48, 0)
     mock_gi.require_version = mock.MagicMock()
 
-    # Create proper mock classes for inheritance
+    # Create proper mock classes for inheritance - MagicMock cannot be used as
+    # a base class due to metaclass conflicts, so all GTK/Adw classes that are
+    # inherited from in the source must be real Python classes.
     class MockGtkWidget:
         """Base mock class for GTK widgets."""
 
         def __init__(self, *args, **kwargs):
             pass
 
-    class MockAdwPreferencesWindow(MockGtkWidget):
-        """Mock for Adw.PreferencesWindow - a real class for inheritance."""
+        def __getattr__(self, name):
+            if name.startswith("__"):
+                raise AttributeError(name)
+            return mock.MagicMock()
 
+    class MockGtkBox(MockGtkWidget):
+        pass
+
+    class MockGtkListBox(MockGtkWidget):
+        pass
+
+    class MockGtkListBoxRow(MockGtkWidget):
+        pass
+
+    class MockAdwApplication(MockGtkWidget):
+        pass
+
+    class MockAdwApplicationWindow(MockGtkWidget):
+        pass
+
+    class MockAdwWindow(MockGtkWidget):
+        pass
+
+    class MockAdwPreferencesWindow(MockGtkWidget):
         pass
 
     mock_gi_repository = mock.MagicMock()
+    # Set real classes for all inherited bases (prevents metaclass conflicts)
+    mock_gi_repository.Adw.Application = MockAdwApplication
+    mock_gi_repository.Adw.ApplicationWindow = MockAdwApplicationWindow
+    mock_gi_repository.Adw.Window = MockAdwWindow
     mock_gi_repository.Adw.PreferencesWindow = MockAdwPreferencesWindow
     mock_gi_repository.Gtk.Widget = MockGtkWidget
-    mock_gi_repository.Gtk.Box = MockGtkWidget
+    mock_gi_repository.Gtk.Box = MockGtkBox
+    mock_gi_repository.Gtk.ListBox = MockGtkListBox
+    mock_gi_repository.Gtk.ListBoxRow = MockGtkListBoxRow
     # GTK version functions (needed for file_export.py GTK version check)
     mock_gi_repository.Gtk.get_minor_version = mock.MagicMock(return_value=14)
     mock_gi_repository.Gtk.get_major_version = mock.MagicMock(return_value=4)
@@ -80,6 +109,9 @@ def parse_file_arguments(request):
         "gi.repository.Gtk",
         "gi.repository.Gio",
         "gi.repository.GLib",
+        "gi.repository.Gdk",
+        "gi.repository.GObject",
+        "gi.repository.Pango",
         "matplotlib.backends.backend_gtk4",
         "matplotlib.backends.backend_gtk4agg",
     ]
@@ -94,6 +126,9 @@ def parse_file_arguments(request):
     sys.modules["gi.repository.Gtk"] = mock_gi_repository.Gtk
     sys.modules["gi.repository.Gio"] = mock_gi_repository.Gio
     sys.modules["gi.repository.GLib"] = mock_gi_repository.GLib
+    sys.modules["gi.repository.Gdk"] = mock_gi_repository.Gdk
+    sys.modules["gi.repository.GObject"] = mock_gi_repository.GObject
+    sys.modules["gi.repository.Pango"] = mock_gi_repository.Pango
     sys.modules["matplotlib.backends.backend_gtk4"] = mock_backend
     sys.modules["matplotlib.backends.backend_gtk4agg"] = mock_backend
 

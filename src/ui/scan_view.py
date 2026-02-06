@@ -112,6 +112,11 @@ class ScanView(Gtk.Box):
         self._updates_paused: bool = False  # Pause updates when view is hidden
         self._is_view_visible: bool = True  # Track view visibility
 
+        # Multi-target scan tracking
+        self._current_target_idx: int = 1  # Current target (1-based)
+        self._total_target_count: int = 0  # Total targets being scanned
+        self._cumulative_files_scanned: int = 0  # Files from completed targets
+
         # View results section state
         self._view_results_section: Gtk.Box | None = None
         self._view_results_button: Gtk.Button | None = None
@@ -1184,9 +1189,22 @@ class ScanView(Gtk.Box):
         # Update progress bar
         if self._progress_bar is not None:
             if progress.percentage is not None:
-                # Deterministic progress with known file count
+                # Stop pulsing — we now have deterministic progress
+                if self._pulse_timeout_id is not None:
+                    GLib.source_remove(self._pulse_timeout_id)
+                    self._pulse_timeout_id = None
                 self._progress_bar.set_fraction(progress.percentage / 100)
             # If percentage is None, keep pulsing (handled by _start_progress_pulse)
+
+        # Update progress label with percentage and target context
+        if self._progress_label is not None and progress.percentage is not None:
+            pct = int(progress.percentage)
+            if self._total_target_count > 1:
+                self._progress_label.set_text(
+                    f"Target {self._current_target_idx} of {self._total_target_count} \u2014 {pct}%"
+                )
+            else:
+                self._progress_label.set_text(f"Scanning... {pct}%")
 
         # Update file label with current file
         if self._file_label is not None and progress.current_file:
@@ -1194,9 +1212,20 @@ class ScanView(Gtk.Box):
             self._file_label.set_text(display_path)
             self._file_label.set_visible(True)
 
-        # Update stats label
+        # Update stats label with cumulative counts for multi-target scans
         if self._stats_label is not None:
-            if progress.files_total:
+            total_scanned = self._cumulative_files_scanned + progress.files_scanned
+            if self._total_target_count > 1:
+                if progress.files_total:
+                    self._stats_label.set_text(
+                        f"Scanned {progress.files_scanned:,} / {progress.files_total:,} files"
+                        f" ({total_scanned:,} total)"
+                    )
+                else:
+                    self._stats_label.set_text(
+                        f"Scanned {progress.files_scanned:,} files ({total_scanned:,} total)"
+                    )
+            elif progress.files_total:
                 self._stats_label.set_text(
                     f"Scanned {progress.files_scanned:,} / {progress.files_total:,} files"
                 )
@@ -1432,6 +1461,9 @@ class ScanView(Gtk.Box):
         # Reset progress tracking state
         self._last_progress_update = 0.0
         self._updates_paused = False
+        self._current_target_idx = 1
+        self._total_target_count = len(self._selected_paths)
+        self._cumulative_files_scanned = 0
 
         # Update cancel button text based on number of targets
         path_count = len(self._selected_paths)
@@ -1448,27 +1480,29 @@ class ScanView(Gtk.Box):
         # Hide previous results button
         self._hide_view_results()
 
-        # Check if live progress is enabled
-        show_live_progress = True
-        if self._settings_manager is not None:
-            show_live_progress = self._settings_manager.get("show_live_progress", True)
-
         # Show progress section with status message
         if self._progress_section is not None:
-            # Format path for display (handles Flatpak portal paths and truncation)
+            show_live_progress = True
+            if self._settings_manager is not None:
+                show_live_progress = self._settings_manager.get("show_live_progress", True)
+
             if path_count == 1:
                 display_path = format_scan_path(self._selected_paths[0])
                 if len(display_path) > 50:
                     display_path = "..." + display_path[-47:]
                 if show_live_progress:
-                    self._progress_label.set_label("Counting files...")
+                    self._progress_label.set_label(
+                        f"Scanning {display_path} \u2014 File count pending"
+                    )
                 else:
                     self._progress_label.set_label(f"Scanning {display_path}")
             else:
                 if show_live_progress:
-                    self._progress_label.set_label("Counting files...")
+                    self._progress_label.set_label(
+                        f"Scanning {path_count} items \u2014 File count pending"
+                    )
                 else:
-                    self._progress_label.set_label(f"Scanning {path_count} items...")
+                    self._progress_label.set_label(f"Scanning {path_count} items")
             self._progress_section.set_visible(True)
             self._start_progress_pulse()
 
@@ -1563,8 +1597,17 @@ class ScanView(Gtk.Box):
 
                 # Check if scan was cancelled (either this target or cancel all)
                 if result.status == ScanStatus.CANCELLED or self._cancel_all_requested:
+                    # Aggregate partial results from this cancelled target
+                    total_scanned_files += result.scanned_files
+                    total_scanned_dirs += result.scanned_dirs
+                    total_infected_count += result.infected_count
+                    all_infected_files.extend(result.infected_files)
+                    all_threat_details.extend(result.threat_details)
                     final_status = ScanStatus.CANCELLED
                     break
+
+                # Track cumulative file count for multi-target progress display
+                self._cumulative_files_scanned += result.scanned_files
 
                 # Aggregate results
                 total_scanned_files += result.scanned_files
@@ -1633,6 +1676,9 @@ class ScanView(Gtk.Box):
         if self._progress_label is None:
             return
 
+        self._current_target_idx = current_idx
+        self._total_target_count = total_count
+
         # Format path for display
         display_path = format_scan_path(current_path)
         if len(display_path) > 40:
@@ -1641,9 +1687,13 @@ class ScanView(Gtk.Box):
         if total_count == 1:
             self._progress_label.set_label(f"Scanning {display_path}")
         else:
-            self._progress_label.set_label(
-                f"Scanning target {current_idx}/{total_count}: {display_path}"
-            )
+            self._progress_label.set_label(f"Target {current_idx} of {total_count}: {display_path}")
+
+        # Reset progress bar for new target — restart pulsing until
+        # real progress data arrives from the scanner
+        if self._progress_bar is not None:
+            self._progress_bar.set_fraction(0.0)
+        self._start_progress_pulse()
 
     def _on_scan_complete(self, result: ScanResult):
         """
@@ -1697,6 +1747,11 @@ class ScanView(Gtk.Box):
             else:
                 self._status_banner.set_title("Scan complete - No threats found")
             set_status_class(self._status_banner, StatusLevel.SUCCESS)
+            self._status_banner.set_revealed(True)
+        elif result.status == ScanStatus.CANCELLED:
+            self._show_view_results(result.infected_count)
+            self._status_banner.set_title("Scan cancelled")
+            set_status_class(self._status_banner, StatusLevel.WARNING)
             self._status_banner.set_revealed(True)
         elif result.status == ScanStatus.ERROR:
             self._show_view_results(0)

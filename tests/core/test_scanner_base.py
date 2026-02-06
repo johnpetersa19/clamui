@@ -96,15 +96,25 @@ class TestStreamProcessOutput:
         mock_process.stdout = mock_stdout
         mock_process.stderr = mock_stderr
         mock_stdout.fileno.return_value = 1
-        mock_stdout.read.side_effect = ["line1\nline2\n", ""]
-        mock_stderr.read.return_value = ""
+        mock_stderr.fileno.return_value = 2
 
         lines_received = []
 
         def on_line(line):
             lines_received.append(line)
 
-        with patch("src.core.scanner_base.select.select", return_value=([1], [], [])):
+        # os.read returns bytes; first call in select loop, then drain on poll==0
+        with (
+            patch("src.core.scanner_base.select.select", return_value=([1], [], [])),
+            patch(
+                "src.core.scanner_base.os.read",
+                side_effect=[
+                    b"line1\nline2\n",  # streaming read
+                    b"",  # drain stdout after poll
+                    b"",  # drain stderr after poll
+                ],
+            ),
+        ):
             _stdout, _stderr, cancelled = stream_process_output(
                 mock_process, lambda: False, on_line
             )
@@ -141,19 +151,19 @@ class TestStreamProcessOutput:
         mock_process = MagicMock()
         mock_process.stdout = None
         mock_process.stderr = None
+        # communicate_with_cancel_check calls process.communicate(timeout=0.5)
         mock_process.communicate.return_value = ("output", "error")
 
-        with patch(
-            "src.core.scanner_base.communicate_with_cancel_check",
-            return_value=("output", "error", False),
-        ) as mock_comm:
-            stdout, stderr, cancelled = stream_process_output(
-                mock_process, lambda: False, lambda line: None
-            )
+        stdout, stderr, cancelled = stream_process_output(
+            mock_process, lambda: False, lambda line: None
+        )
 
-        mock_comm.assert_called_once()
+        # Should have fallen back to communicate_with_cancel_check,
+        # which calls process.communicate()
+        mock_process.communicate.assert_called()
         assert stdout == "output"
         assert stderr == "error"
+        assert cancelled is False
 
     def test_stream_output_handles_os_error(self):
         """Test graceful handling of OSError during streaming."""
@@ -189,21 +199,26 @@ class TestStreamProcessOutput:
         mock_process.stdout = mock_stdout
         mock_process.stderr = mock_stderr
         mock_stdout.fileno.return_value = 1
-
-        # Simulate chunked output
-        mock_stdout.read.side_effect = [
-            "/path/file1.txt: OK\n/path/file2.txt: OK\n",
-            "/path/file3.txt: FOUND\n",
-            "",
-        ]
-        mock_stderr.read.return_value = ""
+        mock_stderr.fileno.return_value = 2
 
         lines = []
 
         def on_line(line):
             lines.append(line)
 
-        with patch("src.core.scanner_base.select.select", return_value=([1], [], [])):
+        # os.read returns bytes; two streaming chunks then drain on poll==0
+        with (
+            patch("src.core.scanner_base.select.select", return_value=([1], [], [])),
+            patch(
+                "src.core.scanner_base.os.read",
+                side_effect=[
+                    b"/path/file1.txt: OK\n/path/file2.txt: OK\n",  # chunk 1
+                    b"/path/file3.txt: FOUND\n",  # chunk 2
+                    b"",  # drain stdout after poll
+                    b"",  # drain stderr after poll
+                ],
+            ),
+        ):
             _stdout, _stderr, _cancelled = stream_process_output(
                 mock_process, lambda: False, on_line
             )
@@ -347,6 +362,7 @@ class TestCreateCancelledResult:
         assert result.path == "/path/to/scan"
         assert result.error_message == "Scan cancelled by user"
         assert result.infected_files == []
+        assert result.infected_count == 0
         assert result.threat_details == []
 
     def test_create_cancelled_result_with_partial_progress(self):
@@ -358,12 +374,30 @@ class TestCreateCancelledResult:
             exit_code=-15,
             scanned_files=50,
             scanned_dirs=10,
+            infected_files=["/path/to/infected1", "/path/to/infected2"],
+            infected_count=2,
         )
 
         assert result.stdout == "Partial output"
         assert result.exit_code == -15
         assert result.scanned_files == 50
         assert result.scanned_dirs == 10
+        assert result.infected_files == ["/path/to/infected1", "/path/to/infected2"]
+        assert result.infected_count == 2
+
+    def test_create_cancelled_result_with_threat_details(self):
+        """Test cancelled result preserves threat details found before cancellation."""
+        mock_threat = MagicMock()
+        result = create_cancelled_result(
+            "/path/to/scan",
+            infected_files=["/path/to/malware"],
+            infected_count=1,
+            threat_details=[mock_threat],
+        )
+
+        assert result.infected_files == ["/path/to/malware"]
+        assert result.infected_count == 1
+        assert result.threat_details == [mock_threat]
 
 
 class TestConstants:

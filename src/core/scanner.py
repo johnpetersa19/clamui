@@ -286,10 +286,21 @@ class Scanner:
                     cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
                 )
 
+            progress_files_scanned = 0
+            progress_infected_count = 0
+            progress_infected_files: list[str] = []
+
             try:
                 if progress_callback is not None:
                     # Use streaming mode for real-time progress
-                    stdout, stderr, was_cancelled = self._scan_with_progress(
+                    (
+                        stdout,
+                        stderr,
+                        was_cancelled,
+                        progress_files_scanned,
+                        progress_infected_count,
+                        progress_infected_files,
+                    ) = self._scan_with_progress(
                         self._current_process, progress_callback, files_total
                     )
                 else:
@@ -310,7 +321,13 @@ class Scanner:
             # Check if cancelled during execution
             if was_cancelled:
                 result = create_cancelled_result(
-                    path, stdout, stderr, exit_code if exit_code is not None else -1
+                    path,
+                    stdout,
+                    stderr,
+                    exit_code if exit_code is not None else -1,
+                    scanned_files=progress_files_scanned,
+                    infected_files=progress_infected_files,
+                    infected_count=progress_infected_count,
                 )
                 self._save_scan_log(result, time.monotonic() - start_time)
                 return result
@@ -447,7 +464,7 @@ class Scanner:
         process: subprocess.Popen,
         progress_callback: Callable[[ScanProgress], None],
         files_total: int | None,
-    ) -> tuple[str, str, bool]:
+    ) -> tuple[str, str, bool, int, int, list[str]]:
         """
         Scan with real-time progress updates.
 
@@ -460,7 +477,8 @@ class Scanner:
             files_total: Total number of files to scan (for percentage)
 
         Returns:
-            Tuple of (stdout, stderr, was_cancelled)
+            Tuple of (stdout, stderr, was_cancelled, files_scanned,
+            infected_count, infected_files)
         """
         files_scanned = 0
         infected_count = 0
@@ -509,7 +527,10 @@ class Scanner:
                     )
                     progress_callback(progress)
 
-        return stream_process_output(process, self._cancel_event.is_set, on_line)
+        stdout, stderr, was_cancelled = stream_process_output(
+            process, self._cancel_event.is_set, on_line
+        )
+        return stdout, stderr, was_cancelled, files_scanned, infected_count, infected_files
 
     def scan_async(
         self,

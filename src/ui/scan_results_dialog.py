@@ -197,6 +197,19 @@ class ScanResultsDialog(Adw.Window):
             expander.set_subtitle(f"{threat_text} found")
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             icon.add_css_class("warning")
+        elif self._scan_result.status == ScanStatus.CANCELLED:
+            expander.set_title("Scan Cancelled")
+            if self._scan_result.infected_count > 0:
+                threat_text = (
+                    "1 threat"
+                    if self._scan_result.infected_count == 1
+                    else f"{self._scan_result.infected_count} threats"
+                )
+                expander.set_subtitle(f"Partial results - {threat_text} found")
+            else:
+                expander.set_subtitle("Partial results shown")
+            icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
+            icon.add_css_class("accent")
         else:
             expander.set_title("Scan Error")
             expander.set_subtitle(self._scan_result.error_message or "Unknown error")
