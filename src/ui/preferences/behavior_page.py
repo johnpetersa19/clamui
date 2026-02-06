@@ -17,6 +17,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 from ...core.flatpak import is_flatpak
+from ..compat import create_switch_row
 from ..utils import resolve_icon_name
 from .base import PreferencesPageMixin, create_navigation_row, styled_prefix_icon
 
@@ -146,12 +147,11 @@ class BehaviorPage(PreferencesPageMixin):
         group.set_description("Configure how scans are displayed")
 
         # Live progress toggle
-        self._live_progress_row = Adw.SwitchRow()
+        self._live_progress_row = create_switch_row(icon_name="view-refresh-symbolic")
         self._live_progress_row.set_title("Show Live Scan Progress")
         self._live_progress_row.set_subtitle(
             "Display files being scanned in real-time with detailed progress"
         )
-        self._live_progress_row.add_prefix(styled_prefix_icon("view-refresh-symbolic"))
 
         # Connect signal
         self._live_progress_handler_id = self._live_progress_row.connect(
