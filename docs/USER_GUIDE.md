@@ -1,6 +1,8 @@
 # ClamUI User Guide
 
-Welcome to ClamUI! This guide will help you get the most out of your antivirus protection on Linux.
+>Welcome to ClamUI! If you're new to the application, start with the **[Getting Started Guide](GETTING_STARTED.md)** for a quick introduction to installation, first use, and next steps.
+>
+> This guide will help you get the most out of your antivirus protection on Linux.
 
 ## What is ClamUI?
 
