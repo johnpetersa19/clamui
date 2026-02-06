@@ -88,10 +88,15 @@ This guide covers everything you need to know to use ClamUI effectively:
 
 ### Settings and Preferences
 - [Accessing Preferences](#accessing-preferences)
+- [Preferences Pages Overview](#preferences-pages-overview)
+- [Behavior Settings](#behavior-settings)
 - [Scan Backend Options](#scan-backend-options)
 - [Database Update Settings](#database-update-settings)
 - [Scanner Configuration](#scanner-configuration)
+- [On-Access Settings](#on-access-settings)
 - [Managing Exclusion Patterns](#managing-exclusion-patterns)
+- [VirusTotal Settings](#virustotal-settings)
+- [Debug and Diagnostics](#debug-and-diagnostics)
 - [Notification Settings](#notification-settings)
 
 ### System Tray and Background Features
@@ -4863,33 +4868,73 @@ ClamUI's preferences are organized into several pages covering different aspects
 
 **Preferences Window Layout:**
 
-The preferences window uses a sidebar navigation with these pages:
+The preferences window uses a sidebar with these pages:
 
-```
-┌─────────────────────────────────────────┐
-│ Sidebar          │ Settings Page        │
-├──────────────────┼──────────────────────┤
-│ ▶ Database      │                       │
-│   Updates        │  [Configuration      │
-│                  │   Settings Display]  │
-│ ▶ Scanner        │                       │
-│   Settings       │                       │
-│                  │                       │
-│ ▶ Scheduled      │                       │
-│   Scans          │                       │
-│                  │                       │
-│ ▶ Exclusions     │                       │
-│                  │                       │
-│ ▶ Save & Apply   │                       │
-└──────────────────┴──────────────────────┘
-```
+| Sidebar Page | Purpose | Save Behavior |
+|--------------|---------|---------------|
+| **Behavior** | Window close behavior, live scan progress, and file manager integration (Flatpak) | Auto-saved |
+| **Exclusions** | Preset and custom scan exclusions | Auto-saved |
+| **Database** | `freshclam.conf` update settings | Save & Apply (admin) |
+| **Scanner** | Scan backend + `clamd.conf` scanner settings | Backend auto-saved, `clamd.conf` settings require Save & Apply |
+| **Scheduled** | Automatic scan schedule and targets | Save & Apply |
+| **On-Access** | Real-time on-access scanning settings (`clamd.conf`) | Save & Apply (admin) |
+| **VirusTotal** | API key and missing-key behavior | Saved when changed |
+| **Debug** | Log level, log export/clear, system info | Log level auto-saved; actions apply immediately |
+| **Save** | Apply pending system configuration writes | Use after editing Database, Scanner, Scheduled, or On-Access |
 
-**Navigation:**
-- Click any sidebar item to view that settings page
-- Changes are **not** saved until you click "Save & Apply"
-- Close the window to discard unsaved changes
+**Navigation and Saving:**
+- Click any sidebar item to open that settings page.
+- Auto-saved pages apply changes immediately.
+- Pages that modify ClamAV system config files require **Save & Apply** and usually prompt for administrator authentication.
 
 ⚠️ **Important:** Many settings require administrator (root) privileges to modify because they change system-wide ClamAV configuration files. You'll see a lock icon (🔒) next to settings groups that require elevated permissions.
+
+---
+
+### Preferences Pages Overview
+
+Use this quick guide when deciding where to make a change:
+
+- **Behavior**: App/window behavior and scan UI behavior.
+- **Scanner**: Choose scan backend (`auto`, `daemon`, `clamscan`) and scanner limits.
+- **Database**: Control update frequency, mirrors, custom signatures, and proxy settings.
+- **Scheduled**: Configure automated scans and target paths.
+- **On-Access**: Configure real-time filesystem monitoring behavior.
+- **Exclusions**: Exclude trusted paths/patterns from scans.
+- **VirusTotal**: Manage your API key and missing-key actions.
+- **Debug**: Troubleshooting controls and log management.
+- **Save**: Apply pending edits to system config files.
+
+---
+
+### Behavior Settings
+
+The **Behavior** page controls how ClamUI behaves when you close the app and how scan progress is shown.
+
+#### Opening Behavior Settings
+
+1. Open Preferences (`Ctrl+,`)
+2. Click **Behavior** in the sidebar
+
+#### Window Behavior
+
+- **When closing window**:
+  - **Minimize to tray**
+  - **Quit completely**
+  - **Always ask**
+- If system tray support is unavailable, this section shows an informational message instead of controls.
+
+#### Scan Behavior
+
+- **Show Live Scan Progress**:
+  - **On**: show real-time file-by-file scan progress
+  - **Off**: show simpler progress without live file updates
+
+#### File Manager Integration (Flatpak only)
+
+- Open **Configure Integration** to install/manage “Scan with ClamUI” context-menu actions in supported file managers.
+
+💡 **Tip:** Behavior settings are auto-saved, so you do not need to use **Save & Apply** for these options.
 
 ---
 
@@ -4920,7 +4965,7 @@ The ClamAV daemon (clamd) keeps virus signatures loaded in memory, making scans 
 **To Select Scan Backend:**
 
 1. Open Preferences (`Ctrl+,`)
-2. Click "Scanner Settings" in the sidebar
+2. Click "Scanner" in the sidebar
 3. Locate the "Scan Backend" section at the top
 4. Click the "Scan Backend" dropdown
 5. Select your preferred option:
@@ -4969,7 +5014,7 @@ ClamUI allows you to configure how ClamAV updates its virus definition databases
 #### Opening Database Update Settings
 
 1. Open Preferences (`Ctrl+,`)
-2. Click "Database Updates" in the sidebar
+2. Click "Database" in the sidebar (Database Updates page)
 
 You'll see several configuration groups:
 
@@ -5116,7 +5161,7 @@ ClamUI allows you to configure the ClamAV daemon scanner (clamd) behavior throug
 #### Opening Scanner Settings
 
 1. Open Preferences (`Ctrl+,`)
-2. Click "Scanner Settings" in the sidebar
+2. Click "Scanner" in the sidebar
 3. Scroll past the "Scan Backend" section (covered earlier)
 
 You'll see the configuration file location and scanner-specific settings.
@@ -5292,6 +5337,113 @@ journalctl -u clamav-daemon -f
 
 ---
 
+### On-Access Settings
+
+The **On-Access** page configures ClamAV real-time file monitoring through `clamd.conf` (used by `clamonacc`).
+
+🔒 **Requires Administrator Privileges:** On-Access options modify `/etc/clamav/clamd.conf`.
+
+⚠️ **Availability Note:** If `clamd.conf` is missing, this page shows "On Access Configuration ... unavailable" and settings cannot be edited.
+
+#### Opening On-Access Settings
+
+1. Open Preferences (`Ctrl+,`)
+2. Click **On-Access** in the sidebar
+
+#### Monitored Paths
+
+- **Include Paths**: Comma-separated directories to monitor in real time.
+- **Exclude Paths**: Comma-separated directories to skip from real-time monitoring.
+
+Example:
+
+```text
+Include Paths: /home/user/Downloads, /home/user/Desktop
+Exclude Paths: /home/user/Downloads/large-archives
+```
+
+#### Behavior Settings
+
+- **Prevention Mode**: Block access to infected files.
+- **Extra Scanning**: Monitor file creation/move events via `inotify`.
+- **Deny on Error**: Deny access when scanning fails (best used with Prevention Mode).
+- **Disable DDD**: Disable Directory Descent Detection behavior.
+
+#### Performance Settings
+
+- **Max Threads**: 1-64 scanning threads.
+- **Max File Size (MB)**: 0-4000 (`0` = unlimited).
+- **Curl Timeout (seconds)**: 0-3600 (`0` disables timeout).
+- **Retry Attempts**: 0-10 retries after scan failures.
+
+#### Scan Loop Prevention (Critical)
+
+On-Access scanning watches filesystem activity in real time.  
+Without exclusions, the scanner can accidentally trigger itself:
+
+1. ClamAV opens a file to scan it.
+2. That file access is seen as a new "file access event."
+3. ClamAV tries to scan its own scan activity again.
+4. CPU usage spikes and scanning can become unstable.
+
+To prevent this, configure exclusions for the scanner account:
+
+- **Exclude Username** (recommended: `clamav`)
+- **Exclude User ID** (UID of the scanner user)
+- **Exclude Root User** (UID 0)
+
+#### Recommended Setup (for new users)
+
+Use this safe default on a typical Linux desktop install:
+
+1. Set **Exclude Username** to `clamav`
+2. Set **Exclude User ID** to the UID of `clamav`
+3. Leave **Exclude Root User** off unless your scanner actually runs as root
+
+#### Finding the Scanner UID (Beginner-Friendly)
+
+On a vanilla install, the scanner service account is usually `clamav`, but the numeric UID is not the same on every system.
+
+Check your exact UID with:
+
+```bash
+id -u clamav
+```
+
+You can also see full details:
+
+```bash
+id clamav
+```
+
+Example output:
+
+```text
+uid=108(clamav) gid=113(clamav) groups=113(clamav)
+```
+
+In this example, set **Exclude User ID** to `108`.
+
+💡 **Note:** Some systems may use a different value (for example `129`). Always use the value returned on your machine.
+
+⚠️ **Important:** Do not leave all loop-prevention fields unset when enabling On-Access scanning.
+
+#### Applying On-Access Changes
+
+1. Go to **Save** in Preferences
+2. Click **Save & Apply**
+3. Authenticate when prompted
+4. Restart related services if needed:
+
+```bash
+sudo systemctl restart clamav-daemon
+sudo systemctl restart clamav-clamonacc  # if this service exists on your distro
+```
+
+💡 **Tip:** Start with a small include path (for example, `~/Downloads`) and verify system behavior before expanding coverage.
+
+---
+
 ### Managing Exclusion Patterns
 
 Exclusion patterns allow you to skip certain files or directories during scans, improving performance and reducing false positives.
@@ -5450,19 +5602,76 @@ Scan with exclusions (node_modules, build, .git):
 
 ---
 
+### VirusTotal Settings
+
+The **VirusTotal** page lets you connect an API key for cloud reputation checks.
+
+#### Opening VirusTotal Settings
+
+1. Open Preferences (`Ctrl+,`)
+2. Click **VirusTotal** in the sidebar
+
+#### What You Can Configure
+
+- **API Key**: Paste your key and click **Save Key**.
+- **Missing Key Behavior**: Choose what happens when scanning without an API key:
+  - Always ask
+  - Open VirusTotal website
+  - Show notification only
+- **Key Removal**: Click **Delete Key** to remove a saved key.
+
+#### Notes
+
+- API key changes are applied immediately; **Save & Apply** is not required.
+- Free-tier limits shown in the app (rate and size limits) still apply.
+
+---
+
+### Debug and Diagnostics
+
+The **Debug** page helps with troubleshooting and support.
+
+#### Opening Debug Settings
+
+1. Open Preferences (`Ctrl+,`)
+2. Click **Debug** in the sidebar
+
+#### Logging and Diagnostics Tools
+
+- **Log Level** (`DEBUG`, `INFO`, `WARNING`, `ERROR`) for ClamUI diagnostics.
+- **Open Log Folder** to inspect logs directly.
+- **Export Logs** to create a ZIP bundle for bug reports.
+- **Clear Logs** to remove old log files.
+- **System Information** panel with a **Copy** action for support tickets.
+
+#### Notes
+
+- Log-level changes are auto-saved.
+- Export/Clear actions apply immediately.
+
+---
+
 ### Notification Settings
 
 ClamUI can display desktop notifications when scans complete, threats are detected, or virus definitions are updated.
 
-#### Enabling Desktop Notifications
+#### Managing Desktop Notifications
 
-**To Enable/Disable Notifications:**
+Notifications are enabled by default.
+
+Depending on build/version, your Preferences window may or may not include a direct notification toggle.
+
+**If your build has a notification toggle:**
 
 1. Open Preferences (`Ctrl+,`)
-2. Look for the "Notifications" group (usually at the top or in a General settings page)
-3. Toggle the "Desktop Notifications" switch
-   - **On:** Show notifications
-   - **Off:** Silent mode (no notifications)
+2. Open the page that contains notification controls
+3. Toggle desktop notifications on or off
+
+**If your build does not have a notification toggle:**
+
+1. Open `~/.config/clamui/settings.json`
+2. Set `"notifications_enabled": true` (or `false` to disable)
+3. Restart ClamUI
 
 **When Notifications Appear:**
 
@@ -5521,7 +5730,7 @@ ClamUI can display desktop notifications when scans complete, threats are detect
 
 **To Test Notifications:**
 
-1. Enable "Desktop Notifications"
+1. Ensure notifications are enabled
 2. Run a Quick Scan (Downloads folder)
 3. Wait for scan to complete
 4. You should see a "Scan Complete" notification
@@ -5535,12 +5744,19 @@ If notifications don't appear:
 
 ### Saving and Applying Settings
 
-After configuring any settings, you must explicitly save them.
+Only some settings require **Save & Apply**.
+
+Auto-saved settings include:
+- Behavior options
+- Exclusions
+- Scan backend selection
+- VirusTotal behavior/API key actions
+- Debug log level
 
 #### Save & Apply Page
 
 1. Open Preferences (`Ctrl+,`)
-2. Navigate to "Save & Apply" in the sidebar
+2. Navigate to "Save" in the sidebar (the Save & Apply page)
 3. Review the "Current Status" indicator:
    - **"Ready"** ✅ - Settings can be saved
    - **"Saving..."** ⏳ - Save in progress
@@ -5551,7 +5767,7 @@ After configuring any settings, you must explicitly save them.
 **To Save All Settings:**
 
 1. Click the **"Save & Apply"** button (blue/suggested-action style)
-2. **For ClamAV configuration changes** (Database Updates, Scanner Settings):
+2. **For ClamAV configuration changes** (Database, Scanner, On-Access):
    - Authentication dialog appears
    - Enter your administrator/sudo password
    - Click "Authenticate"
@@ -5562,12 +5778,17 @@ After configuring any settings, you must explicitly save them.
 
 | Settings Page | What Changes | Requires Admin Password |
 |---------------|--------------|-------------------------|
-| Database Updates | `/etc/clamav/freshclam.conf` | ✅ Yes |
-| Scanner Settings | `/etc/clamav/clamd.conf` | ✅ Yes |
-| Scan Backend | `~/.config/clamui/settings.json` | ❌ No |
-| Scheduled Scans | `~/.config/clamui/settings.json` + system schedule | ✅ Yes (for schedule) |
-| Exclusions | `~/.config/clamui/settings.json` | ❌ No |
-| Notifications | `~/.config/clamui/settings.json` | ❌ No |
+| Database | `/etc/clamav/freshclam.conf` | ✅ Yes |
+| Scanner (`clamd.conf` options) | `/etc/clamav/clamd.conf` | ✅ Yes |
+| On-Access | `/etc/clamav/clamd.conf` | ✅ Yes |
+| Scheduled Scans | `~/.config/clamui/settings.json` + system schedule | Usually no |
+
+**Not Saved Here (Already Auto-Saved):**
+- Behavior
+- Exclusions
+- Scan Backend
+- VirusTotal behavior/key operations
+- Debug log level
 
 **Automatic Backups:**
 
@@ -5612,7 +5833,7 @@ No action needed - ClamUI automatically creates/updates systemd timers or cronta
 **To Verify Schedule Changes:**
 ```bash
 # View systemd timer
-systemctl --user list-timers clamui-scan
+systemctl --user list-timers clamui-scheduled-scan.timer
 
 # View crontab entry
 crontab -l | grep clamui
@@ -5671,8 +5892,8 @@ Contains:
 **Scheduled Scan Scripts:**
 ```
 # Systemd user timer
-~/.config/systemd/user/clamui-scan.timer
-~/.config/systemd/user/clamui-scan.service
+~/.config/systemd/user/clamui-scheduled-scan.timer
+~/.config/systemd/user/clamui-scheduled-scan.service
 
 # Or crontab entry (alternative)
 crontab -l
