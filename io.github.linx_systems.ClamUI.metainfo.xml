@@ -96,6 +96,28 @@
   </keywords>
 
   <releases>
+    <release version="0.1.3" date="2026-02-07">
+      <description>
+        <p>Feature and stability improvements</p>
+        <ul>
+          <li>Live scan progress view with real-time file display</li>
+          <li>GNOME-style navigation sidebar</li>
+          <li>AppImage packaging support</li>
+          <li>GPG signing for AppImage and Debian packages</li>
+          <li>freshclam SIGUSR1 service integration for database updates</li>
+          <li>URLhaus suggested signatures in database settings</li>
+          <li>Restore default profiles option</li>
+          <li>Debug logging system with preferences page</li>
+          <li>Daemon logs export and close behavior improvements</li>
+          <li>libadwaita 1.0 compatibility for Ubuntu 22.04</li>
+          <li>Scan cancel preserves partial results; fixed stream I/O</li>
+          <li>Immutable distro support (/var/home symlinks)</li>
+          <li>Flatpak daemon scanning and icon cache fixes</li>
+          <li>Security hardening: file permissions, urllib3 CVE fix</li>
+          <li>Comprehensive documentation overhaul</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.2" date="2026-01-20">
       <description>
         <p>Flatpak Improvements</p>

@@ -74,7 +74,7 @@ class ClamUIApp(Adw.Application):
 
         # Application metadata
         self._app_name = "ClamUI"
-        self._version = "0.1.2"
+        self._version = "0.1.3"
 
         # Settings and notification management
         self._settings_manager = SettingsManager()
