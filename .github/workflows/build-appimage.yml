@@ -7,7 +7,17 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      sign:
+        description: "Sign the AppImage with GPG"
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      sign:
+        description: "Sign the AppImage with GPG"
+        type: boolean
+        default: false
 
 jobs:
   build-appimage:
@@ -42,9 +52,17 @@ jobs:
           # Test 1: Python interpreter works
           ./squashfs-root/usr/bin/python3 --version
 
+          # Set up bundled Python environment (mirrors AppRun)
+          HERE="$(pwd)/squashfs-root"
+          export PYTHONHOME="$HERE/usr"
+          PYTHON_VER=$(./squashfs-root/usr/bin/python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+          export PYTHONPATH="$HERE/usr/lib/python${PYTHON_VER}/site-packages:$HERE/usr/lib/python${PYTHON_VER}"
+          export GI_TYPELIB_PATH="$HERE/usr/lib/girepository-1.0"
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$HERE/usr/lib/x86_64-linux-gnu"
+
           # Test 2: ClamUI module imports successfully
           ./squashfs-root/usr/bin/python3 -c "
-          import src.main
+          from src.main import main
           print('src.main: OK')
           "
 
@@ -66,18 +84,18 @@ jobs:
           # Cleanup extracted files
           rm -rf squashfs-root
 
-      # Only import GPG key for tag builds (releases)
+      # Import GPG key for tag builds or when sign input is true
       - name: Import GPG key
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.sign == true
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
         id: gpg
 
-      # Sign AppImage on tag builds
+      # Sign AppImage on tag builds or when sign input is true
       - name: Sign AppImage
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.sign == true
         env:
           APPIMAGETOOL_SIGN_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |

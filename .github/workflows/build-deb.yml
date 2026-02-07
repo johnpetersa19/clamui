@@ -7,7 +7,17 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      sign:
+        description: "Sign the Debian package with GPG"
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      sign:
+        description: "Sign the Debian package with GPG"
+        type: boolean
+        default: false
 
 jobs:
   build-deb:
@@ -28,18 +38,18 @@ jobs:
       - name: Build .deb package
         run: ./debian/build-deb.sh
 
-      # Only import GPG key for tag builds (releases)
+      # Import GPG key for tag builds or when sign input is true
       - name: Import GPG key
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.sign == true
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
         id: gpg
 
-      # Sign .deb on tag builds
+      # Sign .deb on tag builds or when sign input is true
       - name: Sign Debian package
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.sign == true
         run: |
           dpkg-sig --sign builder -k ${{ steps.gpg.outputs.fingerprint }} clamui_*.deb
 

@@ -2,6 +2,11 @@ name: Build All Packages
 
 on:
   workflow_dispatch:
+    inputs:
+      sign:
+        description: "Sign packages with GPG"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -9,9 +14,16 @@ permissions:
 jobs:
   build-deb:
     uses: ./.github/workflows/build-deb.yml
+    with:
+      sign: ${{ inputs.sign }}
+    secrets: inherit
 
   build-flatpak:
     uses: ./.github/workflows/build-flatpak.yml
+    secrets: inherit
 
   build-appimage:
     uses: ./.github/workflows/build-appimage.yml
+    with:
+      sign: ${{ inputs.sign }}
+    secrets: inherit
