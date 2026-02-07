@@ -53,6 +53,9 @@ jobs:
         run: |
           dpkg-sig --sign builder -k ${{ steps.gpg.outputs.fingerprint }} clamui_*.deb
 
+          # Trust the key so verification works
+          echo "${{ steps.gpg.outputs.fingerprint }}:6:" | gpg --import-ownertrust
+
           # Verify signature was applied
           dpkg-sig --verify clamui_*.deb
 
