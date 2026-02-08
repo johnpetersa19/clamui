@@ -16,6 +16,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk
 
+from ..core.i18n import N_, _
 from .utils import resolve_icon_name
 
 logger = logging.getLogger(__name__)
@@ -23,12 +24,12 @@ logger = logging.getLogger(__name__)
 # Navigation items configuration
 # (view_id, icon_name, display_label)
 NAVIGATION_ITEMS = [
-    ("scan", "folder-symbolic", "Scan"),
-    ("update", "software-update-available-symbolic", "Database"),
-    ("logs", "document-open-recent-symbolic", "Logs"),
-    ("components", "applications-system-symbolic", "Components"),
-    ("quarantine", "security-medium-symbolic", "Quarantine"),
-    ("statistics", "applications-science-symbolic", "Statistics"),
+    ("scan", "folder-symbolic", N_("Scan")),
+    ("update", "software-update-available-symbolic", N_("Database")),
+    ("logs", "document-open-recent-symbolic", N_("Logs")),
+    ("components", "applications-system-symbolic", N_("Components")),
+    ("quarantine", "security-medium-symbolic", N_("Quarantine")),
+    ("statistics", "applications-science-symbolic", N_("Statistics")),
 ]
 
 
@@ -65,8 +66,8 @@ class SidebarRow(Gtk.ListBoxRow):
         icon.set_icon_size(Gtk.IconSize.NORMAL)
         box.append(icon)
 
-        # Label
-        label_widget = Gtk.Label(label=label)
+        # Label - translate at display time (labels use N_() for deferred translation)
+        label_widget = Gtk.Label(label=_(label))
         label_widget.set_xalign(0)
         label_widget.set_hexpand(True)
         box.append(label_widget)
@@ -187,7 +188,7 @@ class NavigationSidebar(Gtk.Box):
         Returns:
             The display label, or the view_id if not found
         """
-        for vid, _, label in NAVIGATION_ITEMS:
+        for vid, _icon, label in NAVIGATION_ITEMS:
             if vid == view_id:
-                return label
+                return _(label)
         return view_id.capitalize()

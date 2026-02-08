@@ -83,6 +83,7 @@ select = [
     "UP",     # pyupgrade
     "ARG",    # flake8-unused-arguments
     "SIM",    # flake8-simplify
+    "INT",    # flake8-gettext (catches f-strings in gettext calls)
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)

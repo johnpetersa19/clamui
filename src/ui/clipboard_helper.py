@@ -28,6 +28,7 @@ from ..core.clipboard import (
     format_size,
     get_text_size,
 )
+from ..core.i18n import _
 
 
 class ClipboardHelper:
@@ -70,9 +71,9 @@ class ClipboardHelper:
     def copy_with_feedback(
         self,
         text: str,
-        success_message: str = "Copied to clipboard",
-        error_message: str = "Failed to copy to clipboard",
-        copying_message: str = "Copying...",
+        success_message: str | None = None,
+        error_message: str | None = None,
+        copying_message: str | None = None,
         too_large_message: str | None = None,
         on_too_large: Callable[[], None] | None = None,
     ) -> None:
@@ -94,6 +95,13 @@ class ClipboardHelper:
             on_too_large: Optional callback when content is too large.
                          Typically shows an export dialog.
         """
+        if success_message is None:
+            success_message = _("Copied to clipboard")
+        if error_message is None:
+            error_message = _("Failed to copy to clipboard")
+        if copying_message is None:
+            copying_message = _("Copying...")
+
         if not text:
             self._show_toast(error_message)
             return
@@ -178,8 +186,8 @@ class ClipboardHelper:
 
         # Generate message if not provided
         if too_large_message is None:
-            too_large_message = (
-                f"Content too large ({format_size(size_bytes)}). Use export to save to file."
+            too_large_message = _("Content too large ({size}). Use export to save to file.").format(
+                size=format_size(size_bytes)
             )
 
         self._show_toast(too_large_message)

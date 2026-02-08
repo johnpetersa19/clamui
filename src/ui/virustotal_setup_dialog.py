@@ -20,6 +20,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ..core.i18n import _
 from ..core.keyring_manager import set_api_key, validate_api_key_format
 from .compat import create_switch_row, create_toolbar_view
 from .utils import resolve_icon_name
@@ -83,7 +84,7 @@ class VirusTotalSetupDialog(Adw.Window):
 
     def _setup_dialog(self):
         """Configure the dialog properties."""
-        self.set_title("VirusTotal Setup")
+        self.set_title(_("VirusTotal Setup"))
         self.set_default_size(450, 400)
 
         # Configure as modal dialog
@@ -129,16 +130,18 @@ class VirusTotalSetupDialog(Adw.Window):
     def _create_info_section(self, preferences_page: Adw.PreferencesPage):
         """Create the information section."""
         info_group = Adw.PreferencesGroup()
-        info_group.set_title("VirusTotal API Key Required")
+        info_group.set_title(_("VirusTotal API Key Required"))
         info_group.set_description(
-            "To scan files with VirusTotal, you need a free API key. "
-            "You can get one by creating a free account on virustotal.com."
+            _(
+                "To scan files with VirusTotal, you need a free API key. "
+                "You can get one by creating a free account on virustotal.com."
+            )
         )
 
         # Info row with link
         link_row = Adw.ActionRow()
-        link_row.set_title("Get a free API key")
-        link_row.set_subtitle("Create an account at virustotal.com")
+        link_row.set_title(_("Get a free API key"))
+        link_row.set_subtitle(_("Create an account at virustotal.com"))
         link_row.set_activatable(True)
         link_row.connect("activated", self._on_get_api_key_clicked)
 
@@ -157,13 +160,13 @@ class VirusTotalSetupDialog(Adw.Window):
     def _create_api_key_section(self, preferences_page: Adw.PreferencesPage):
         """Create the API key entry section."""
         api_key_group = Adw.PreferencesGroup()
-        api_key_group.set_title("Enter API Key")
+        api_key_group.set_title(_("Enter API Key"))
 
         # Password entry row for API key
         # Using compatible helper for libadwaita 1.0+
         from .preferences.base import create_password_entry_row
 
-        self._api_key_row = create_password_entry_row("API Key")
+        self._api_key_row = create_password_entry_row(_("API Key"))
         self._api_key_row.connect("changed", self._on_api_key_changed)
         self._api_key_row.connect("entry-activated", self._on_save_and_scan_clicked)
         api_key_group.add(self._api_key_row)
@@ -183,7 +186,7 @@ class VirusTotalSetupDialog(Adw.Window):
         save_box.set_margin_top(12)
 
         self._save_button = Gtk.Button()
-        self._save_button.set_label("Save & Scan")
+        self._save_button.set_label(_("Save & Scan"))
         self._save_button.add_css_class("suggested-action")
         self._save_button.set_sensitive(False)
         self._save_button.connect("clicked", self._on_save_and_scan_clicked)
@@ -195,12 +198,12 @@ class VirusTotalSetupDialog(Adw.Window):
     def _create_actions_section(self, preferences_page: Adw.PreferencesPage):
         """Create the alternative actions section."""
         actions_group = Adw.PreferencesGroup()
-        actions_group.set_title("Alternative Options")
+        actions_group.set_title(_("Alternative Options"))
 
         # Open website option
         website_row = Adw.ActionRow()
-        website_row.set_title("Upload file manually")
-        website_row.set_subtitle("Open VirusTotal website to upload files without API key")
+        website_row.set_title(_("Upload file manually"))
+        website_row.set_subtitle(_("Open VirusTotal website to upload files without API key"))
         website_row.set_activatable(True)
         website_row.connect("activated", self._on_open_website_clicked)
 
@@ -216,8 +219,8 @@ class VirusTotalSetupDialog(Adw.Window):
 
         # Remember decision option
         self._remember_switch = create_switch_row()
-        self._remember_switch.set_title("Remember my choice")
-        self._remember_switch.set_subtitle("Don't ask again when scanning without API key")
+        self._remember_switch.set_title(_("Remember my choice"))
+        self._remember_switch.set_subtitle(_("Don't ask again when scanning without API key"))
         self._remember_switch.set_active(False)
 
         remember_icon = Gtk.Image.new_from_icon_name(
@@ -236,7 +239,7 @@ class VirusTotalSetupDialog(Adw.Window):
             webbrowser.open(VT_API_KEY_URL)
         except Exception as e:
             logger.error(f"Failed to open browser: {e}")
-            self._show_toast("Failed to open browser")
+            self._show_toast(_("Failed to open browser"))
 
     def _on_api_key_changed(self, entry_row: Adw.ActionRow):
         """Handle API key entry changes."""
@@ -255,7 +258,7 @@ class VirusTotalSetupDialog(Adw.Window):
             self._validation_label.set_visible(False)
         else:
             self._save_button.set_sensitive(False)
-            self._validation_label.set_label(error_msg or "Invalid API key format")
+            self._validation_label.set_label(error_msg or _("Invalid API key format"))
             self._validation_label.set_visible(True)
 
     def _on_save_and_scan_clicked(self, widget):
@@ -268,14 +271,14 @@ class VirusTotalSetupDialog(Adw.Window):
         # Validate again
         is_valid, error_msg = validate_api_key_format(api_key)
         if not is_valid:
-            self._show_toast(error_msg or "Invalid API key")
+            self._show_toast(error_msg or _("Invalid API key"))
             return
 
         # Save to keyring
         success, error = set_api_key(api_key, self._settings_manager)
 
         if success:
-            self._show_toast("API key saved")
+            self._show_toast(_("API key saved"))
 
             # Close dialog and trigger callback
             self.close()
@@ -283,7 +286,11 @@ class VirusTotalSetupDialog(Adw.Window):
             if self._on_key_saved:
                 self._on_key_saved(api_key)
         else:
-            self._show_toast(f"Failed to save: {error}" if error else "Failed to save API key")
+            self._show_toast(
+                _("Failed to save: {error}").format(error=error)
+                if error
+                else _("Failed to save API key")
+            )
 
     def _on_open_website_clicked(self, row: Adw.ActionRow):
         """Open VirusTotal upload page."""
@@ -303,7 +310,7 @@ class VirusTotalSetupDialog(Adw.Window):
 
         except Exception as e:
             logger.error(f"Failed to open browser: {e}")
-            self._show_toast("Failed to open browser")
+            self._show_toast(_("Failed to open browser"))
 
     def _show_toast(self, message: str):
         """Show a toast notification."""

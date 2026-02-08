@@ -17,6 +17,7 @@ import select
 import subprocess
 from collections.abc import Callable
 
+from .i18n import _
 from .log_manager import LogEntry, LogManager
 from .scanner_types import ScanResult, ScanStatus
 
@@ -416,6 +417,6 @@ def create_cancelled_result(
         scanned_files=scanned_files,
         scanned_dirs=scanned_dirs,
         infected_count=infected_count,
-        error_message="Scan cancelled by user",
+        error_message=_("Scan cancelled by user"),
         threat_details=threat_details or [],
     )

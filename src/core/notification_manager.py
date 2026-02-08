@@ -8,6 +8,7 @@ import logging
 
 from gi.repository import Gio
 
+from .i18n import _, ngettext
 from .settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
@@ -72,15 +73,23 @@ class NotificationManager:
             return False
 
         if is_clean:
-            title = "Scan Complete"
+            title = _("Scan Complete")
             if scanned_count > 0:
-                body = f"No threats found ({scanned_count} files scanned)"
+                body = ngettext(
+                    "No threats found ({count} file scanned)",
+                    "No threats found ({count} files scanned)",
+                    scanned_count,
+                ).format(count=scanned_count)
             else:
-                body = "No threats found"
+                body = _("No threats found")
             priority = Gio.NotificationPriority.NORMAL
         else:
-            title = "Threats Detected!"
-            body = f"{infected_count} infected file(s) found"
+            title = _("Threats Detected!")
+            body = ngettext(
+                "{count} infected file found",
+                "{count} infected files found",
+                infected_count,
+            ).format(count=infected_count)
             priority = Gio.NotificationPriority.URGENT
 
         return self._send(
@@ -106,14 +115,18 @@ class NotificationManager:
             return False
 
         if success:
-            title = "Database Updated"
+            title = _("Database Updated")
             if databases_updated > 0:
-                body = f"{databases_updated} database(s) updated successfully"
+                body = ngettext(
+                    "{count} database updated successfully",
+                    "{count} databases updated successfully",
+                    databases_updated,
+                ).format(count=databases_updated)
             else:
-                body = "Virus definitions are up to date"
+                body = _("Virus definitions are up to date")
         else:
-            title = "Database Update Failed"
-            body = "Check the update view for details"
+            title = _("Database Update Failed")
+            body = _("Check the update view for details")
 
         return self._send(
             notification_id=self.NOTIFICATION_ID_UPDATE,
@@ -148,18 +161,28 @@ class NotificationManager:
             return False
 
         if is_clean:
-            title = "Scheduled Scan Complete"
+            title = _("Scheduled Scan Complete")
             if scanned_count > 0:
-                body = f"No threats found ({scanned_count} files scanned)"
+                body = ngettext(
+                    "No threats found ({count} file scanned)",
+                    "No threats found ({count} files scanned)",
+                    scanned_count,
+                ).format(count=scanned_count)
             else:
-                body = "No threats found"
+                body = _("No threats found")
             priority = Gio.NotificationPriority.NORMAL
         else:
-            title = "Scheduled Scan: Threats Detected!"
+            title = _("Scheduled Scan: Threats Detected!")
             if quarantined_count > 0:
-                body = f"{infected_count} infected file(s) found, {quarantined_count} quarantined"
+                body = _("{infected} infected file(s) found, {quarantined} quarantined").format(
+                    infected=infected_count, quarantined=quarantined_count
+                )
             else:
-                body = f"{infected_count} infected file(s) found"
+                body = ngettext(
+                    "{count} infected file found",
+                    "{count} infected files found",
+                    infected_count,
+                ).format(count=infected_count)
             priority = Gio.NotificationPriority.URGENT
 
         return self._send(
@@ -195,18 +218,24 @@ class NotificationManager:
             return False
 
         if is_clean:
-            title = "VirusTotal: No Threats"
+            title = _("VirusTotal: No Threats")
             if file_name:
-                body = f"'{file_name}' appears safe (0/{total_engines} detections)"
+                body = _("'{file_name}' appears safe (0/{total} detections)").format(
+                    file_name=file_name, total=total_engines
+                )
             else:
-                body = f"File appears safe (0/{total_engines} detections)"
+                body = _("File appears safe (0/{total} detections)").format(total=total_engines)
             priority = Gio.NotificationPriority.NORMAL
         else:
-            title = "VirusTotal: Threats Detected!"
+            title = _("VirusTotal: Threats Detected!")
             if file_name:
-                body = f"'{file_name}' flagged by {detections}/{total_engines} engines"
+                body = _("'{file_name}' flagged by {detections}/{total} engines").format(
+                    file_name=file_name, detections=detections, total=total_engines
+                )
             else:
-                body = f"File flagged by {detections}/{total_engines} engines"
+                body = _("File flagged by {detections}/{total} engines").format(
+                    detections=detections, total=total_engines
+                )
             priority = Gio.NotificationPriority.URGENT
 
         return self._send(
@@ -229,8 +258,8 @@ class NotificationManager:
 
         return self._send(
             notification_id=self.NOTIFICATION_ID_VT_RATE_LIMIT,
-            title="VirusTotal Rate Limit",
-            body="Too many requests. Try again in a minute or use the website.",
+            title=_("VirusTotal Rate Limit"),
+            body=_("Too many requests. Try again in a minute or use the website."),
             priority=Gio.NotificationPriority.NORMAL,
             default_action="app.show-preferences",
         )
@@ -247,8 +276,8 @@ class NotificationManager:
 
         return self._send(
             notification_id=self.NOTIFICATION_ID_VT_NO_KEY,
-            title="VirusTotal Not Configured",
-            body="Add your API key in Preferences to scan with VirusTotal.",
+            title=_("VirusTotal Not Configured"),
+            body=_("Add your API key in Preferences to scan with VirusTotal."),
             priority=Gio.NotificationPriority.NORMAL,
             default_action="app.show-preferences",
         )

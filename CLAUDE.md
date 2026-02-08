@@ -52,6 +52,7 @@ clamui/
 │   │   ├── sanitize.py         # Input sanitization (log injection prevention)
 │   │   ├── path_validation.py  # Path validation and symlink safety
 │   │   ├── flatpak.py          # Flatpak detection and host command wrapping
+│   │   ├── i18n.py             # Internationalization (gettext setup)
 │   │   └── utils.py            # General utility functions
 │   ├── profiles/               # Scan profile management
 │   │   ├── profile_manager.py  # CRUD operations, validation, import/export
@@ -108,8 +109,13 @@ clamui/
 │   ├── USER_GUIDE.md           # User guide
 │   └── architecture/
 │       └── tray-subprocess.md  # System tray architecture
+├── po/                         # Translation files (i18n)
+│   ├── POTFILES.in             # List of files with translatable strings
+│   ├── LINGUAS                 # Available translations (empty until contributed)
+│   └── clamui.pot              # POT template (regenerate with scripts/update-pot.sh)
 ├── scripts/
 │   ├── clamui-scheduled-scan   # Scheduled scan CLI wrapper
+│   ├── update-pot.sh           # Regenerate translation template
 │   └── hooks/                  # Git hooks for development
 │       ├── install-hooks.sh    # Hook installer (run after clone)
 │       └── pre-commit          # Blocks absolute src.* imports
@@ -238,6 +244,58 @@ from src.core.clipboard import copy_to_clipboard
 ```
 
 The package is installed as `clamui`, not `src`. Absolute `src.*` imports only work during development but fail when installed via pip/deb/flatpak.
+
+### Internationalization (i18n)
+
+All user-facing strings must be translatable using gettext. The i18n module is at `src/core/i18n.py`.
+
+**Import pattern:**
+
+```python
+from ..core.i18n import _, ngettext
+```
+
+**Simple strings:**
+
+```python
+label.set_text(_("Scan Complete"))
+```
+
+**Format strings (NEVER use f-strings inside `_()`):**
+
+```python
+# CORRECT
+label.set_text(_("Found {count} threats").format(count=n))
+
+# WRONG - xgettext cannot extract f-strings
+label.set_text(_(f"Found {n} threats"))
+```
+
+**Plurals:**
+
+```python
+msg = ngettext("{n} file scanned", "{n} files scanned", count).format(n=count)
+```
+
+**Module-level constants (deferred translation):**
+
+```python
+from ..core.i18n import N_
+ITEMS = [N_("Scan"), N_("Update")]  # Mark for extraction only
+# At display time:
+label.set_text(_(item))
+```
+
+**Do NOT translate:**
+
+- Logger messages (`logger.debug/info/warning/error`)
+- Developer-facing exception messages
+- CSS class names, D-Bus paths, settings keys, technical identifiers
+- Shell commands shown to users (e.g., `"sudo apt install clamav"`)
+
+**After adding/changing translatable strings:**
+
+Run `./scripts/update-pot.sh` to regenerate the POT template.
 
 ### Async Operations (GTK Thread Safety)
 

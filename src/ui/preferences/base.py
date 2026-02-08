@@ -19,6 +19,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk
 
+from ...core.i18n import _
 from ..compat import (
     create_entry_row,
     create_toolbar_view,
@@ -176,13 +177,13 @@ def create_password_entry_row(title: str) -> Adw.ActionRow:
     toggle_button.set_icon_name("view-conceal-symbolic")
     toggle_button.set_valign(Gtk.Align.CENTER)
     toggle_button.add_css_class("flat")
-    toggle_button.set_tooltip_text("Show password")
+    toggle_button.set_tooltip_text(_("Show password"))
 
     def on_toggle(btn):
         visible = btn.get_active()
         entry.set_visibility(visible)
         btn.set_icon_name("view-reveal-symbolic" if visible else "view-conceal-symbolic")
-        btn.set_tooltip_text("Hide password" if visible else "Show password")
+        btn.set_tooltip_text(_("Hide password") if visible else _("Show password"))
 
     toggle_button.connect("toggled", on_toggle)
     row.add_suffix(toggle_button)
@@ -344,7 +345,7 @@ class PreferencesPageMixin:
         # Alternative: changes-allow-symbolic for a shield-style icon
         lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-lock-screen-symbolic"))
         lock_icon.add_css_class("dim-label")
-        lock_icon.set_tooltip_text("Requires administrator privileges to modify")
+        lock_icon.set_tooltip_text(_("Requires administrator privileges to modify"))
 
         box.append(lock_icon)
         return box
@@ -359,7 +360,8 @@ class PreferencesPageMixin:
         if not os.path.exists(folder_path):
             # Show error if folder doesn't exist
             self._show_simple_dialog(
-                "Folder Not Found", f"The folder '{folder_path}' does not exist."
+                _("Folder Not Found"),
+                _("The folder '{path}' does not exist.").format(path=folder_path),
             )
             return
 
@@ -372,7 +374,10 @@ class PreferencesPageMixin:
             )
         except Exception as e:
             # Show error dialog if opening fails
-            self._show_simple_dialog("Error Opening Folder", f"Could not open folder: {str(e)}")
+            self._show_simple_dialog(
+                _("Error Opening Folder"),
+                _("Could not open folder: {error}").format(error=str(e)),
+            )
 
     def _show_simple_dialog(self, title: str, message: str):
         """
@@ -414,7 +419,7 @@ class PreferencesPageMixin:
         button_box.set_halign(Gtk.Align.END)
         button_box.set_margin_top(12)
 
-        ok_button = Gtk.Button(label="OK")
+        ok_button = Gtk.Button(label=_("OK"))
         ok_button.add_css_class("suggested-action")
         ok_button.connect("clicked", lambda btn: dialog.close())
         button_box.append(ok_button)
@@ -466,7 +471,7 @@ class PreferencesPageMixin:
 
         # File path row
         path_row = Adw.ActionRow()
-        path_row.set_title("File Location")
+        path_row.set_title(_("File Location"))
         path_row.set_subtitle(file_path)
         safe_set_subtitle_selectable(path_row, True)
 
@@ -477,10 +482,10 @@ class PreferencesPageMixin:
 
         # Add "Open folder" button as suffix
         open_folder_button = Gtk.Button()
-        open_folder_button.set_label("Open Folder")
+        open_folder_button.set_label(_("Open Folder"))
         open_folder_button.set_valign(Gtk.Align.CENTER)
         open_folder_button.add_css_class("flat")
-        open_folder_button.set_tooltip_text("Open containing folder in file manager")
+        open_folder_button.set_tooltip_text(_("Open containing folder in file manager"))
 
         # Get the parent directory for the file
         parent_dir = os.path.dirname(file_path)

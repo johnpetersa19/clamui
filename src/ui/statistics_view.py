@@ -17,6 +17,7 @@ matplotlib.use("GTK4Agg")
 from matplotlib.backends.backend_gtk4agg import FigureCanvasGTK4Agg as FigureCanvas
 from matplotlib.figure import Figure
 
+from ..core.i18n import _, ngettext
 from ..core.statistics_calculator import (
     ProtectionLevel,
     ProtectionStatus,
@@ -123,8 +124,8 @@ class StatisticsView(Gtk.Box):
         """
         # Protection status group
         status_group = Adw.PreferencesGroup()
-        status_group.set_title("Protection Status")
-        status_group.set_description("Current system security posture")
+        status_group.set_title(_("Protection Status"))
+        status_group.set_description(_("Current system security posture"))
 
         # Header box with refresh button
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -137,7 +138,7 @@ class StatisticsView(Gtk.Box):
         # Refresh button
         refresh_button = Gtk.Button()
         refresh_button.set_icon_name(resolve_icon_name("view-refresh-symbolic"))
-        refresh_button.set_tooltip_text("Refresh statistics")
+        refresh_button.set_tooltip_text(_("Refresh statistics"))
         refresh_button.add_css_class("flat")
         refresh_button.connect("clicked", self._on_refresh_clicked)
         self._refresh_button = refresh_button
@@ -148,13 +149,13 @@ class StatisticsView(Gtk.Box):
 
         # Protection status row
         self._protection_row = Adw.ActionRow()
-        self._protection_row.set_title("System Status")
-        self._protection_row.set_subtitle("Checking...")
+        self._protection_row.set_title(_("System Status"))
+        self._protection_row.set_subtitle(_("Checking..."))
         self._protection_row_icon = add_row_icon(self._protection_row, "dialog-question-symbolic")
 
         # Status badge
         self._status_badge = Gtk.Label()
-        self._status_badge.set_label("Unknown")
+        self._status_badge.set_label(_("Unknown"))
         self._status_badge.add_css_class("dim-label")
         self._status_badge.set_valign(Gtk.Align.CENTER)
         self._protection_row.add_suffix(self._status_badge)
@@ -163,8 +164,8 @@ class StatisticsView(Gtk.Box):
 
         # Last scan row
         self._last_scan_row = Adw.ActionRow()
-        self._last_scan_row.set_title("Last Scan")
-        self._last_scan_row.set_subtitle("No scans recorded")
+        self._last_scan_row.set_title(_("Last Scan"))
+        self._last_scan_row.set_subtitle(_("No scans recorded"))
         add_row_icon(self._last_scan_row, "document-open-recent-symbolic")
 
         status_group.add(self._last_scan_row)
@@ -180,8 +181,8 @@ class StatisticsView(Gtk.Box):
         """
         # Timeframe selector group
         timeframe_group = Adw.PreferencesGroup()
-        timeframe_group.set_title("Timeframe")
-        timeframe_group.set_description("Select the time period for statistics")
+        timeframe_group.set_title(_("Timeframe"))
+        timeframe_group.set_description(_("Select the time period for statistics"))
 
         # Timeframe button box
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -195,10 +196,10 @@ class StatisticsView(Gtk.Box):
         self._timeframe_buttons = {}
 
         timeframes = [
-            (Timeframe.DAILY.value, "Day"),
-            (Timeframe.WEEKLY.value, "Week"),
-            (Timeframe.MONTHLY.value, "Month"),
-            (Timeframe.ALL.value, "All Time"),
+            (Timeframe.DAILY.value, _("Day")),
+            (Timeframe.WEEKLY.value, _("Week")),
+            (Timeframe.MONTHLY.value, _("Month")),
+            (Timeframe.ALL.value, _("All Time")),
         ]
 
         for timeframe, label in timeframes:
@@ -223,18 +224,18 @@ class StatisticsView(Gtk.Box):
         """
         # Statistics group
         stats_group = Adw.PreferencesGroup()
-        stats_group.set_title("Scan Statistics")
-        stats_group.set_description("Aggregated metrics for the selected timeframe")
+        stats_group.set_title(_("Scan Statistics"))
+        stats_group.set_description(_("Aggregated metrics for the selected timeframe"))
         self._stats_group = stats_group
 
         # Total scans row
         self._total_scans_row = Adw.ActionRow()
-        self._total_scans_row.set_title("Total Scans")
-        self._total_scans_row.set_subtitle("Number of scans performed")
+        self._total_scans_row.set_title(_("Total Scans"))
+        self._total_scans_row.set_subtitle(_("Number of scans performed"))
         add_row_icon(self._total_scans_row, "folder-saved-search-symbolic")
 
         self._total_scans_label = Gtk.Label()
-        self._total_scans_label.set_label("0")
+        self._total_scans_label.set_label("0")  # i18n: no-translate
         self._total_scans_label.add_css_class("title-1")
         self._total_scans_label.set_valign(Gtk.Align.CENTER)
         self._total_scans_row.add_suffix(self._total_scans_label)
@@ -243,12 +244,12 @@ class StatisticsView(Gtk.Box):
 
         # Files scanned row
         self._files_scanned_row = Adw.ActionRow()
-        self._files_scanned_row.set_title("Files Scanned")
-        self._files_scanned_row.set_subtitle("Total files checked")
+        self._files_scanned_row.set_title(_("Files Scanned"))
+        self._files_scanned_row.set_subtitle(_("Total files checked"))
         add_row_icon(self._files_scanned_row, "document-open-symbolic")
 
         self._files_scanned_label = Gtk.Label()
-        self._files_scanned_label.set_label("0")
+        self._files_scanned_label.set_label("0")  # i18n: no-translate
         self._files_scanned_label.add_css_class("title-1")
         self._files_scanned_label.set_valign(Gtk.Align.CENTER)
         self._files_scanned_row.add_suffix(self._files_scanned_label)
@@ -257,12 +258,12 @@ class StatisticsView(Gtk.Box):
 
         # Threats detected row
         self._threats_row = Adw.ActionRow()
-        self._threats_row.set_title("Threats Detected")
-        self._threats_row.set_subtitle("Malware and suspicious files found")
+        self._threats_row.set_title(_("Threats Detected"))
+        self._threats_row.set_subtitle(_("Malware and suspicious files found"))
         add_row_icon(self._threats_row, "dialog-warning-symbolic")
 
         self._threats_label = Gtk.Label()
-        self._threats_label.set_label("0")
+        self._threats_label.set_label("0")  # i18n: no-translate
         self._threats_label.add_css_class("title-1")
         self._threats_label.set_valign(Gtk.Align.CENTER)
         self._threats_row.add_suffix(self._threats_label)
@@ -271,12 +272,12 @@ class StatisticsView(Gtk.Box):
 
         # Clean scans row
         self._clean_scans_row = Adw.ActionRow()
-        self._clean_scans_row.set_title("Clean Scans")
-        self._clean_scans_row.set_subtitle("Scans with no threats found")
+        self._clean_scans_row.set_title(_("Clean Scans"))
+        self._clean_scans_row.set_subtitle(_("Scans with no threats found"))
         add_row_icon(self._clean_scans_row, "object-select-symbolic")
 
         self._clean_scans_label = Gtk.Label()
-        self._clean_scans_label.set_label("0")
+        self._clean_scans_label.set_label("0")  # i18n: no-translate
         self._clean_scans_label.add_css_class("title-1")
         self._clean_scans_label.set_valign(Gtk.Align.CENTER)
         self._clean_scans_row.add_suffix(self._clean_scans_label)
@@ -285,12 +286,12 @@ class StatisticsView(Gtk.Box):
 
         # Average duration row
         self._duration_row = Adw.ActionRow()
-        self._duration_row.set_title("Average Scan Duration")
-        self._duration_row.set_subtitle("Mean time per scan")
+        self._duration_row.set_title(_("Average Scan Duration"))
+        self._duration_row.set_subtitle(_("Mean time per scan"))
         add_row_icon(self._duration_row, "preferences-system-time-symbolic")
 
         self._duration_label = Gtk.Label()
-        self._duration_label.set_label("--")
+        self._duration_label.set_label("--")  # i18n: no-translate
         self._duration_label.add_css_class("title-2")
         self._duration_label.set_valign(Gtk.Align.CENTER)
         self._duration_row.add_suffix(self._duration_label)
@@ -311,8 +312,8 @@ class StatisticsView(Gtk.Box):
         """
         # Chart group
         chart_group = Adw.PreferencesGroup()
-        chart_group.set_title("Scan Activity")
-        chart_group.set_description("Scan trends over the selected timeframe")
+        chart_group.set_title(_("Scan Activity"))
+        chart_group.set_description(_("Scan trends over the selected timeframe"))
         self._chart_group = chart_group
 
         # Create matplotlib figure and canvas
@@ -366,8 +367,8 @@ class StatisticsView(Gtk.Box):
         return create_empty_state(
             EmptyStateConfig(
                 icon_name="applications-science-symbolic",
-                title="No scan data available",
-                subtitle="Run some scans to see activity trends here",
+                title=_("No scan data available"),
+                subtitle=_("Run some scans to see activity trends here"),
                 center_horizontally=True,
             )
         )
@@ -391,14 +392,14 @@ class StatisticsView(Gtk.Box):
                 # Show empty state, hide canvas
                 self._canvas.set_visible(False)
                 self._chart_empty_state.set_visible(True)
-                self._chart_group.set_description("No scan activity recorded")
+                self._chart_group.set_description(_("No scan activity recorded"))
                 return
         except Exception:
             # If data check fails, just hide the chart
             try:
                 self._canvas.set_visible(False)
                 self._chart_empty_state.set_visible(True)
-                self._chart_group.set_description("Unable to render chart")
+                self._chart_group.set_description(_("Unable to render chart"))
             except Exception:
                 pass
             return
@@ -407,7 +408,7 @@ class StatisticsView(Gtk.Box):
             # Hide empty state, show canvas
             self._canvas.set_visible(True)
             self._chart_empty_state.set_visible(False)
-            self._chart_group.set_description("Scan trends over the selected timeframe")
+            self._chart_group.set_description(_("Scan trends over the selected timeframe"))
 
             # Prepare data for plotting
             dates = []
@@ -449,7 +450,7 @@ class StatisticsView(Gtk.Box):
                     [x - bar_width / 2 for x in x_positions],
                     scans,
                     bar_width,
-                    label="Scans",
+                    label=_("Scans"),
                     color="#3584e4",  # GNOME blue
                     alpha=0.8,
                 )
@@ -457,14 +458,14 @@ class StatisticsView(Gtk.Box):
                     [x + bar_width / 2 for x in x_positions],
                     threats,
                     bar_width,
-                    label="Threats",
+                    label=_("Threats"),
                     color="#e01b24",  # GNOME red
                     alpha=0.8,
                 )
 
                 # Configure chart appearance (only needed on init)
-                ax.set_xlabel("Date", fontsize=9)
-                ax.set_ylabel("Count", fontsize=9)
+                ax.set_xlabel(_("Date"), fontsize=9)
+                ax.set_ylabel(_("Count"), fontsize=9)
                 ax.legend(fontsize=8, loc="upper right")
 
                 # Style adjustments for GNOME/Adwaita compatibility
@@ -525,7 +526,7 @@ class StatisticsView(Gtk.Box):
                 self._figure.clear()
                 self._canvas.set_visible(False)
                 self._chart_empty_state.set_visible(True)
-                self._chart_group.set_description("Unable to render chart")
+                self._chart_group.set_description(_("Unable to render chart"))
             except Exception:
                 pass
 
@@ -576,13 +577,13 @@ class StatisticsView(Gtk.Box):
         """
         # Quick actions group
         actions_group = Adw.PreferencesGroup()
-        actions_group.set_title("Quick Actions")
-        actions_group.set_description("Common scanning operations")
+        actions_group.set_title(_("Quick Actions"))
+        actions_group.set_description(_("Common scanning operations"))
 
         # Quick scan row
         quick_scan_row = Adw.ActionRow()
-        quick_scan_row.set_title("Quick Scan")
-        quick_scan_row.set_subtitle("Scan your home directory")
+        quick_scan_row.set_title(_("Quick Scan"))
+        quick_scan_row.set_subtitle(_("Scan your home directory"))
         add_row_icon(quick_scan_row, "media-playback-start-symbolic")
         quick_scan_row.set_activatable(True)
         quick_scan_row.connect("activated", self._on_quick_scan_clicked)
@@ -596,8 +597,8 @@ class StatisticsView(Gtk.Box):
 
         # View logs row
         view_logs_row = Adw.ActionRow()
-        view_logs_row.set_title("View Scan Logs")
-        view_logs_row.set_subtitle("See detailed scan history")
+        view_logs_row.set_title(_("View Scan Logs"))
+        view_logs_row.set_subtitle(_("See detailed scan history"))
         add_row_icon(view_logs_row, "document-open-recent-symbolic")
         view_logs_row.set_activatable(True)
         view_logs_row.connect("activated", self._on_view_logs_clicked)
@@ -670,7 +671,7 @@ class StatisticsView(Gtk.Box):
                 self._update_chart(trend_data)
             elif self._current_stats is None and self._current_protection is None:
                 # Complete failure to load any data - show error state
-                self._show_error_state("Failed to load statistics data")
+                self._show_error_state(_("Failed to load statistics data"))
                 self._update_chart([])
             else:
                 # No scan history but loading succeeded - show empty state
@@ -680,7 +681,7 @@ class StatisticsView(Gtk.Box):
 
         except Exception:
             # Catch-all for any unexpected errors
-            self._show_error_state("An unexpected error occurred")
+            self._show_error_state(_("An unexpected error occurred"))
             self._update_chart([])
         finally:
             # ALWAYS reset loading state to prevent stuck spinner
@@ -737,7 +738,7 @@ class StatisticsView(Gtk.Box):
         if stats.average_duration > 0:
             self._duration_label.set_label(self._format_duration(stats.average_duration))
         else:
-            self._duration_label.set_label("--")
+            self._duration_label.set_label("--")  # i18n: no-translate
 
         # Update group description with date range
         if stats.start_date and stats.end_date:
@@ -746,21 +747,28 @@ class StatisticsView(Gtk.Box):
 
                 start = datetime.fromisoformat(stats.start_date)
                 end = datetime.fromisoformat(stats.end_date)
-                date_range = f"{start.strftime('%b %d')} - {end.strftime('%b %d, %Y')}"
-                self._stats_group.set_description(f"Statistics for: {date_range}")
+                date_range = _("{start_date} - {end_date}").format(
+                    start_date=start.strftime("%b %d"),
+                    end_date=end.strftime("%b %d, %Y"),
+                )
+                self._stats_group.set_description(
+                    _("Statistics for: {date_range}").format(date_range=date_range)
+                )
             except (ValueError, AttributeError):
-                self._stats_group.set_description("Aggregated metrics for the selected timeframe")
+                self._stats_group.set_description(
+                    _("Aggregated metrics for the selected timeframe")
+                )
         else:
-            self._stats_group.set_description("Aggregated metrics for all time")
+            self._stats_group.set_description(_("Aggregated metrics for all time"))
 
     def _update_protection_display(self):
         """Update the protection status display."""
         if self._current_protection is None:
-            self._protection_row.set_subtitle("Unable to determine status")
+            self._protection_row.set_subtitle(_("Unable to determine status"))
             self._protection_row_icon.set_from_icon_name(
                 resolve_icon_name("dialog-question-symbolic")
             )
-            self._status_badge.set_label("Unknown")
+            self._status_badge.set_label(_("Unknown"))
             return
 
         status = self._current_protection
@@ -773,23 +781,23 @@ class StatisticsView(Gtk.Box):
             self._protection_row_icon.set_from_icon_name(
                 resolve_icon_name("object-select-symbolic")
             )
-            self._status_badge.set_label("Protected")
+            self._status_badge.set_label(_("Protected"))
             set_status_class(self._status_badge, StatusLevel.SUCCESS)
         elif status.level == ProtectionLevel.AT_RISK.value:
             self._protection_row_icon.set_from_icon_name(
                 resolve_icon_name("dialog-warning-symbolic")
             )
-            self._status_badge.set_label("At Risk")
+            self._status_badge.set_label(_("At Risk"))
             set_status_class(self._status_badge, StatusLevel.WARNING)
         elif status.level == ProtectionLevel.UNPROTECTED.value:
             self._protection_row_icon.set_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
-            self._status_badge.set_label("Unprotected")
+            self._status_badge.set_label(_("Unprotected"))
             set_status_class(self._status_badge, StatusLevel.ERROR)
         else:
             self._protection_row_icon.set_from_icon_name(
                 resolve_icon_name("dialog-question-symbolic")
             )
-            self._status_badge.set_label("Unknown")
+            self._status_badge.set_label(_("Unknown"))
             clear_status_classes(self._status_badge)
 
         # Update last scan row
@@ -804,24 +812,38 @@ class StatisticsView(Gtk.Box):
 
                 if status.last_scan_age_hours is not None:
                     if status.last_scan_age_hours < 1:
-                        age_str = "less than an hour ago"
+                        age_str = _("less than an hour ago")
                     elif status.last_scan_age_hours < 24:
                         hours = int(status.last_scan_age_hours)
-                        age_str = f"{hours} hour{'s' if hours != 1 else ''} ago"
+                        age_str = ngettext(
+                            "{hours} hour ago",
+                            "{hours} hours ago",
+                            hours,
+                        ).format(hours=hours)
                     elif status.last_scan_age_hours < 24 * 7:
                         days = int(status.last_scan_age_hours / 24)
-                        age_str = f"{days} day{'s' if days != 1 else ''} ago"
+                        age_str = ngettext(
+                            "{days} day ago",
+                            "{days} days ago",
+                            days,
+                        ).format(days=days)
                     else:
                         weeks = int(status.last_scan_age_hours / (24 * 7))
-                        age_str = f"{weeks} week{'s' if weeks != 1 else ''} ago"
+                        age_str = ngettext(
+                            "{weeks} week ago",
+                            "{weeks} weeks ago",
+                            weeks,
+                        ).format(weeks=weeks)
 
-                    self._last_scan_row.set_subtitle(f"{time_str} ({age_str})")
+                    self._last_scan_row.set_subtitle(
+                        _("{time} ({age})").format(time=time_str, age=age_str)
+                    )
                 else:
                     self._last_scan_row.set_subtitle(time_str)
             except (ValueError, AttributeError):
                 self._last_scan_row.set_subtitle(status.last_scan_timestamp)
         else:
-            self._last_scan_row.set_subtitle("No scans recorded")
+            self._last_scan_row.set_subtitle(_("No scans recorded"))
 
     def _create_empty_state(self) -> Gtk.Box:
         """
@@ -833,8 +855,8 @@ class StatisticsView(Gtk.Box):
         return create_empty_state(
             EmptyStateConfig(
                 icon_name="folder-saved-search-symbolic",
-                title="No scan history yet",
-                subtitle="Run your first scan to see statistics and protection status",
+                title=_("No scan history yet"),
+                subtitle=_("Run your first scan to see statistics and protection status"),
                 margin_vertical=48,
                 title_css_class="title-2",
                 center_horizontally=True,
@@ -843,7 +865,7 @@ class StatisticsView(Gtk.Box):
             )
         )
 
-    def _create_error_state(self, error_message: str = "Unable to load statistics") -> Gtk.Box:
+    def _create_error_state(self, error_message: str = "") -> Gtk.Box:
         """
         Create an error state placeholder widget.
 
@@ -853,6 +875,9 @@ class StatisticsView(Gtk.Box):
         Returns:
             Gtk.Box containing the error state UI
         """
+        if not error_message:
+            error_message = _("Unable to load statistics")
+
         error_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         error_box.set_valign(Gtk.Align.CENTER)
         error_box.set_halign(Gtk.Align.CENTER)
@@ -874,7 +899,7 @@ class StatisticsView(Gtk.Box):
         error_box.append(label)
 
         sublabel = Gtk.Label()
-        sublabel.set_label("Try refreshing or check that ClamAV is installed correctly")
+        sublabel.set_label(_("Try refreshing or check that ClamAV is installed correctly"))
         sublabel.add_css_class("dim-label")
         sublabel.add_css_class("caption")
         sublabel.set_wrap(True)
@@ -886,50 +911,53 @@ class StatisticsView(Gtk.Box):
 
     def _show_empty_state(self):
         """Display empty state when no statistics are available."""
-        self._total_scans_label.set_label("0")
-        self._files_scanned_label.set_label("0")
-        self._threats_label.set_label("0")
-        self._clean_scans_label.set_label("0")
-        self._duration_label.set_label("--")
+        self._total_scans_label.set_label("0")  # i18n: no-translate
+        self._files_scanned_label.set_label("0")  # i18n: no-translate
+        self._threats_label.set_label("0")  # i18n: no-translate
+        self._clean_scans_label.set_label("0")  # i18n: no-translate
+        self._duration_label.set_label("--")  # i18n: no-translate
 
         # Clear any error/warning styling from threats label
         self._threats_label.remove_css_class("error")
 
-        self._protection_row.set_subtitle("No scan history available")
+        self._protection_row.set_subtitle(_("No scan history available"))
         self._protection_row_icon.set_from_icon_name(
             resolve_icon_name("dialog-information-symbolic")
         )
-        self._status_badge.set_label("No Data")
+        self._status_badge.set_label(_("No Data"))
         self._status_badge.remove_css_class("success")
         self._status_badge.remove_css_class("warning")
         self._status_badge.remove_css_class("error")
 
-        self._last_scan_row.set_subtitle("Run a scan to see statistics")
+        self._last_scan_row.set_subtitle(_("Run a scan to see statistics"))
 
-        self._stats_group.set_description("Run your first scan to see statistics here")
+        self._stats_group.set_description(_("Run your first scan to see statistics here"))
 
-    def _show_error_state(self, error_message: str = "Unable to load statistics"):
+    def _show_error_state(self, error_message: str = ""):
         """
         Display error state when statistics loading fails.
 
         Args:
             error_message: The error message to display
         """
-        self._total_scans_label.set_label("--")
-        self._files_scanned_label.set_label("--")
-        self._threats_label.set_label("--")
-        self._clean_scans_label.set_label("--")
-        self._duration_label.set_label("--")
+        if not error_message:
+            error_message = _("Unable to load statistics")
+
+        self._total_scans_label.set_label("--")  # i18n: no-translate
+        self._files_scanned_label.set_label("--")  # i18n: no-translate
+        self._threats_label.set_label("--")  # i18n: no-translate
+        self._clean_scans_label.set_label("--")  # i18n: no-translate
+        self._duration_label.set_label("--")  # i18n: no-translate
 
         # Clear any styling from labels
         self._threats_label.remove_css_class("error")
 
-        self._protection_row.set_subtitle("Unable to determine status")
+        self._protection_row.set_subtitle(_("Unable to determine status"))
         self._protection_row_icon.set_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
-        self._status_badge.set_label("Error")
+        self._status_badge.set_label(_("Error"))
         set_status_class(self._status_badge, StatusLevel.ERROR)
 
-        self._last_scan_row.set_subtitle("Could not load scan history")
+        self._last_scan_row.set_subtitle(_("Could not load scan history"))
 
         self._stats_group.set_description(error_message)
 
@@ -956,15 +984,15 @@ class StatisticsView(Gtk.Box):
             Formatted string (e.g., "2m 30s")
         """
         if seconds < 60:
-            return f"{seconds:.1f}s"
+            return _("{seconds}s").format(seconds=f"{seconds:.1f}")
         elif seconds < 3600:
             minutes = int(seconds // 60)
             remaining_seconds = int(seconds % 60)
-            return f"{minutes}m {remaining_seconds}s"
+            return _("{minutes}m {seconds}s").format(minutes=minutes, seconds=remaining_seconds)
         else:
             hours = int(seconds // 3600)
             remaining_minutes = int((seconds % 3600) // 60)
-            return f"{hours}h {remaining_minutes}m"
+            return _("{hours}h {minutes}m").format(hours=hours, minutes=remaining_minutes)
 
     def _set_loading_state(self, is_loading: bool):
         """

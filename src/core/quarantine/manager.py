@@ -21,6 +21,7 @@ from pathlib import Path
 
 from gi.repository import GLib
 
+from ..i18n import _
 from .database import QuarantineDatabase, QuarantineEntry
 from .file_handler import (
     FileOperationStatus,
@@ -187,16 +188,13 @@ class QuarantineManager:
                     file_result.original_permissions,
                 )
                 if rollback_success:
-                    error_msg = (
-                        "Failed to record quarantine entry in database. "
-                        "File has been restored to original location."
+                    error_msg = _(
+                        "Failed to record quarantine entry in database. File has been restored to original location."
                     )
                 else:
-                    error_msg = (
-                        "Failed to record quarantine entry in database. "
-                        f"Rollback also failed: {rollback_error}. "
-                        f"File may be orphaned at: {file_result.destination_path}"
-                    )
+                    error_msg = _(
+                        "Failed to record quarantine entry in database. Rollback also failed: {error}. File may be orphaned at: {path}"
+                    ).format(error=rollback_error, path=file_result.destination_path)
                 return QuarantineResult(
                     status=QuarantineStatus.DATABASE_ERROR,
                     entry=None,
@@ -267,7 +265,7 @@ class QuarantineManager:
                 return QuarantineResult(
                     status=QuarantineStatus.ENTRY_NOT_FOUND,
                     entry=None,
-                    error_message=f"Quarantine entry not found: {entry_id}",
+                    error_message=_("Quarantine entry not found: {id}").format(id=entry_id),
                 )
 
             # Verify file integrity before restore
@@ -279,7 +277,9 @@ class QuarantineManager:
                 return QuarantineResult(
                     status=QuarantineStatus.ERROR,
                     entry=entry,
-                    error_message=f"File integrity verification failed: {verify_error}",
+                    error_message=_("File integrity verification failed: {error}").format(
+                        error=verify_error
+                    ),
                 )
 
             # Restore file to original location with original permissions
@@ -370,7 +370,7 @@ class QuarantineManager:
                 return QuarantineResult(
                     status=QuarantineStatus.ENTRY_NOT_FOUND,
                     entry=None,
-                    error_message=f"Quarantine entry not found: {entry_id}",
+                    error_message=_("Quarantine entry not found: {id}").format(id=entry_id),
                 )
 
             # Delete the file
@@ -542,7 +542,7 @@ class QuarantineManager:
         """
         entry = self._database.get_entry(entry_id)
         if entry is None:
-            return (False, f"Quarantine entry not found: {entry_id}")
+            return (False, _("Quarantine entry not found: {id}").format(id=entry_id))
 
         quarantine_path = Path(entry.quarantine_path)
         if not quarantine_path.exists():

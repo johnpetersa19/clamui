@@ -16,6 +16,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ...core.i18n import _
 from ...core.keyring_manager import (
     delete_api_key,
     get_api_key,
@@ -66,7 +67,7 @@ class VirusTotalPage:
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="VirusTotal",
+            title=_("VirusTotal"),
             icon_name=resolve_icon_name("network-server-symbolic"),
         )
 
@@ -103,16 +104,20 @@ class VirusTotalPage:
             settings_manager: SettingsManager for API key storage
         """
         group = Adw.PreferencesGroup()
-        group.set_title("API Key")
-        group.set_description("Configure your VirusTotal API key for file scanning")
+        group.set_title(_("API Key"))
+        group.set_description(_("Configure your VirusTotal API key for file scanning"))
 
         # Current status row
         current_key = get_api_key(settings_manager)
+        if current_key:
+            ok_msg = _("Configured ({key})").format(key=mask_api_key(current_key))
+        else:
+            ok_msg = ""
         status_row, status_icon = create_status_row(
-            title="Status",
+            title=_("Status"),
             status_ok=current_key is not None,
-            ok_message=f"Configured ({mask_api_key(current_key)})" if current_key else "",
-            error_message="Not configured",
+            ok_message=ok_msg,
+            error_message=_("Not configured"),
         )
         page._status_row = status_row
         page._status_icon = status_icon
@@ -121,7 +126,7 @@ class VirusTotalPage:
         # API key entry row (using compatible helper for libadwaita 1.0+)
         from .base import create_password_entry_row
 
-        api_key_row = create_password_entry_row("API Key")
+        api_key_row = create_password_entry_row(_("API Key"))
         api_key_row.connect("changed", lambda row: VirusTotalPage._on_api_key_changed(page, row))
         page._api_key_row = api_key_row
         group.add(api_key_row)
@@ -143,7 +148,7 @@ class VirusTotalPage:
 
         # Delete button (only shown if key exists)
         delete_button = Gtk.Button()
-        delete_button.set_label("Delete Key")
+        delete_button.set_label(_("Delete Key"))
         delete_button.add_css_class("destructive-action")
         delete_button.set_sensitive(current_key is not None)
         delete_button.connect(
@@ -155,7 +160,7 @@ class VirusTotalPage:
 
         # Save button
         save_button = Gtk.Button()
-        save_button.set_label("Save Key")
+        save_button.set_label(_("Save Key"))
         save_button.add_css_class("suggested-action")
         save_button.set_sensitive(False)
         save_button.connect(
@@ -169,8 +174,8 @@ class VirusTotalPage:
 
         # Get API key link
         link_row = create_navigation_row(
-            title="Get a free API key",
-            subtitle="Create an account at virustotal.com",
+            title=_("Get a free API key"),
+            subtitle=_("Create an account at virustotal.com"),
             icon_name="network-server-symbolic",
         )
         link_row.connect("activated", lambda row: VirusTotalPage._on_get_api_key_clicked())
@@ -194,18 +199,18 @@ class VirusTotalPage:
             settings_manager: SettingsManager for saving preferences
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Behavior")
-        group.set_description("Configure VirusTotal scanning behavior")
+        group.set_title(_("Behavior"))
+        group.set_description(_("Configure VirusTotal scanning behavior"))
 
         # "When no API key" dropdown
         no_key_row = Adw.ComboRow()
         no_key_model = Gtk.StringList()
-        no_key_model.append("Always ask")
-        no_key_model.append("Open VirusTotal website")
-        no_key_model.append("Show notification only")
+        no_key_model.append(_("Always ask"))
+        no_key_model.append(_("Open VirusTotal website"))
+        no_key_model.append(_("Show notification only"))
         no_key_row.set_model(no_key_model)
-        no_key_row.set_title("When API key is missing")
-        no_key_row.set_subtitle("Action to take when scanning without API key")
+        no_key_row.set_title(_("When API key is missing"))
+        no_key_row.set_subtitle(_("Action to take when scanning without API key"))
         no_key_row.add_prefix(styled_prefix_icon("dialog-question-symbolic"))
 
         # Set current selection from settings
@@ -231,20 +236,20 @@ class VirusTotalPage:
             page: The preferences page to add the group to
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Information")
+        group.set_title(_("Information"))
 
         # Rate limit info
         rate_limit_row = Adw.ActionRow()
-        rate_limit_row.set_title("Rate Limit")
-        rate_limit_row.set_subtitle("Free tier: 4 requests per minute, 500 per day")
+        rate_limit_row.set_title(_("Rate Limit"))
+        rate_limit_row.set_subtitle(_("Free tier: 4 requests per minute, 500 per day"))
         rate_limit_row.add_prefix(styled_prefix_icon("dialog-information-symbolic"))
 
         group.add(rate_limit_row)
 
         # File size limit info
         size_limit_row = Adw.ActionRow()
-        size_limit_row.set_title("Maximum File Size")
-        size_limit_row.set_subtitle("Files up to 650 MB can be scanned")
+        size_limit_row.set_title(_("Maximum File Size"))
+        size_limit_row.set_subtitle(_("Files up to 650 MB can be scanned"))
         size_limit_row.add_prefix(styled_prefix_icon("drive-harddisk-symbolic"))
 
         group.add(size_limit_row)
@@ -269,7 +274,7 @@ class VirusTotalPage:
             page._validation_label.set_visible(False)
         else:
             page._save_button.set_sensitive(False)
-            page._validation_label.set_label(error_msg or "Invalid API key format")
+            page._validation_label.set_label(error_msg or _("Invalid API key format"))
             page._validation_label.set_visible(True)
 
     @staticmethod
@@ -283,21 +288,21 @@ class VirusTotalPage:
         # Validate again
         is_valid, error_msg = validate_api_key_format(api_key)
         if not is_valid:
-            VirusTotalPage._show_toast(page, error_msg or "Invalid API key")
+            VirusTotalPage._show_toast(page, error_msg or _("Invalid API key"))
             return
 
         # Save to keyring
         success, error = set_api_key(api_key, settings_manager)
 
         if success:
-            VirusTotalPage._show_toast(page, "API key saved")
+            VirusTotalPage._show_toast(page, _("API key saved"))
 
             # Update status using helper
             update_status_row(
                 row=page._status_row,
                 status_icon=page._status_icon,
                 status_ok=True,
-                ok_message=f"Configured ({mask_api_key(api_key)})",
+                ok_message=_("Configured ({key})").format(key=mask_api_key(api_key)),
                 error_message="",
             )
 
@@ -306,14 +311,17 @@ class VirusTotalPage:
             page._save_button.set_sensitive(False)
             page._delete_button.set_sensitive(True)
         else:
-            VirusTotalPage._show_toast(page, f"Failed to save: {error}" if error else "Failed")
+            if error:
+                VirusTotalPage._show_toast(page, _("Failed to save: {error}").format(error=error))
+            else:
+                VirusTotalPage._show_toast(page, _("Failed"))
 
     @staticmethod
     def _on_delete_clicked(page: Adw.PreferencesPage, settings_manager: "SettingsManager"):
         """Delete the API key after confirmation."""
         # Show confirmation dialog using Adw.Window for libadwaita < 1.5 compatibility
         dialog = Adw.Window()
-        dialog.set_title("Delete API Key?")
+        dialog.set_title(_("Delete API Key?"))
         dialog.set_default_size(400, -1)
         dialog.set_modal(True)
         dialog.set_deletable(True)
@@ -333,8 +341,10 @@ class VirusTotalPage:
         # Message label
         label = Gtk.Label()
         label.set_text(
-            "This will remove your VirusTotal API key. "
-            "You'll need to enter it again to use VirusTotal scanning."
+            _(
+                "This will remove your VirusTotal API key. "
+                "You'll need to enter it again to use VirusTotal scanning."
+            )
         )
         label.set_wrap(True)
         label.set_xalign(0)
@@ -346,7 +356,7 @@ class VirusTotalPage:
         button_box.set_margin_top(12)
 
         # Cancel button
-        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button = Gtk.Button(label=_("Cancel"))
         cancel_button.connect("clicked", lambda btn: dialog.close())
         button_box.append(cancel_button)
 
@@ -356,7 +366,7 @@ class VirusTotalPage:
             success = delete_api_key(settings_manager)
 
             if success:
-                VirusTotalPage._show_toast(page, "API key deleted")
+                VirusTotalPage._show_toast(page, _("API key deleted"))
 
                 # Update status using helper
                 update_status_row(
@@ -364,15 +374,15 @@ class VirusTotalPage:
                     status_icon=page._status_icon,
                     status_ok=False,
                     ok_message="",
-                    error_message="Not configured",
+                    error_message=_("Not configured"),
                 )
 
                 # Disable delete button
                 page._delete_button.set_sensitive(False)
             else:
-                VirusTotalPage._show_toast(page, "Failed to delete API key")
+                VirusTotalPage._show_toast(page, _("Failed to delete API key"))
 
-        delete_button = Gtk.Button(label="Delete")
+        delete_button = Gtk.Button(label=_("Delete"))
         delete_button.add_css_class("destructive-action")
         delete_button.connect("clicked", on_delete_confirmed)
         button_box.append(delete_button)

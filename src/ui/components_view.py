@@ -10,6 +10,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk
 
 from ..core.flatpak import is_flatpak
+from ..core.i18n import N_, _
 from ..core.log_manager import DaemonStatus, LogManager
 from ..core.utils import (
     check_clamav_installed,
@@ -21,36 +22,46 @@ from .utils import add_row_icon, resolve_icon_name
 from .view_helpers import StatusLevel, clear_status_classes, set_status_class
 
 # Setup guide content for each component
+# NOTE: "title" and "notes" use N_() for deferred translation (translated at display time).
+# "commands" contain shell commands which must NOT be translated.
+# Distro names (Ubuntu/Debian, Fedora, Arch Linux) are proper nouns and not translated.
 SETUP_GUIDES = {
     "clamscan": {
-        "title": "clamscan Installation",
+        "title": N_("clamscan Installation"),
         "commands": [
             ("Ubuntu/Debian", "sudo apt install clamav"),
             ("Fedora", "sudo dnf install clamav"),
             ("Arch Linux", "sudo pacman -S clamav"),
         ],
-        "notes": "clamscan is the on-demand virus scanner. After installation, update the virus database with freshclam.",
+        "notes": N_(
+            "clamscan is the on-demand virus scanner. After installation, update the virus database with freshclam."
+        ),
     },
     "freshclam": {
-        "title": "freshclam Installation",
+        "title": N_("freshclam Installation"),
         "commands": [
             ("Ubuntu/Debian", "sudo apt install clamav-freshclam"),
             ("Fedora", "sudo dnf install clamav-update"),
             ("Arch Linux", "sudo pacman -S clamav"),
         ],
-        "notes": "freshclam updates the virus database. Enable the service for automatic updates:\nsudo systemctl enable clamav-freshclam\nsudo systemctl start clamav-freshclam",
+        "notes": N_(
+            "freshclam updates the virus database. Enable the service for automatic updates:"
+        )
+        + "\nsudo systemctl enable clamav-freshclam\nsudo systemctl start clamav-freshclam",
     },
     "clamdscan": {
-        "title": "clamdscan Installation",
+        "title": N_("clamdscan Installation"),
         "commands": [
             ("Ubuntu/Debian", "sudo apt install clamav-daemon"),
             ("Fedora", "sudo dnf install clamd"),
             ("Arch Linux", "sudo pacman -S clamav"),
         ],
-        "notes": "clamdscan is a client for the clamd daemon, providing faster scanning. Requires clamd daemon to be running.",
+        "notes": N_(
+            "clamdscan is a client for the clamd daemon, providing faster scanning. Requires clamd daemon to be running."
+        ),
     },
     "clamd": {
-        "title": "clamd Daemon Setup",
+        "title": N_("clamd Daemon Setup"),
         "commands": [
             (
                 "Ubuntu/Debian",
@@ -65,7 +76,10 @@ SETUP_GUIDES = {
                 "sudo pacman -S clamav\nsudo systemctl enable clamav-daemon\nsudo systemctl start clamav-daemon",
             ),
         ],
-        "notes": "clamd is the ClamAV daemon for faster scanning. Configuration file: /etc/clamav/clamd.conf",
+        "notes": N_("clamd is the ClamAV daemon for faster scanning.")
+        + " "
+        + N_("Configuration file:")
+        + " /etc/clamav/clamd.conf",
     },
 }
 
@@ -124,15 +138,15 @@ class ComponentsView(Gtk.Box):
     def _create_info_section(self):
         """Create the info/description section."""
         info_group = Adw.PreferencesGroup()
-        info_group.set_title("ClamAV Components")
+        info_group.set_title(_("ClamAV Components"))
         info_group.set_description(
-            "Check the status of ClamAV components and get setup instructions"
+            _("Check the status of ClamAV components and get setup instructions")
         )
 
         # Info row explaining the view
         info_row = Adw.ActionRow()
-        info_row.set_title("Component Status")
-        info_row.set_subtitle("View installation status and setup guides for ClamAV tools")
+        info_row.set_title(_("Component Status"))
+        info_row.set_subtitle(_("View installation status and setup guides for ClamAV tools"))
         add_row_icon(info_row, "applications-system-symbolic")
 
         info_group.add(info_row)
@@ -147,15 +161,19 @@ class ComponentsView(Gtk.Box):
         scrolled.set_propagate_natural_height(True)
 
         components_group = Adw.PreferencesGroup()
-        components_group.set_title("Components Status")
+        components_group.set_title(_("Components Status"))
         # Set description based on whether running in Flatpak
         if is_flatpak():
             components_group.set_description(
-                "clamscan and freshclam are bundled with the Flatpak. "
-                "Daemon components run on the host system via flatpak-spawn."
+                _(
+                    "clamscan and freshclam are bundled with the Flatpak. "
+                    "Daemon components run on the host system via flatpak-spawn."
+                )
             )
         else:
-            components_group.set_description("Expand each component for installation instructions")
+            components_group.set_description(
+                _("Expand each component for installation instructions")
+            )
         self._components_group = components_group
 
         # Add refresh button to the header
@@ -163,12 +181,12 @@ class ComponentsView(Gtk.Box):
 
         # Create component rows
         self._create_component_row(
-            components_group, "clamscan", "Virus Scanner", "security-high-symbolic"
+            components_group, "clamscan", _("Virus Scanner"), "security-high-symbolic"
         )
         self._create_component_row(
             components_group,
             "freshclam",
-            "Database Updater",
+            _("Database Updater"),
             "software-update-available-symbolic",
         )
 
@@ -177,11 +195,11 @@ class ComponentsView(Gtk.Box):
         self._create_component_row(
             components_group,
             "clamdscan",
-            "Daemon Scanner Client",
+            _("Daemon Scanner Client"),
             "network-server-symbolic",
         )
         self._create_component_row(
-            components_group, "clamd", "Scanner Daemon", "system-run-symbolic"
+            components_group, "clamd", _("Scanner Daemon"), "system-run-symbolic"
         )
 
         scrolled.set_child(components_group)
@@ -202,7 +220,7 @@ class ComponentsView(Gtk.Box):
         # Create expander row
         expander = Adw.ExpanderRow()
         expander.set_title(title)
-        expander.set_subtitle("Checking...")
+        expander.set_subtitle(_("Checking..."))
         add_row_icon(expander, icon_name)
 
         # Add status suffix widget
@@ -214,7 +232,7 @@ class ComponentsView(Gtk.Box):
         status_box.append(status_icon)
 
         status_label = Gtk.Label()
-        status_label.set_text("Checking")
+        status_label.set_text(_("Checking"))
         status_label.add_css_class("dim-label")
         status_box.append(status_label)
 
@@ -326,7 +344,7 @@ class ComponentsView(Gtk.Box):
         # Copy button
         copy_button = Gtk.Button()
         copy_button.set_icon_name(resolve_icon_name("edit-copy-symbolic"))
-        copy_button.set_tooltip_text("Copy to clipboard")
+        copy_button.set_tooltip_text(_("Copy to clipboard"))
         copy_button.set_valign(Gtk.Align.CENTER)
         copy_button.add_css_class("flat")
         copy_button.connect("clicked", self._on_copy_clicked, command)
@@ -362,9 +380,11 @@ class ComponentsView(Gtk.Box):
             component_id: Component identifier (clamscan or freshclam)
         """
         if component_id == "clamscan":
-            message = "clamscan is bundled with the Flatpak package. No installation is required."
+            message = _(
+                "clamscan is bundled with the Flatpak package. No installation is required."
+            )
         else:  # freshclam
-            message = (
+            message = _(
                 "freshclam is bundled with the Flatpak package. "
                 "No installation is required. The virus database is "
                 "automatically stored in the Flatpak sandbox."
@@ -411,7 +431,7 @@ class ComponentsView(Gtk.Box):
         # Refresh button
         self._refresh_button = Gtk.Button()
         self._refresh_button.set_icon_name(resolve_icon_name("view-refresh-symbolic"))
-        self._refresh_button.set_tooltip_text("Refresh Status")
+        self._refresh_button.set_tooltip_text(_("Refresh Status"))
         self._refresh_button.add_css_class("flat")
         self._refresh_button.connect("clicked", self._on_refresh_clicked)
         refresh_box.append(self._refresh_button)
@@ -493,11 +513,11 @@ class ComponentsView(Gtk.Box):
             status_icon.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
             set_status_class(status_icon, StatusLevel.SUCCESS)
             if is_flatpak_bundled:
-                status_label.set_text("Bundled")
-                expander.set_subtitle("Included with Flatpak")
+                status_label.set_text(_("Bundled"))
+                expander.set_subtitle(_("Included with Flatpak"))
             else:
-                status_label.set_text("Installed")
-                expander.set_subtitle(message or "Installed")
+                status_label.set_text(_("Installed"))
+                expander.set_subtitle(message or _("Installed"))
 
             # Hide installation guide and disable expander for installed components
             guide_row = self._guide_rows.get(component_id)
@@ -509,14 +529,14 @@ class ComponentsView(Gtk.Box):
             if is_flatpak_bundled:
                 status_icon.set_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
                 set_status_class(status_icon, StatusLevel.ERROR)
-                status_label.set_text("Unavailable")
-                expander.set_subtitle("Flatpak package issue - component should be bundled")
+                status_label.set_text(_("Unavailable"))
+                expander.set_subtitle(_("Flatpak package issue - component should be bundled"))
                 expander.set_enable_expansion(False)
             else:
                 status_icon.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
                 set_status_class(status_icon, StatusLevel.WARNING)
-                status_label.set_text("Not installed")
-                expander.set_subtitle("Not installed - expand for setup instructions")
+                status_label.set_text(_("Not installed"))
+                expander.set_subtitle(_("Not installed - expand for setup instructions"))
 
                 # Show installation guide and enable expander for not installed components
                 guide_row = self._guide_rows.get(component_id)
@@ -548,8 +568,8 @@ class ComponentsView(Gtk.Box):
         if status == DaemonStatus.RUNNING:
             status_icon.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
             set_status_class(status_icon, StatusLevel.SUCCESS)
-            status_label.set_text("Running")
-            expander.set_subtitle("Daemon is running")
+            status_label.set_text(_("Running"))
+            expander.set_subtitle(_("Daemon is running"))
             # Hide guide and disable expansion when daemon is running
             if guide_row:
                 guide_row.set_visible(False)
@@ -557,8 +577,8 @@ class ComponentsView(Gtk.Box):
         elif status == DaemonStatus.STOPPED:
             status_icon.set_from_icon_name(resolve_icon_name("media-playback-stop-symbolic"))
             set_status_class(status_icon, StatusLevel.WARNING)
-            status_label.set_text("Stopped")
-            expander.set_subtitle("Daemon is installed but not running")
+            status_label.set_text(_("Stopped"))
+            expander.set_subtitle(_("Daemon is installed but not running"))
             # Show guide and enable expansion for stopped daemon
             if guide_row:
                 guide_row.set_visible(True)
@@ -566,16 +586,16 @@ class ComponentsView(Gtk.Box):
         elif status == DaemonStatus.NOT_INSTALLED:
             status_icon.set_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             set_status_class(status_icon, StatusLevel.WARNING)
-            status_label.set_text("Not installed")
-            expander.set_subtitle("Not installed - expand for setup instructions")
+            status_label.set_text(_("Not installed"))
+            expander.set_subtitle(_("Not installed - expand for setup instructions"))
             # Show guide and enable expansion for not installed daemon
             if guide_row:
                 guide_row.set_visible(True)
             expander.set_enable_expansion(True)
         else:  # UNKNOWN
             status_icon.set_from_icon_name(resolve_icon_name("dialog-question-symbolic"))
-            status_label.set_text("Unknown")
-            expander.set_subtitle(message or "Unable to determine status")
+            status_label.set_text(_("Unknown"))
+            expander.set_subtitle(message or _("Unable to determine status"))
             # Show guide and enable expansion for unknown status
             if guide_row:
                 guide_row.set_visible(True)

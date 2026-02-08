@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..core.battery_manager import BatteryManager
+from ..core.i18n import _
 from ..core.log_manager import LogEntry, LogManager
 from ..core.quarantine import QuarantineManager
 from ..core.scanner import Scanner, ScanResult, ScanStatus
@@ -101,28 +102,29 @@ def parse_arguments() -> argparse.Namespace:
         Parsed arguments namespace
     """
     parser = argparse.ArgumentParser(
-        description="ClamUI Scheduled Scan - Headless antivirus scanning",
+        description=_("ClamUI Scheduled Scan - Headless antivirus scanning"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s                                    # Use settings from config
-  %(prog)s --target /home/user/Documents      # Scan specific directory
-  %(prog)s --skip-on-battery --auto-quarantine # Skip on battery, quarantine threats
-        """,
+        epilog=_(
+            "\nExamples:\n"
+            "  %(prog)s                                    # Use settings from config\n"
+            "  %(prog)s --target /home/user/Documents      # Scan specific directory\n"
+            "  %(prog)s --skip-on-battery --auto-quarantine "
+            "# Skip on battery, quarantine threats\n"
+        ),
     )
 
     parser.add_argument(
         "--skip-on-battery",
         action="store_true",
         default=None,
-        help="Skip scan if running on battery power",
+        help=_("Skip scan if running on battery power"),
     )
 
     parser.add_argument(
         "--auto-quarantine",
         action="store_true",
         default=None,
-        help="Automatically quarantine detected threats",
+        help=_("Automatically quarantine detected threats"),
     )
 
     parser.add_argument(
@@ -130,16 +132,16 @@ Examples:
         action="append",
         dest="targets",
         metavar="PATH",
-        help="Path to scan (can be specified multiple times)",
+        help=_("Path to scan (can be specified multiple times)"),
     )
 
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be done without executing",
+        help=_("Show what would be done without executing"),
     )
 
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
+    parser.add_argument("--verbose", "-v", action="store_true", help=_("Enable verbose output"))
 
     return parser.parse_args()
 
@@ -223,20 +225,25 @@ def _check_battery_status(ctx: ScanContext) -> int | None:
     if not ctx.skip_on_battery:
         return None
 
-    log_message("Checking battery status...", ctx.verbose, is_verbose=True)
+    log_message(_("Checking battery status..."), ctx.verbose, is_verbose=True)
 
     if not ctx.battery_manager.should_skip_scan(skip_on_battery=True):
         return None
 
     battery_status = ctx.battery_manager.get_status()
     percent = battery_status.percent or 0
-    log_message(f"Skipping scan: running on battery power ({percent:.0f}%)", ctx.verbose)
+    log_message(
+        _("Skipping scan: running on battery power ({percent:.0f}%)").format(percent=percent),
+        ctx.verbose,
+    )
 
     log_entry = LogEntry.create(
         log_type="scan",
         status="skipped",
-        summary="Scheduled scan skipped (on battery power)",
-        details=f"Battery level: {percent:.0f}%\nScan skipped due to battery-aware settings.",
+        summary=_("Scheduled scan skipped (on battery power)"),
+        details=_(
+            "Battery level: {percent:.0f}%\nScan skipped due to battery-aware settings."
+        ).format(percent=percent),
         path=", ".join(ctx.targets) if ctx.targets else "N/A",
         scheduled=True,
     )
@@ -257,7 +264,7 @@ def _validate_targets(targets: list[str], verbose: bool) -> tuple[list[str], int
         Tuple of (valid_targets, error_code) where error_code is None if valid
     """
     if not targets:
-        log_message("Error: No scan targets specified", verbose)
+        log_message(_("Error: No scan targets specified"), verbose)
         return [], 2
 
     valid_targets = []
@@ -266,10 +273,13 @@ def _validate_targets(targets: list[str], verbose: bool) -> tuple[list[str], int
         if target_path.exists():
             valid_targets.append(str(target_path))
         else:
-            log_message(f"Warning: Target does not exist: {target}", verbose)
+            log_message(
+                _("Warning: Target does not exist: {target}").format(target=target),
+                verbose,
+            )
 
     if not valid_targets:
-        log_message("Error: No valid scan targets found", verbose)
+        log_message(_("Error: No valid scan targets found"), verbose)
         return [], 2
 
     return valid_targets, None
@@ -286,10 +296,10 @@ def _handle_dry_run(ctx: ScanContext, valid_targets: list[str]) -> int:
     Returns:
         Exit code (0 for dry run)
     """
-    log_message("Dry run mode - scan not executed", ctx.verbose)
-    log_message(f"  Skip on battery: {ctx.skip_on_battery}", ctx.verbose)
-    log_message(f"  Auto quarantine: {ctx.auto_quarantine}", ctx.verbose)
-    log_message(f"  Targets: {valid_targets}", ctx.verbose)
+    log_message(_("Dry run mode - scan not executed"), ctx.verbose)
+    log_message(_("  Skip on battery: {value}").format(value=ctx.skip_on_battery), ctx.verbose)
+    log_message(_("  Auto quarantine: {value}").format(value=ctx.auto_quarantine), ctx.verbose)
+    log_message(_("  Targets: {targets}").format(targets=valid_targets), ctx.verbose)
     return 0
 
 
@@ -309,24 +319,31 @@ def _check_clamav_availability(
     is_available, version_or_error = ctx.scanner.check_available()
 
     if is_available:
-        log_message(f"ClamAV version: {version_or_error}", ctx.verbose, is_verbose=True)
+        log_message(
+            _("ClamAV version: {version}").format(version=version_or_error),
+            ctx.verbose,
+            is_verbose=True,
+        )
         return version_or_error, None
 
-    log_message(f"Error: ClamAV not available - {version_or_error}", ctx.verbose)
+    log_message(
+        _("Error: ClamAV not available - {error}").format(error=version_or_error),
+        ctx.verbose,
+    )
 
     log_entry = LogEntry.create(
         log_type="scan",
         status="error",
-        summary="Scheduled scan failed: ClamAV not available",
-        details=version_or_error or "ClamAV is not installed or not accessible",
+        summary=_("Scheduled scan failed: ClamAV not available"),
+        details=version_or_error or _("ClamAV is not installed or not accessible"),
         path=", ".join(valid_targets),
         scheduled=True,
     )
     ctx.log_manager.save_log(log_entry)
 
     send_notification(
-        "Scheduled Scan Failed",
-        "ClamAV is not available. Please install ClamAV.",
+        _("Scheduled Scan Failed"),
+        _("ClamAV is not available. Please install ClamAV."),
         urgency="critical",
     )
     return None, 2
@@ -343,7 +360,7 @@ def _execute_scans(ctx: ScanContext, valid_targets: list[str]) -> ScanAggregateR
     Returns:
         Aggregated scan results
     """
-    log_message(f"Scanning {len(valid_targets)} target(s)...", ctx.verbose)
+    log_message(_("Scanning {count} target(s)...").format(count=len(valid_targets)), ctx.verbose)
     for target in valid_targets:
         log_message(f"  - {target}", ctx.verbose, is_verbose=True)
 
@@ -351,7 +368,7 @@ def _execute_scans(ctx: ScanContext, valid_targets: list[str]) -> ScanAggregateR
     start_time = time.monotonic()
 
     for target in valid_targets:
-        log_message(f"Scanning: {target}", ctx.verbose)
+        log_message(_("Scanning: {target}").format(target=target), ctx.verbose)
         result = ctx.scanner.scan_sync(target, recursive=True)
         agg.all_results.append(result)
 
@@ -361,11 +378,17 @@ def _execute_scans(ctx: ScanContext, valid_targets: list[str]) -> ScanAggregateR
 
         if result.status == ScanStatus.ERROR:
             agg.has_errors = True
-            log_message(f"  Error: {result.error_message}", ctx.verbose)
+            log_message(_("  Error: {error}").format(error=result.error_message), ctx.verbose)
         elif result.status == ScanStatus.INFECTED:
-            log_message(f"  Found {result.infected_count} threat(s)", ctx.verbose)
+            log_message(
+                _("  Found {count} threat(s)").format(count=result.infected_count),
+                ctx.verbose,
+            )
         else:
-            log_message(f"  Clean ({result.scanned_files} files scanned)", ctx.verbose)
+            log_message(
+                _("  Clean ({count} files scanned)").format(count=result.scanned_files),
+                ctx.verbose,
+            )
 
     agg.duration = time.monotonic() - start_time
     return agg
@@ -387,7 +410,10 @@ def _process_quarantine(ctx: ScanContext, agg: ScanAggregateResult) -> Quarantin
     if not agg.all_infected_files or not ctx.auto_quarantine:
         return qr
 
-    log_message(f"Quarantining {len(agg.all_infected_files)} infected file(s)...", ctx.verbose)
+    log_message(
+        _("Quarantining {count} infected file(s)...").format(count=len(agg.all_infected_files)),
+        ctx.verbose,
+    )
 
     quarantine_manager = QuarantineManager()
 
@@ -406,9 +432,15 @@ def _process_quarantine(ctx: ScanContext, agg: ScanAggregateResult) -> Quarantin
             qr.failed.append((threat.file_path, error_msg))
 
     if qr.quarantined_count > 0:
-        log_message(f"  Successfully quarantined: {qr.quarantined_count} file(s)", ctx.verbose)
+        log_message(
+            _("  Successfully quarantined: {count} file(s)").format(count=qr.quarantined_count),
+            ctx.verbose,
+        )
     if qr.failed:
-        log_message(f"  Failed to quarantine: {len(qr.failed)} file(s)", ctx.verbose)
+        log_message(
+            _("  Failed to quarantine: {count} file(s)").format(count=len(qr.failed)),
+            ctx.verbose,
+        )
         for file_path, error in qr.failed:
             log_message(f"    - {file_path}: {error}", ctx.verbose, is_verbose=True)
 
@@ -431,18 +463,22 @@ def _build_summary_and_status(
     """
     if agg.total_infected > 0:
         if auto_quarantine and qr.quarantined_count > 0:
-            summary = (
-                f"Scheduled scan found {agg.total_infected} threat(s), "
-                f"{qr.quarantined_count} quarantined"
+            summary = _(
+                "Scheduled scan found {infected} threat(s), {quarantined} quarantined"
+            ).format(
+                infected=agg.total_infected,
+                quarantined=qr.quarantined_count,
             )
         else:
-            summary = f"Scheduled scan found {agg.total_infected} threat(s)"
+            summary = _("Scheduled scan found {count} threat(s)").format(count=agg.total_infected)
         status = "infected"
     elif agg.has_errors:
-        summary = "Scheduled scan completed with errors"
+        summary = _("Scheduled scan completed with errors")
         status = "error"
     else:
-        summary = f"Scheduled scan completed - {agg.total_scanned} files scanned, no threats"
+        summary = _("Scheduled scan completed - {count} files scanned, no threats").format(
+            count=agg.total_scanned
+        )
         status = "clean"
 
     return summary, status
@@ -463,19 +499,20 @@ def _build_log_details(
         Detailed log string
     """
     details_parts = [
-        f"Scan Duration: {agg.duration:.1f} seconds",
-        f"Files Scanned: {agg.total_scanned}",
-        f"Threats Found: {agg.total_infected}",
-        f"Targets: {', '.join(agg.valid_targets)}",
+        _("Scan Duration: {duration:.1f} seconds").format(duration=agg.duration),
+        _("Files Scanned: {count}").format(count=agg.total_scanned),
+        _("Threats Found: {count}").format(count=agg.total_infected),
+        _("Targets: {targets}").format(targets=", ".join(agg.valid_targets)),
     ]
 
     if auto_quarantine and agg.all_infected_files:
-        details_parts.append(f"Quarantined: {qr.quarantined_count}")
+        details_parts.append(_("Quarantined: {count}").format(count=qr.quarantined_count))
         if qr.failed:
-            details_parts.append(f"Quarantine Failed: {len(qr.failed)}")
+            details_parts.append(_("Quarantine Failed: {count}").format(count=len(qr.failed)))
 
     if agg.all_infected_files:
-        details_parts.append("\n--- Infected Files ---")
+        infected_label = _("Infected Files")
+        details_parts.append(f"\n--- {infected_label} ---")
         for result in agg.all_results:
             for threat in result.threat_details:
                 details_parts.append(
@@ -486,10 +523,12 @@ def _build_log_details(
     # Combine stdout from all scan results
     for i, result in enumerate(agg.all_results):
         if result.stdout.strip():
-            details_parts.append(f"\n--- Scan Output ({agg.valid_targets[i]}) ---")
+            scan_output_label = _("Scan Output ({target})").format(target=agg.valid_targets[i])
+            details_parts.append(f"\n--- {scan_output_label} ---")
             details_parts.append(result.stdout)
         if result.stderr.strip():
-            details_parts.append(f"\n--- Errors ({agg.valid_targets[i]}) ---")
+            errors_label = _("Errors ({target})").format(target=agg.valid_targets[i])
+            details_parts.append(f"\n--- {errors_label} ---")
             details_parts.append(result.stderr)
 
     return "\n".join(details_parts)
@@ -542,22 +581,23 @@ def _send_scan_notification(
 
     if agg.total_infected > 0:
         if qr.quarantined_count > 0:
-            body = (
-                f"{agg.total_infected} infected file(s) found, {qr.quarantined_count} quarantined"
+            body = _("{infected} infected file(s) found, {quarantined} quarantined").format(
+                infected=agg.total_infected,
+                quarantined=qr.quarantined_count,
             )
         else:
-            body = f"{agg.total_infected} infected file(s) found"
-        send_notification("Scheduled Scan: Threats Detected!", body, urgency="critical")
+            body = _("{count} infected file(s) found").format(count=agg.total_infected)
+        send_notification(_("Scheduled Scan: Threats Detected!"), body, urgency="critical")
     elif agg.has_errors:
         send_notification(
-            "Scheduled Scan Completed",
-            "Scan completed with some errors. Check logs for details.",
+            _("Scheduled Scan Completed"),
+            _("Scan completed with some errors. Check logs for details."),
             urgency="normal",
         )
     else:
         send_notification(
-            "Scheduled Scan Complete",
-            f"No threats found ({agg.total_scanned} files scanned)",
+            _("Scheduled Scan Complete"),
+            _("No threats found ({count} files scanned)").format(count=agg.total_scanned),
             urgency="low",
         )
 
@@ -612,7 +652,7 @@ def run_scheduled_scan(
         verbose=verbose,
     )
 
-    log_message("ClamUI scheduled scan starting...", verbose)
+    log_message(_("ClamUI scheduled scan starting..."), verbose)
 
     # Check battery status
     battery_result = _check_battery_status(ctx)
@@ -629,7 +669,7 @@ def run_scheduled_scan(
         return _handle_dry_run(ctx, valid_targets)
 
     # Check ClamAV availability
-    _, clamav_error = _check_clamav_availability(ctx, valid_targets)
+    _version, clamav_error = _check_clamav_availability(ctx, valid_targets)
     if clamav_error is not None:
         return clamav_error
 
@@ -647,7 +687,10 @@ def run_scheduled_scan(
     _save_scan_log(ctx, agg, qr, summary, status, details)
     _send_scan_notification(ctx, agg, qr)
 
-    log_message(f"Scan completed in {agg.duration:.1f} seconds", verbose)
+    log_message(
+        _("Scan completed in {duration:.1f} seconds").format(duration=agg.duration),
+        verbose,
+    )
     log_message(summary, verbose)
 
     return _determine_exit_code(agg)

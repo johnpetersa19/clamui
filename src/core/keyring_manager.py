@@ -12,6 +12,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from .i18n import _
+
 if TYPE_CHECKING:
     from .settings_manager import SettingsManager
 
@@ -94,11 +96,11 @@ def set_api_key(
         Tuple of (success, error_message). On success, error_message is None.
     """
     if not api_key:
-        return False, "API key cannot be empty"
+        return False, _("API key cannot be empty")
 
     # Validate API key format (VirusTotal keys are 64 hex characters)
     if len(api_key) != 64 or not all(c in "0123456789abcdef" for c in api_key.lower()):
-        return False, "Invalid API key format (expected 64 hexadecimal characters)"
+        return False, _("Invalid API key format (expected 64 hexadecimal characters)")
 
     # Try keyring first
     keyring = _get_keyring()
@@ -120,7 +122,7 @@ def set_api_key(
         logger.info("Stored VirusTotal API key in settings")
         return True, None
 
-    return False, "Failed to save API key to settings"
+    return False, _("Failed to save API key to settings")
 
 
 def delete_api_key(settings_manager: SettingsManager | None = None) -> bool:
@@ -190,7 +192,7 @@ def mask_api_key(api_key: str | None) -> str:
         Masked API key string (e.g., "a1b2c3d4...") or "Not set" if None.
     """
     if not api_key:
-        return "Not set"
+        return _("Not set")
     if len(api_key) < 8:
         return "****"
     return f"{api_key[:8]}..."
@@ -209,12 +211,12 @@ def validate_api_key_format(api_key: str) -> tuple[bool, str | None]:
         Tuple of (is_valid, error_message). If valid, error_message is None.
     """
     if not api_key:
-        return False, "API key cannot be empty"
+        return False, _("API key cannot be empty")
 
     if len(api_key) != 64:
-        return False, f"API key must be 64 characters (got {len(api_key)})"
+        return False, _("API key must be 64 characters (got {length})").format(length=len(api_key))
 
     if not all(c in "0123456789abcdefABCDEF" for c in api_key):
-        return False, "API key must contain only hexadecimal characters"
+        return False, _("API key must contain only hexadecimal characters")
 
     return True, None

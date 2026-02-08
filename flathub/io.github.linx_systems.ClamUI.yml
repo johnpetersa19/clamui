@@ -140,6 +140,17 @@ modules:
       - install -Dm644 flathub/integrations/io.github.linx_systems.ClamUI-virustotal.nemo_action /app/share/clamui/integrations/io.github.linx_systems.ClamUI-virustotal.nemo_action
       - install -Dm644 flathub/integrations/io.github.linx_systems.ClamUI-virustotal.desktop /app/share/clamui/integrations/io.github.linx_systems.ClamUI-virustotal.desktop
       - install -Dm755 flathub/integrations/clamui-virustotal-nautilus.sh /app/share/clamui/integrations/clamui-virustotal-nautilus.sh
+      # Compile and install locale files (i18n)
+      - |
+        if [ -f po/LINGUAS ]; then
+          while IFS= read -r lang || [ -n "$lang" ]; do
+            lang=$(echo "$lang" | sed 's/#.*//' | tr -d '[:space:]')
+            [ -z "$lang" ] && continue
+            [ -f "po/$lang.po" ] || continue
+            install -d /app/share/locale/$lang/LC_MESSAGES
+            msgfmt -o /app/share/locale/$lang/LC_MESSAGES/clamui.mo po/$lang.po
+          done < po/LINGUAS
+        fi
     sources:
       - type: git
         url: https://github.com/linx-systems/clamui.git

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from gi.repository import Adw, GLib, GObject, Gtk
 
+from ..core.i18n import _, ngettext
 from .compat import create_entry_row, create_toolbar_view
 from .utils import add_row_icon, resolve_icon_name
 
@@ -88,9 +89,9 @@ class ProfileDialog(Adw.Window):
     def _setup_dialog(self):
         """Configure the dialog properties."""
         if self._is_edit_mode:
-            self.set_title("Edit Profile")
+            self.set_title(_("Edit Profile"))
         else:
-            self.set_title("New Profile")
+            self.set_title(_("New Profile"))
 
         self.set_default_size(500, 600)
 
@@ -108,13 +109,13 @@ class ProfileDialog(Adw.Window):
 
         # Cancel button
         cancel_button = Gtk.Button()
-        cancel_button.set_label("Cancel")
+        cancel_button.set_label(_("Cancel"))
         cancel_button.connect("clicked", self._on_cancel_clicked)
         header_bar.pack_start(cancel_button)
 
         # Save button
         self._save_button = Gtk.Button()
-        self._save_button.set_label("Save")
+        self._save_button.set_label(_("Save"))
         self._save_button.add_css_class("suggested-action")
         self._save_button.connect("clicked", self._on_save_clicked)
         header_bar.pack_end(self._save_button)
@@ -148,19 +149,19 @@ class ProfileDialog(Adw.Window):
     def _create_basic_info_group(self, preferences_page: Adw.PreferencesPage):
         """Create the basic profile info group."""
         basic_group = Adw.PreferencesGroup()
-        basic_group.set_title("Profile Information")
-        basic_group.set_description("Basic profile settings")
+        basic_group.set_title(_("Profile Information"))
+        basic_group.set_description(_("Basic profile settings"))
 
         # Profile name entry row
         # Note: Adw.EntryRow doesn't have set_max_length - validation is done in _on_name_changed
         self._name_row = create_entry_row()
-        self._name_row.set_title("Name")
+        self._name_row.set_title(_("Name"))
         self._name_row.connect("changed", self._on_name_changed)
         basic_group.add(self._name_row)
 
         # Description entry row
         self._description_row = create_entry_row()
-        self._description_row.set_title("Description")
+        self._description_row.set_title(_("Description"))
         basic_group.add(self._description_row)
 
         # Validation message (hidden by default)
@@ -177,8 +178,8 @@ class ProfileDialog(Adw.Window):
     def _create_targets_group(self, preferences_page: Adw.PreferencesPage):
         """Create the scan targets group."""
         self._targets_group = Adw.PreferencesGroup()
-        self._targets_group.set_title("Scan Targets")
-        self._targets_group.set_description("Directories and files to scan")
+        self._targets_group.set_title(_("Scan Targets"))
+        self._targets_group.set_description(_("Directories and files to scan"))
 
         # Add target buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -186,14 +187,14 @@ class ProfileDialog(Adw.Window):
 
         add_folder_btn = Gtk.Button()
         add_folder_btn.set_icon_name(resolve_icon_name("folder-new-symbolic"))
-        add_folder_btn.set_tooltip_text("Add folder")
+        add_folder_btn.set_tooltip_text(_("Add folder"))
         add_folder_btn.add_css_class("flat")
         add_folder_btn.connect("clicked", self._on_add_target_folder_clicked)
         button_box.append(add_folder_btn)
 
         add_file_btn = Gtk.Button()
         add_file_btn.set_icon_name(resolve_icon_name("document-new-symbolic"))
-        add_file_btn.set_tooltip_text("Add file")
+        add_file_btn.set_tooltip_text(_("Add file"))
         add_file_btn.add_css_class("flat")
         add_file_btn.connect("clicked", self._on_add_target_file_clicked)
         button_box.append(add_file_btn)
@@ -207,9 +208,9 @@ class ProfileDialog(Adw.Window):
 
         # Placeholder for empty list
         self._targets_placeholder = Adw.ActionRow()
-        self._targets_placeholder.set_title("No targets added")
+        self._targets_placeholder.set_title(_("No targets added"))
         self._targets_placeholder.set_subtitle(
-            "Click the folder or file button to add scan targets"
+            _("Click the folder or file button to add scan targets")
         )
         add_row_icon(self._targets_placeholder, "folder-symbolic")
         self._targets_placeholder.add_css_class("dim-label")
@@ -221,8 +222,8 @@ class ProfileDialog(Adw.Window):
     def _create_exclusions_group(self, preferences_page: Adw.PreferencesPage):
         """Create the exclusions group."""
         self._exclusions_group = Adw.PreferencesGroup()
-        self._exclusions_group.set_title("Exclusions")
-        self._exclusions_group.set_description("Paths and patterns to skip during scan")
+        self._exclusions_group.set_title(_("Exclusions"))
+        self._exclusions_group.set_description(_("Paths and patterns to skip during scan"))
 
         # Add exclusion buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -230,14 +231,14 @@ class ProfileDialog(Adw.Window):
 
         add_path_btn = Gtk.Button()
         add_path_btn.set_icon_name(resolve_icon_name("folder-new-symbolic"))
-        add_path_btn.set_tooltip_text("Add exclusion path")
+        add_path_btn.set_tooltip_text(_("Add exclusion path"))
         add_path_btn.add_css_class("flat")
         add_path_btn.connect("clicked", self._on_add_exclusion_path_clicked)
         button_box.append(add_path_btn)
 
         add_pattern_btn = Gtk.Button()
         add_pattern_btn.set_icon_name(resolve_icon_name("edit-symbolic"))
-        add_pattern_btn.set_tooltip_text("Add exclusion pattern")
+        add_pattern_btn.set_tooltip_text(_("Add exclusion pattern"))
         add_pattern_btn.add_css_class("flat")
         add_pattern_btn.connect("clicked", self._on_add_exclusion_pattern_clicked)
         button_box.append(add_pattern_btn)
@@ -251,8 +252,10 @@ class ProfileDialog(Adw.Window):
 
         # Placeholder for empty list
         self._exclusions_placeholder = Adw.ActionRow()
-        self._exclusions_placeholder.set_title("No exclusions added")
-        self._exclusions_placeholder.set_subtitle("Add paths or patterns to exclude from scanning")
+        self._exclusions_placeholder.set_title(_("No exclusions added"))
+        self._exclusions_placeholder.set_subtitle(
+            _("Add paths or patterns to exclude from scanning")
+        )
         add_row_icon(self._exclusions_placeholder, "action-unavailable-symbolic")
         self._exclusions_placeholder.add_css_class("dim-label")
         self._exclusions_listbox.append(self._exclusions_placeholder)
@@ -285,10 +288,14 @@ class ProfileDialog(Adw.Window):
         name = entry_row.get_text().strip()
 
         if not name:
-            self._show_validation_error("Profile name is required")
+            self._show_validation_error(_("Profile name is required"))
             self._save_button.set_sensitive(False)
         elif len(name) > self.MAX_NAME_LENGTH:
-            self._show_validation_error(f"Name must be {self.MAX_NAME_LENGTH} characters or less")
+            self._show_validation_error(
+                _("Name must be {max_length} characters or less").format(
+                    max_length=self.MAX_NAME_LENGTH
+                )
+            )
             self._save_button.set_sensitive(False)
         else:
             self._hide_validation_error()
@@ -350,9 +357,9 @@ class ProfileDialog(Adw.Window):
         dialog = Gtk.FileDialog()
 
         if select_folder:
-            dialog.set_title("Select Folders" if multiple else "Select Folder")
+            dialog.set_title(_("Select Folders") if multiple else _("Select Folder"))
         else:
-            dialog.set_title("Select Files" if multiple else "Select File")
+            dialog.set_title(_("Select Files") if multiple else _("Select File"))
 
         # Get the parent window
         window = self.get_root()
@@ -448,7 +455,7 @@ class ProfileDialog(Adw.Window):
             path=path,
             icon_name="folder-symbolic",
             on_remove=lambda: self._remove_exclusion_path(path),
-            subtitle="Path",
+            subtitle=_("Path"),
         )
         self._exclusions_listbox.append(row)
 
@@ -468,7 +475,7 @@ class ProfileDialog(Adw.Window):
             path=pattern,
             icon_name="edit-symbolic",
             on_remove=lambda: self._remove_exclusion_pattern(pattern),
-            subtitle="Pattern",
+            subtitle=_("Pattern"),
         )
         self._exclusions_listbox.append(row)
 
@@ -499,7 +506,7 @@ class ProfileDialog(Adw.Window):
         # Remove button
         remove_btn = Gtk.Button()
         remove_btn.set_icon_name(resolve_icon_name("user-trash-symbolic"))
-        remove_btn.set_tooltip_text("Remove")
+        remove_btn.set_tooltip_text(_("Remove"))
         remove_btn.add_css_class("flat")
         remove_btn.add_css_class("error")
         remove_btn.set_valign(Gtk.Align.CENTER)
@@ -557,17 +564,17 @@ class ProfileDialog(Adw.Window):
         """Update the targets group header to show item count."""
         count = len(self._targets)
         if count > 0:
-            self._targets_group.set_title(f"Scan Targets ({count})")
+            self._targets_group.set_title(_("Scan Targets ({count})").format(count=count))
         else:
-            self._targets_group.set_title("Scan Targets")
+            self._targets_group.set_title(_("Scan Targets"))
 
     def _update_exclusions_header(self):
         """Update the exclusions group header to show item count."""
         count = len(self._exclusion_paths) + len(self._exclusion_patterns)
         if count > 0:
-            self._exclusions_group.set_title(f"Exclusions ({count})")
+            self._exclusions_group.set_title(_("Exclusions ({count})").format(count=count))
         else:
-            self._exclusions_group.set_title("Exclusions")
+            self._exclusions_group.set_title(_("Exclusions"))
 
     def _on_cancel_clicked(self, button):
         """Handle cancel button click."""
@@ -580,7 +587,7 @@ class ProfileDialog(Adw.Window):
 
         # Validate name
         if not name:
-            self._show_validation_error("Profile name is required")
+            self._show_validation_error(_("Profile name is required"))
             return
 
         # Build exclusions dictionary
@@ -673,7 +680,7 @@ class PatternEntryDialog(Adw.Window):
         """Initialize the pattern entry dialog."""
         super().__init__(**kwargs)
 
-        self.set_title("Add Exclusion Pattern")
+        self.set_title(_("Add Exclusion Pattern"))
         self.set_default_size(400, 200)
 
         # Configure as modal dialog
@@ -691,12 +698,12 @@ class PatternEntryDialog(Adw.Window):
         header_bar = Adw.HeaderBar()
 
         cancel_button = Gtk.Button()
-        cancel_button.set_label("Cancel")
+        cancel_button.set_label(_("Cancel"))
         cancel_button.connect("clicked", self._on_cancel_clicked)
         header_bar.pack_start(cancel_button)
 
         add_button = Gtk.Button()
-        add_button.set_label("Add")
+        add_button.set_label(_("Add"))
         add_button.add_css_class("suggested-action")
         add_button.connect("clicked", self._on_add_clicked)
         self._add_button = add_button
@@ -714,11 +721,11 @@ class PatternEntryDialog(Adw.Window):
         # Pattern entry group
         pattern_group = Adw.PreferencesGroup()
         pattern_group.set_description(
-            "Enter a glob pattern to exclude (e.g., *.tmp, .git/*, cache/*)"
+            _("Enter a glob pattern to exclude (e.g., *.tmp, .git/*, cache/*)")
         )
 
         self._pattern_row = create_entry_row()
-        self._pattern_row.set_title("Pattern")
+        self._pattern_row.set_title(_("Pattern"))
         self._pattern_row.connect("changed", self._on_pattern_changed)
         self._pattern_row.connect("entry-activated", lambda r: self._on_add_clicked(None))
         pattern_group.add(self._pattern_row)
@@ -782,10 +789,13 @@ class DeleteProfileDialog(Adw.Window):
         super().__init__(**kwargs)
 
         self._profile_name = profile_name
-        self._heading = "Delete Profile?"
+        self._heading = _("Delete Profile?")
         self._body = (
-            f'Are you sure you want to delete the profile "{profile_name}"?\n\n'
-            "This action cannot be undone."
+            _('Are you sure you want to delete the profile "{profile_name}"?').format(
+                profile_name=profile_name
+            )
+            + "\n\n"
+            + _("This action cannot be undone.")
         )
 
         self.set_title(self._heading)
@@ -834,12 +844,12 @@ class DeleteProfileDialog(Adw.Window):
         button_box.set_margin_top(12)
 
         # Cancel button
-        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button = Gtk.Button(label=_("Cancel"))
         cancel_button.connect("clicked", self._on_cancel_clicked)
         button_box.append(cancel_button)
 
         # Delete button
-        delete_button = Gtk.Button(label="Delete")
+        delete_button = Gtk.Button(label=_("Delete"))
         delete_button.add_css_class("destructive-action")
         delete_button.connect("clicked", self._on_delete_clicked)
         button_box.append(delete_button)
@@ -898,11 +908,15 @@ class RestoreDefaultsDialog(Adw.Window):
         """
         super().__init__(**kwargs)
 
-        self._heading = "Restore Default Profiles?"
+        self._heading = _("Restore Default Profiles?")
         self._body = (
-            "This will reset Quick Scan, Full Scan, and Home Folder profiles "
-            "to their original settings. Any changes you made to these profiles "
-            "will be lost.\n\nYour custom profiles will not be affected."
+            _(
+                "This will reset Quick Scan, Full Scan, and Home Folder profiles "
+                "to their original settings. Any changes you made to these profiles "
+                "will be lost."
+            )
+            + "\n\n"
+            + _("Your custom profiles will not be affected.")
         )
 
         self.set_title(self._heading)
@@ -951,12 +965,12 @@ class RestoreDefaultsDialog(Adw.Window):
         button_box.set_margin_top(12)
 
         # Cancel button
-        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button = Gtk.Button(label=_("Cancel"))
         cancel_button.connect("clicked", self._on_cancel_clicked)
         button_box.append(cancel_button)
 
         # Restore button (suggested-action since it's restorative, not destructive)
-        restore_button = Gtk.Button(label="Restore")
+        restore_button = Gtk.Button(label=_("Restore"))
         restore_button.add_css_class("suggested-action")
         restore_button.connect("clicked", self._on_restore_clicked)
         button_box.append(restore_button)
@@ -1026,7 +1040,7 @@ class ProfileListDialog(Adw.Window):
 
     def _setup_dialog(self):
         """Configure the dialog properties."""
-        self.set_title("Manage Profiles")
+        self.set_title(_("Manage Profiles"))
         self.set_default_size(500, 500)
 
         # Configure as modal dialog
@@ -1044,21 +1058,21 @@ class ProfileListDialog(Adw.Window):
         # Restore defaults button (left side)
         restore_button = Gtk.Button()
         restore_button.set_icon_name(resolve_icon_name("view-refresh-symbolic"))
-        restore_button.set_tooltip_text("Restore default profiles")
+        restore_button.set_tooltip_text(_("Restore default profiles"))
         restore_button.connect("clicked", self._on_restore_defaults_clicked)
         header_bar.pack_start(restore_button)
 
         # Import profile button
         import_button = Gtk.Button()
         import_button.set_icon_name(resolve_icon_name("document-open-symbolic"))
-        import_button.set_tooltip_text("Import profile from file")
+        import_button.set_tooltip_text(_("Import profile from file"))
         import_button.connect("clicked", self._on_import_clicked)
         header_bar.pack_end(import_button)
 
         # New profile button
         new_profile_button = Gtk.Button()
         new_profile_button.set_icon_name(resolve_icon_name("list-add-symbolic"))
-        new_profile_button.set_tooltip_text("Create new profile")
+        new_profile_button.set_tooltip_text(_("Create new profile"))
         new_profile_button.add_css_class("suggested-action")
         new_profile_button.connect("clicked", self._on_new_profile_clicked)
         header_bar.pack_end(new_profile_button)
@@ -1076,8 +1090,8 @@ class ProfileListDialog(Adw.Window):
 
         # Profiles group
         self._profiles_group = Adw.PreferencesGroup()
-        self._profiles_group.set_title("Scan Profiles")
-        self._profiles_group.set_description("Select a profile to edit or use for scanning")
+        self._profiles_group.set_title(_("Scan Profiles"))
+        self._profiles_group.set_description(_("Select a profile to edit or use for scanning"))
 
         # Profiles list box
         self._profiles_listbox = Gtk.ListBox()
@@ -1086,8 +1100,8 @@ class ProfileListDialog(Adw.Window):
 
         # Placeholder for empty list
         self._profiles_placeholder = Adw.ActionRow()
-        self._profiles_placeholder.set_title("No profiles available")
-        self._profiles_placeholder.set_subtitle("Click the + button to create a new profile")
+        self._profiles_placeholder.set_title(_("No profiles available"))
+        self._profiles_placeholder.set_subtitle(_("Click the + button to create a new profile"))
         add_row_icon(self._profiles_placeholder, "document-new-symbolic")
         self._profiles_placeholder.add_css_class("dim-label")
 
@@ -1140,9 +1154,15 @@ class ProfileListDialog(Adw.Window):
             subtitle_parts.append(profile.description)
         target_count = len(profile.targets) if profile.targets else 0
         if target_count > 0:
-            subtitle_parts.append(f"{target_count} target(s)")
+            subtitle_parts.append(
+                ngettext(
+                    "{count} target",
+                    "{count} targets",
+                    target_count,
+                ).format(count=target_count)
+            )
         if profile.is_default:
-            subtitle_parts.append("Default profile")
+            subtitle_parts.append(_("Default profile"))
 
         if subtitle_parts:
             row.set_subtitle(" • ".join(subtitle_parts))
@@ -1160,7 +1180,7 @@ class ProfileListDialog(Adw.Window):
         # Use profile button
         use_button = Gtk.Button()
         use_button.set_icon_name(resolve_icon_name("media-playback-start-symbolic"))
-        use_button.set_tooltip_text("Use this profile")
+        use_button.set_tooltip_text(_("Use this profile"))
         use_button.add_css_class("flat")
         use_button.add_css_class("success")
         use_button.connect("clicked", lambda btn, p=profile: self._on_use_profile_clicked(p))
@@ -1169,7 +1189,7 @@ class ProfileListDialog(Adw.Window):
         # Edit button
         edit_button = Gtk.Button()
         edit_button.set_icon_name(resolve_icon_name("document-edit-symbolic"))
-        edit_button.set_tooltip_text("Edit profile")
+        edit_button.set_tooltip_text(_("Edit profile"))
         edit_button.add_css_class("flat")
         edit_button.connect("clicked", lambda btn, p=profile: self._on_edit_profile_clicked(p))
         button_box.append(edit_button)
@@ -1177,11 +1197,11 @@ class ProfileListDialog(Adw.Window):
         # Delete button (disabled for default profiles)
         delete_button = Gtk.Button()
         delete_button.set_icon_name(resolve_icon_name("user-trash-symbolic"))
-        delete_button.set_tooltip_text("Delete profile")
+        delete_button.set_tooltip_text(_("Delete profile"))
         delete_button.add_css_class("flat")
         if profile.is_default:
             delete_button.set_sensitive(False)
-            delete_button.set_tooltip_text("Cannot delete default profile")
+            delete_button.set_tooltip_text(_("Cannot delete default profile"))
         else:
             delete_button.add_css_class("error")
             delete_button.connect(
@@ -1192,7 +1212,7 @@ class ProfileListDialog(Adw.Window):
         # Export button
         export_button = Gtk.Button()
         export_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
-        export_button.set_tooltip_text("Export profile")
+        export_button.set_tooltip_text(_("Export profile"))
         export_button.add_css_class("flat")
         export_button.connect("clicked", lambda btn, p=profile: self._on_export_profile_clicked(p))
         button_box.append(export_button)
@@ -1296,7 +1316,7 @@ class ProfileListDialog(Adw.Window):
 
         # Create save dialog
         dialog = Gtk.FileDialog()
-        dialog.set_title("Export Profile")
+        dialog.set_title(_("Export Profile"))
 
         # Generate default filename from profile name
         safe_name = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in profile.name)
@@ -1304,7 +1324,7 @@ class ProfileListDialog(Adw.Window):
 
         # Set up file filter for JSON files
         json_filter = Gtk.FileFilter()
-        json_filter.set_name("JSON Files")
+        json_filter.set_name(_("JSON Files"))
         json_filter.add_mime_type("application/json")
         json_filter.add_pattern("*.json")
 
@@ -1382,11 +1402,11 @@ class ProfileListDialog(Adw.Window):
 
         # Create open dialog
         dialog = Gtk.FileDialog()
-        dialog.set_title("Import Profile")
+        dialog.set_title(_("Import Profile"))
 
         # Set up file filter for JSON files
         json_filter = Gtk.FileFilter()
-        json_filter.set_name("JSON Files")
+        json_filter.set_name(_("JSON Files"))
         json_filter.add_mime_type("application/json")
         json_filter.add_pattern("*.json")
 

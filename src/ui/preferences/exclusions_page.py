@@ -16,6 +16,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ...core.i18n import N_, _
 from ..compat import create_entry_row, create_switch_row
 from ..utils import resolve_icon_name
 from .base import PreferencesPageMixin
@@ -27,32 +28,37 @@ PRESET_EXCLUSIONS = [
         "pattern": "node_modules",
         "type": "directory",
         "enabled": True,
-        "description": "Node.js dependencies",
+        "description": N_("Node.js dependencies"),
     },
-    {"pattern": ".git", "type": "directory", "enabled": True, "description": "Git repository data"},
+    {
+        "pattern": ".git",
+        "type": "directory",
+        "enabled": True,
+        "description": N_("Git repository data"),
+    },
     {
         "pattern": ".venv",
         "type": "directory",
         "enabled": True,
-        "description": "Python virtual environment",
+        "description": N_("Python virtual environment"),
     },
     {
         "pattern": "build",
         "type": "directory",
         "enabled": True,
-        "description": "Build output directory",
+        "description": N_("Build output directory"),
     },
     {
         "pattern": "dist",
         "type": "directory",
         "enabled": True,
-        "description": "Distribution output directory",
+        "description": N_("Distribution output directory"),
     },
     {
         "pattern": "__pycache__",
         "type": "directory",
         "enabled": True,
-        "description": "Python bytecode cache",
+        "description": N_("Python bytecode cache"),
     },
 ]
 
@@ -94,19 +100,19 @@ class ExclusionsPage(PreferencesPageMixin):
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="Exclusions",
+            title=_("Exclusions"),
             icon_name=resolve_icon_name("action-unavailable-symbolic"),
         )
 
         # Preset exclusions group
         preset_group = Adw.PreferencesGroup()
-        preset_group.set_title("Preset Exclusions (Auto-Saved)")
-        preset_group.set_description("Common patterns to exclude. Auto-saved.")
+        preset_group.set_title(_("Preset Exclusions (Auto-Saved)"))
+        preset_group.set_description(_("Common patterns to exclude. Auto-saved."))
 
         for preset in PRESET_EXCLUSIONS:
             # Create a row for each preset with folder icon
             row = create_switch_row("folder-symbolic")
-            row.set_title(preset["description"])
+            row.set_title(_(preset["description"]))
             row.set_subtitle(preset["pattern"])
             row.set_active(preset["enabled"])
             preset_group.add(row)
@@ -115,19 +121,19 @@ class ExclusionsPage(PreferencesPageMixin):
 
         # Custom exclusions group
         self._custom_exclusions_group = Adw.PreferencesGroup()
-        self._custom_exclusions_group.set_title("Custom Exclusions (Auto-Saved)")
-        self._custom_exclusions_group.set_description("Your exclusion patterns. Auto-saved.")
+        self._custom_exclusions_group.set_title(_("Custom Exclusions (Auto-Saved)"))
+        self._custom_exclusions_group.set_description(_("Your exclusion patterns. Auto-saved."))
 
         # Custom exclusion entry row
         self._custom_entry_row = create_entry_row("list-add-symbolic")
-        self._custom_entry_row.set_title("Add Pattern (e.g., /path/to/exclude or *.tmp)")
+        self._custom_entry_row.set_title(_("Add Pattern (e.g., /path/to/exclude or *.tmp)"))
         self._custom_entry_row.set_show_apply_button(False)
 
         # Add button for custom exclusions
         add_button = Gtk.Button()
-        add_button.set_label("Add")
+        add_button.set_label(_("Add"))
         add_button.set_valign(Gtk.Align.CENTER)
-        add_button.set_tooltip_text("Add custom exclusion pattern")
+        add_button.set_tooltip_text(_("Add custom exclusion pattern"))
         add_button.connect("clicked", self._on_add_custom_exclusion)
         self._custom_entry_row.add_suffix(add_button)
 
@@ -174,7 +180,7 @@ class ExclusionsPage(PreferencesPageMixin):
         remove_button.set_icon_name(resolve_icon_name("user-trash-symbolic"))
         remove_button.set_valign(Gtk.Align.CENTER)
         remove_button.add_css_class("flat")
-        remove_button.set_tooltip_text("Remove exclusion")
+        remove_button.set_tooltip_text(_("Remove exclusion"))
         remove_button.connect("clicked", self._on_remove_custom_exclusion, row, pattern)
         row.add_suffix(remove_button)
 

@@ -19,6 +19,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 from ..core.clipboard import copy_to_clipboard
+from ..core.i18n import _
 from ..core.virustotal import VTScanResult, VTScanStatus
 from .compat import create_toolbar_view
 from .utils import resolve_icon_name
@@ -84,7 +85,7 @@ class VirusTotalResultsDialog(Adw.Window):
 
     def _setup_dialog(self):
         """Configure the dialog properties."""
-        self.set_title("VirusTotal Results")
+        self.set_title(_("VirusTotal Results"))
         self.set_default_size(600, 450)
 
         # Configure as modal dialog
@@ -105,7 +106,7 @@ class VirusTotalResultsDialog(Adw.Window):
         # Export button (left side)
         export_button = Gtk.Button()
         export_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
-        export_button.set_tooltip_text("Export results to JSON")
+        export_button.set_tooltip_text(_("Export results to JSON"))
         export_button.add_css_class("flat")
         export_button.connect("clicked", self._on_export_clicked)
         header_bar.pack_start(export_button)
@@ -113,7 +114,7 @@ class VirusTotalResultsDialog(Adw.Window):
         # View on VirusTotal button (right side)
         if self._vt_result.permalink:
             vt_button = Gtk.Button()
-            vt_button.set_label("View on VirusTotal")
+            vt_button.set_label(_("View on VirusTotal"))
             vt_button.add_css_class("suggested-action")
             vt_button.connect("clicked", self._on_view_vt_clicked)
             header_bar.pack_end(vt_button)
@@ -152,46 +153,48 @@ class VirusTotalResultsDialog(Adw.Window):
     def _create_summary_section(self, parent: Gtk.Box):
         """Create the scan summary section."""
         summary_group = Adw.PreferencesGroup()
-        summary_group.set_title("Scan Summary")
+        summary_group.set_title(_("Scan Summary"))
 
         # Create status row
         status_row = Adw.ActionRow()
 
         # Set title and icon based on status
         if self._vt_result.status == VTScanStatus.CLEAN:
-            status_row.set_title("No threats detected")
-            status_row.set_subtitle("File appears to be safe")
+            status_row.set_title(_("No threats detected"))
+            status_row.set_subtitle(_("File appears to be safe"))
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("object-select-symbolic"))
             icon.add_css_class("success")
         elif self._vt_result.status == VTScanStatus.DETECTED:
             ratio = f"{self._vt_result.detections}/{self._vt_result.total_engines}"
-            status_row.set_title(f"{self._vt_result.detections} engines detected threats")
-            status_row.set_subtitle(f"Detection ratio: {ratio}")
+            status_row.set_title(
+                _("{count} engines detected threats").format(count=self._vt_result.detections)
+            )
+            status_row.set_subtitle(_("Detection ratio: {ratio}").format(ratio=ratio))
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             icon.add_css_class("warning")
         elif self._vt_result.status == VTScanStatus.NOT_FOUND:
-            status_row.set_title("File not in database")
-            status_row.set_subtitle("This file has not been scanned before")
+            status_row.set_title(_("File not in database"))
+            status_row.set_subtitle(_("This file has not been scanned before"))
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
             icon.add_css_class("dim-label")
         elif self._vt_result.status == VTScanStatus.PENDING:
-            status_row.set_title("Analysis in progress")
-            status_row.set_subtitle("Check back later for results")
+            status_row.set_title(_("Analysis in progress"))
+            status_row.set_subtitle(_("Check back later for results"))
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("emblem-synchronizing-symbolic"))
             icon.add_css_class("dim-label")
         elif self._vt_result.status == VTScanStatus.RATE_LIMITED:
-            status_row.set_title("Rate limit exceeded")
-            status_row.set_subtitle(self._vt_result.error_message or "Too many requests")
+            status_row.set_title(_("Rate limit exceeded"))
+            status_row.set_subtitle(self._vt_result.error_message or _("Too many requests"))
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
             icon.add_css_class("warning")
         elif self._vt_result.status == VTScanStatus.FILE_TOO_LARGE:
-            status_row.set_title("File too large")
-            status_row.set_subtitle(self._vt_result.error_message or "Maximum size is 650MB")
+            status_row.set_title(_("File too large"))
+            status_row.set_subtitle(self._vt_result.error_message or _("Maximum size is 650MB"))
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
             icon.add_css_class("error")
         else:
-            status_row.set_title("Scan Error")
-            status_row.set_subtitle(self._vt_result.error_message or "Unknown error")
+            status_row.set_title(_("Scan Error"))
+            status_row.set_subtitle(self._vt_result.error_message or _("Unknown error"))
             icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-error-symbolic"))
             icon.add_css_class("error")
 
@@ -201,7 +204,7 @@ class VirusTotalResultsDialog(Adw.Window):
         # Add scan date if available
         if self._vt_result.scan_date:
             date_row = Adw.ActionRow()
-            date_row.set_title("Last scanned")
+            date_row.set_title(_("Last scanned"))
             date_row.set_subtitle(self._format_scan_date(self._vt_result.scan_date))
             date_icon = Gtk.Image.new_from_icon_name(
                 resolve_icon_name("x-office-calendar-symbolic")
@@ -225,12 +228,12 @@ class VirusTotalResultsDialog(Adw.Window):
     def _create_file_info_section(self, parent: Gtk.Box):
         """Create the file information section."""
         file_group = Adw.PreferencesGroup()
-        file_group.set_title("File Information")
+        file_group.set_title(_("File Information"))
 
         # File path row
         if self._vt_result.file_path:
             path_row = Adw.ActionRow()
-            path_row.set_title("File")
+            path_row.set_title(_("File"))
             path_row.set_subtitle(os.path.basename(self._vt_result.file_path))
             path_row.set_tooltip_text(self._vt_result.file_path)
 
@@ -239,7 +242,7 @@ class VirusTotalResultsDialog(Adw.Window):
             copy_path_btn.set_icon_name(resolve_icon_name("edit-copy-symbolic"))
             copy_path_btn.set_valign(Gtk.Align.CENTER)
             copy_path_btn.add_css_class("flat")
-            copy_path_btn.set_tooltip_text("Copy file path")
+            copy_path_btn.set_tooltip_text(_("Copy file path"))
             copy_path_btn.connect("clicked", self._on_copy_path_clicked)
             path_row.add_suffix(copy_path_btn)
 
@@ -252,7 +255,7 @@ class VirusTotalResultsDialog(Adw.Window):
         # SHA256 hash row
         if self._vt_result.sha256:
             hash_row = Adw.ActionRow()
-            hash_row.set_title("SHA256")
+            hash_row.set_title("SHA256")  # i18n: no-translate
             # Show truncated hash in subtitle
             truncated_hash = f"{self._vt_result.sha256[:16]}...{self._vt_result.sha256[-16:]}"
             hash_row.set_subtitle(truncated_hash)
@@ -263,7 +266,7 @@ class VirusTotalResultsDialog(Adw.Window):
             copy_hash_btn.set_icon_name(resolve_icon_name("edit-copy-symbolic"))
             copy_hash_btn.set_valign(Gtk.Align.CENTER)
             copy_hash_btn.add_css_class("flat")
-            copy_hash_btn.set_tooltip_text("Copy SHA256 hash")
+            copy_hash_btn.set_tooltip_text(_("Copy SHA256 hash"))
             copy_hash_btn.connect("clicked", self._on_copy_hash_clicked)
             hash_row.add_suffix(copy_hash_btn)
 
@@ -278,14 +281,16 @@ class VirusTotalResultsDialog(Adw.Window):
     def _create_detections_section(self, parent: Gtk.Box):
         """Create the detections list section."""
         detections_group = Adw.PreferencesGroup()
-        detections_group.set_title("Detection Details")
+        detections_group.set_title(_("Detection Details"))
 
         # Warning banner for large result sets
         if len(self._all_detections) > LARGE_RESULT_THRESHOLD:
             warning_label = Gtk.Label()
             warning_label.set_markup(
-                f"<small>Showing first {INITIAL_DISPLAY_LIMIT} of "
-                f"{len(self._all_detections)} detections</small>"
+                _("<small>Showing first {limit} of {total} detections</small>").format(
+                    limit=INITIAL_DISPLAY_LIMIT,
+                    total=len(self._all_detections),
+                )
             )
             warning_label.add_css_class("dim-label")
             warning_label.set_margin_bottom(8)
@@ -329,7 +334,9 @@ class VirusTotalResultsDialog(Adw.Window):
 
             remaining = len(self._all_detections) - self._displayed_detection_count
             load_more_btn = Gtk.Button()
-            load_more_btn.set_label(f"Show {min(LOAD_MORE_BATCH_SIZE, remaining)} more")
+            load_more_btn.set_label(
+                _("Show {count} more").format(count=min(LOAD_MORE_BATCH_SIZE, remaining))
+            )
             load_more_btn.add_css_class("flat")
             load_more_btn.connect("clicked", self._on_load_more_clicked)
             load_more_box.append(load_more_btn)
@@ -398,21 +405,21 @@ class VirusTotalResultsDialog(Adw.Window):
                 webbrowser.open(self._vt_result.permalink)
             except Exception as e:
                 logger.error(f"Failed to open browser: {e}")
-                self._show_toast("Failed to open browser")
+                self._show_toast(_("Failed to open browser"))
 
     def _on_copy_path_clicked(self, button: Gtk.Button):
         """Copy file path to clipboard."""
         if copy_to_clipboard(self._vt_result.file_path):
-            self._show_toast("File path copied")
+            self._show_toast(_("File path copied"))
         else:
-            self._show_toast("Failed to copy")
+            self._show_toast(_("Failed to copy"))
 
     def _on_copy_hash_clicked(self, button: Gtk.Button):
         """Copy SHA256 hash to clipboard."""
         if copy_to_clipboard(self._vt_result.sha256):
-            self._show_toast("SHA256 hash copied")
+            self._show_toast(_("SHA256 hash copied"))
         else:
-            self._show_toast("Failed to copy")
+            self._show_toast(_("Failed to copy"))
 
     def _on_export_clicked(self, button: Gtk.Button):
         """Export scan results to JSON and copy to clipboard."""
@@ -440,9 +447,9 @@ class VirusTotalResultsDialog(Adw.Window):
         json_str = json.dumps(export_data, indent=2)
 
         if copy_to_clipboard(json_str):
-            self._show_toast("Results copied to clipboard as JSON")
+            self._show_toast(_("Results copied to clipboard as JSON"))
         else:
-            self._show_toast("Failed to copy results")
+            self._show_toast(_("Failed to copy results"))
 
     def _show_toast(self, message: str):
         """Show a toast notification."""

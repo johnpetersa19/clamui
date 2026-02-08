@@ -9,6 +9,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ..core.i18n import _, ngettext
 from ..core.updater import (
     FreshclamServiceStatus,
     FreshclamUpdater,
@@ -83,13 +84,15 @@ class UpdateView(Gtk.Box):
         """Create the info/description section."""
         # Info frame
         info_group = Adw.PreferencesGroup()
-        info_group.set_title("Database Update")
-        info_group.set_description("Update ClamAV virus definitions to detect the latest threats")
+        info_group.set_title(_("Database Update"))
+        info_group.set_description(
+            _("Update ClamAV virus definitions to detect the latest threats")
+        )
 
         # Info row explaining the update process
         info_row = Adw.ActionRow()
-        info_row.set_title("Virus Definitions")
-        info_row.set_subtitle("Click 'Update Database' to download the latest virus signatures")
+        info_row.set_title(_("Virus Definitions"))
+        info_row.set_subtitle(_("Click 'Update Database' to download the latest virus signatures"))
         add_row_icon(info_row, "software-update-available-symbolic")
 
         info_group.add(info_row)
@@ -108,8 +111,8 @@ class UpdateView(Gtk.Box):
 
         # Update button
         self._update_button = Gtk.Button()
-        self._update_button.set_label("Update Database")
-        self._update_button.set_tooltip_text("Update Database (F6)")
+        self._update_button.set_label(_("Update Database"))
+        self._update_button.set_tooltip_text(_("Update Database (F6)"))
         self._update_button.add_css_class("suggested-action")
         self._update_button.add_css_class("pill")
         self._update_button.set_sensitive(False)  # Disabled until freshclam is verified
@@ -120,10 +123,12 @@ class UpdateView(Gtk.Box):
 
         # Force Update button - less prominent than main Update button
         self._force_update_button = Gtk.Button()
-        self._force_update_button.set_label("Force Update")
+        self._force_update_button.set_label(_("Force Update"))
         self._force_update_button.set_tooltip_text(
-            "Force update: Backs up local databases, deletes them, then downloads fresh copies "
-            "from mirrors. Automatically restores from backup if update fails."
+            _(
+                "Force update: Backs up local databases, deletes them, then downloads fresh copies "
+                "from mirrors. Automatically restores from backup if update fails."
+            )
         )
         self._force_update_button.add_css_class("pill")
         self._force_update_button.set_sensitive(False)  # Disabled until freshclam is verified
@@ -131,7 +136,7 @@ class UpdateView(Gtk.Box):
 
         # Cancel button (hidden by default)
         self._cancel_button = Gtk.Button()
-        self._cancel_button.set_label("Cancel")
+        self._cancel_button.set_label(_("Cancel"))
         self._cancel_button.add_css_class("destructive-action")
         self._cancel_button.add_css_class("pill")
         self._cancel_button.set_visible(False)
@@ -148,8 +153,8 @@ class UpdateView(Gtk.Box):
         """Create the results display section."""
         # Results frame
         results_group = Adw.PreferencesGroup()
-        results_group.set_title("Update Results")
-        results_group.set_description("Results will appear here after updating")
+        results_group.set_title(_("Update Results"))
+        results_group.set_description(_("Results will appear here after updating"))
         self._results_group = results_group
 
         # Results container
@@ -159,7 +164,7 @@ class UpdateView(Gtk.Box):
         # Status banner (hidden by default)
         self._status_banner = create_banner()
         self._status_banner.set_revealed(False)
-        self._status_banner.set_button_label("Dismiss")
+        self._status_banner.set_button_label(_("Dismiss"))
         self._status_banner.connect("button-clicked", self._on_status_banner_dismissed)
         results_box.append(self._status_banner)
 
@@ -182,7 +187,9 @@ class UpdateView(Gtk.Box):
         # Set placeholder text
         buffer = self._results_text.get_buffer()
         buffer.set_text(
-            "No update results yet.\n\nClick 'Update Database' to download the latest virus definitions."
+            _("No update results yet.")
+            + "\n\n"
+            + _("Click 'Update Database' to download the latest virus definitions.")
         )
 
         scrolled.set_child(self._results_text)
@@ -210,7 +217,7 @@ class UpdateView(Gtk.Box):
 
         # Freshclam status label
         self._freshclam_status_label = Gtk.Label()
-        self._freshclam_status_label.set_text("Checking freshclam...")
+        self._freshclam_status_label.set_text(_("Checking freshclam..."))
         self._freshclam_status_label.add_css_class("dim-label")
 
         freshclam_box.append(self._freshclam_status_icon)
@@ -228,7 +235,7 @@ class UpdateView(Gtk.Box):
 
         # Service status label
         self._service_status_label = Gtk.Label()
-        self._service_status_label.set_text("Checking service...")
+        self._service_status_label.set_text(_("Checking service..."))
         self._service_status_label.add_css_class("dim-label")
 
         service_box.append(self._service_status_icon)
@@ -247,7 +254,9 @@ class UpdateView(Gtk.Box):
                 resolve_icon_name("object-select-symbolic")
             )
             self._freshclam_status_icon.add_css_class("success")
-            self._freshclam_status_label.set_text(f"freshclam: {version_or_error}")
+            self._freshclam_status_label.set_text(
+                _("freshclam: {version}").format(version=version_or_error)
+            )
 
             # Enable update buttons
             self._update_button.set_sensitive(True)
@@ -261,16 +270,16 @@ class UpdateView(Gtk.Box):
                 resolve_icon_name("dialog-warning-symbolic")
             )
             self._freshclam_status_icon.add_css_class("warning")
-            self._freshclam_status_label.set_text(version_or_error or "freshclam not found")
+            self._freshclam_status_label.set_text(version_or_error or _("freshclam not found"))
 
             # Disable update buttons and show error banner
             self._update_button.set_sensitive(False)
             self._force_update_button.set_sensitive(False)
-            self._status_banner.set_title(version_or_error or "freshclam not installed")
+            self._status_banner.set_title(version_or_error or _("freshclam not installed"))
             self._status_banner.set_revealed(True)
 
             # Hide service status when freshclam not available
-            self._service_status_label.set_text("Service: N/A")
+            self._service_status_label.set_text(_("Service: N/A"))
             self._service_status = FreshclamServiceStatus.NOT_FOUND
 
         return False  # Don't repeat
@@ -289,16 +298,16 @@ class UpdateView(Gtk.Box):
             )
             self._service_status_icon.add_css_class("success")
             pid_info = f" (PID {pid})" if pid else ""
-            self._service_status_label.set_text(f"Service: Active{pid_info}")
+            self._service_status_label.set_text(_("Service: Active") + pid_info)
         elif self._service_status == FreshclamServiceStatus.STOPPED:
             self._service_status_icon.set_from_icon_name(
                 resolve_icon_name("media-playback-stop-symbolic")
             )
             self._service_status_icon.add_css_class("warning")
-            self._service_status_label.set_text("Service: Stopped")
+            self._service_status_label.set_text(_("Service: Stopped"))
         else:  # NOT_FOUND or UNKNOWN
             self._service_status_icon.set_from_icon_name(resolve_icon_name("system-run-symbolic"))
-            self._service_status_label.set_text("Service: Manual Mode")
+            self._service_status_label.set_text(_("Service: Manual Mode"))
 
     def _on_status_banner_dismissed(self, banner):
         """
@@ -345,14 +354,21 @@ class UpdateView(Gtk.Box):
         buffer = self._results_text.get_buffer()
         if force:
             buffer.set_text(
-                "Force updating virus database...\n\n"
-                "Backing up local databases, then deleting them to force fresh downloads from mirrors.\n"
-                "Previous databases will be restored if the update fails.\n\n"
-                "Please wait, this may take a few minutes."
+                _("Force updating virus database...")
+                + "\n\n"
+                + _(
+                    "Backing up local databases, then deleting them to force fresh downloads from mirrors."
+                )
+                + "\n"
+                + _("Previous databases will be restored if the update fails.")
+                + "\n\n"
+                + _("Please wait, this may take a few minutes.")
             )
         else:
             buffer.set_text(
-                "Updating virus database...\n\nPlease wait, this may take a few minutes."
+                _("Updating virus database...")
+                + "\n\n"
+                + _("Please wait, this may take a few minutes.")
             )
 
         # Hide any previous status banner
@@ -372,7 +388,7 @@ class UpdateView(Gtk.Box):
 
         if is_updating:
             # Show updating state
-            self._update_button.set_label("Updating...")
+            self._update_button.set_label(_("Updating..."))
             self._update_button.set_sensitive(False)
             self._force_update_button.set_sensitive(False)
             self._update_spinner.set_visible(True)
@@ -380,7 +396,7 @@ class UpdateView(Gtk.Box):
             self._cancel_button.set_visible(True)
         else:
             # Restore normal state
-            self._update_button.set_label("Update Database")
+            self._update_button.set_label(_("Update Database"))
             self._update_button.set_sensitive(self._freshclam_available)
             self._force_update_button.set_sensitive(self._freshclam_available)
             self._update_spinner.stop()
@@ -432,20 +448,24 @@ class UpdateView(Gtk.Box):
         # Update status banner based on result
         if result.status == UpdateStatus.SUCCESS:
             if is_service_update:
-                self._status_banner.set_title("Update signal sent to freshclam service")
+                self._status_banner.set_title(_("Update signal sent to freshclam service"))
             else:
                 self._status_banner.set_title(
-                    f"Database updated successfully ({result.databases_updated} database(s) updated)"
+                    ngettext(
+                        "Database updated successfully ({count} database updated)",
+                        "Database updated successfully ({count} databases updated)",
+                        result.databases_updated,
+                    ).format(count=result.databases_updated)
                 )
             set_status_class(self._status_banner, StatusLevel.SUCCESS)
         elif result.status == UpdateStatus.UP_TO_DATE:
-            self._status_banner.set_title("Database is already up to date")
+            self._status_banner.set_title(_("Database is already up to date"))
             set_status_class(self._status_banner, StatusLevel.INFO)
         elif result.status == UpdateStatus.CANCELLED:
-            self._status_banner.set_title("Update cancelled")
+            self._status_banner.set_title(_("Update cancelled"))
             set_status_class(self._status_banner, StatusLevel.WARNING)
         else:  # ERROR
-            self._status_banner.set_title(result.error_message or "Update error occurred")
+            self._status_banner.set_title(result.error_message or _("Update error occurred"))
             set_status_class(self._status_banner, StatusLevel.ERROR)
 
         self._status_banner.set_revealed(True)
@@ -456,49 +476,49 @@ class UpdateView(Gtk.Box):
         # Header with update status
         if result.status == UpdateStatus.SUCCESS:
             if is_service_update:
-                lines.append("UPDATE SIGNAL SENT TO FRESHCLAM SERVICE")
+                lines.append(_("UPDATE SIGNAL SENT TO FRESHCLAM SERVICE"))
             else:
-                lines.append("UPDATE COMPLETE - DATABASE UPDATED")
+                lines.append(_("UPDATE COMPLETE - DATABASE UPDATED"))
         elif result.status == UpdateStatus.UP_TO_DATE:
-            lines.append("UPDATE COMPLETE - ALREADY UP TO DATE")
+            lines.append(_("UPDATE COMPLETE - ALREADY UP TO DATE"))
         elif result.status == UpdateStatus.CANCELLED:
-            lines.append("UPDATE CANCELLED")
+            lines.append(_("UPDATE CANCELLED"))
         else:
-            lines.append("UPDATE ERROR")
+            lines.append(_("UPDATE ERROR"))
 
         lines.append("=" * 50)
         lines.append("")
 
         # Summary
-        lines.append("Summary:")
-        lines.append(f"  Status: {result.status.value}")
-        lines.append(f"  Method: {result.update_method.value}")
+        lines.append(_("Summary:"))
+        lines.append(_("  Status: {status}").format(status=result.status.value))
+        lines.append(_("  Method: {method}").format(method=result.update_method.value))
         if result.databases_updated > 0:
-            lines.append(f"  Databases updated: {result.databases_updated}")
+            lines.append(_("  Databases updated: {count}").format(count=result.databases_updated))
         lines.append("")
 
         # Service-specific message
         if is_service_update and result.status == UpdateStatus.SUCCESS:
-            lines.append("Note: The freshclam service is handling the update in the background.")
-            lines.append("Check service logs for detailed progress:")
+            lines.append(_("Note: The freshclam service is handling the update in the background."))
+            lines.append(_("Check service logs for detailed progress:"))
             lines.append("  journalctl -u clamav-freshclam.service -f")
             lines.append("")
 
         # Error message if present
         if result.error_message:
-            lines.append(f"Error: {result.error_message}")
+            lines.append(_("Error: {message}").format(message=result.error_message))
             lines.append("")
 
         # Raw output section
         if result.stdout:
             lines.append("-" * 50)
-            lines.append("freshclam Output:")
+            lines.append(_("freshclam Output:"))
             lines.append("-" * 50)
             lines.append(result.stdout)
 
         if result.stderr and result.status == UpdateStatus.ERROR:
             lines.append("-" * 50)
-            lines.append("Error Output:")
+            lines.append(_("Error Output:"))
             lines.append("-" * 50)
             lines.append(result.stderr)
 

@@ -9,6 +9,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, GObject, Gtk
 
+from ..core.i18n import _
 from ..core.log_manager import DaemonStatus, LogEntry, LogManager
 from ..core.statistics_calculator import StatisticsCalculator
 from .clipboard_helper import ClipboardHelper
@@ -49,8 +50,8 @@ class ClearLogsDialog(Adw.Window):
         """Initialize the clear logs confirmation dialog."""
         super().__init__(**kwargs)
 
-        self._heading = "Clear All Logs?"
-        self._body = (
+        self._heading = _("Clear All Logs?")
+        self._body = _(
             "This will permanently delete all historical logs. This action cannot be undone."
         )
 
@@ -100,12 +101,12 @@ class ClearLogsDialog(Adw.Window):
         button_box.set_margin_top(12)
 
         # Cancel button
-        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button = Gtk.Button(label=_("Cancel"))
         cancel_button.connect("clicked", self._on_cancel_clicked)
         button_box.append(cancel_button)
 
         # Clear All button
-        clear_button = Gtk.Button(label="Clear All")
+        clear_button = Gtk.Button(label=_("Clear All"))
         clear_button.add_css_class("destructive-action")
         clear_button.connect("clicked", self._on_clear_clicked)
         button_box.append(clear_button)
@@ -238,7 +239,7 @@ class LogsView(Gtk.Box):
             self._view_stack,
             tab_content,
             "historical",
-            "Historical Logs",
+            _("Historical Logs"),
             resolve_icon_name("document-open-recent-symbolic"),
         )
 
@@ -261,7 +262,7 @@ class LogsView(Gtk.Box):
             self._view_stack,
             tab_content,
             "daemon",
-            "ClamAV Daemon",
+            _("ClamAV Daemon"),
             resolve_icon_name("utilities-terminal-symbolic"),
         )
 
@@ -274,8 +275,8 @@ class LogsView(Gtk.Box):
         """
         # Historical logs group
         logs_group = Adw.PreferencesGroup()
-        logs_group.set_title("Historical Logs")
-        logs_group.set_description("Previous scan and update operations")
+        logs_group.set_title(_("Historical Logs"))
+        logs_group.set_description(_("Previous scan and update operations"))
 
         # Header box with Clear button
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -283,7 +284,7 @@ class LogsView(Gtk.Box):
 
         # Clear logs button
         clear_button = Gtk.Button()
-        clear_button.set_label("Clear All")
+        clear_button.set_label(_("Clear All"))
         clear_button.add_css_class("flat")
         clear_button.connect("clicked", self._on_clear_logs_clicked)
         self._clear_button = clear_button
@@ -291,7 +292,7 @@ class LogsView(Gtk.Box):
         # Export to JSON button
         export_json_button = Gtk.Button()
         export_json_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
-        export_json_button.set_tooltip_text("Export all logs to JSON")
+        export_json_button.set_tooltip_text(_("Export all logs to JSON"))
         export_json_button.add_css_class("flat")
         export_json_button.set_sensitive(False)  # Disabled until logs are loaded
         export_json_button.connect("clicked", self._on_export_all_json_clicked)
@@ -300,7 +301,7 @@ class LogsView(Gtk.Box):
         # Export to CSV button
         export_csv_button = Gtk.Button()
         export_csv_button.set_icon_name(resolve_icon_name("x-office-spreadsheet-symbolic"))
-        export_csv_button.set_tooltip_text("Export all logs to CSV")
+        export_csv_button.set_tooltip_text(_("Export all logs to CSV"))
         export_csv_button.add_css_class("flat")
         export_csv_button.set_sensitive(False)  # Disabled until logs are loaded
         export_csv_button.connect("clicked", self._on_export_all_csv_clicked)
@@ -309,7 +310,7 @@ class LogsView(Gtk.Box):
         # Refresh button
         refresh_button = Gtk.Button()
         refresh_button.set_icon_name(resolve_icon_name("view-refresh-symbolic"))
-        refresh_button.set_tooltip_text("Refresh logs")
+        refresh_button.set_tooltip_text(_("Refresh logs"))
         refresh_button.add_css_class("flat")
         refresh_button.connect("clicked", self._on_refresh_clicked)
         self._refresh_button = refresh_button
@@ -349,8 +350,8 @@ class LogsView(Gtk.Box):
         return create_empty_state(
             EmptyStateConfig(
                 icon_name="document-open-recent-symbolic",
-                title="No logs yet",
-                subtitle="Logs from scans and updates will appear here",
+                title=_("No logs yet"),
+                subtitle=_("Logs from scans and updates will appear here"),
             )
         )
 
@@ -361,7 +362,7 @@ class LogsView(Gtk.Box):
         Returns:
             Gtk.ListBoxRow containing spinner and loading text
         """
-        return create_loading_row("Loading logs...")
+        return create_loading_row(_("Loading logs..."))
 
     def _create_log_detail_section(self, parent: Gtk.Box):
         """
@@ -372,8 +373,8 @@ class LogsView(Gtk.Box):
         """
         # Log detail group
         detail_group = Adw.PreferencesGroup()
-        detail_group.set_title("Log Details")
-        detail_group.set_description("Select a log entry above to view details")
+        detail_group.set_title(_("Log Details"))
+        detail_group.set_description(_("Select a log entry above to view details"))
         self._detail_group = detail_group
 
         # Header box with copy, export, and fullscreen buttons
@@ -384,7 +385,7 @@ class LogsView(Gtk.Box):
         # Copy to Clipboard button
         copy_button = Gtk.Button()
         copy_button.set_icon_name(resolve_icon_name("edit-copy-symbolic"))
-        copy_button.set_tooltip_text("Copy to clipboard")
+        copy_button.set_tooltip_text(_("Copy to clipboard"))
         copy_button.add_css_class("flat")
         copy_button.set_sensitive(False)  # Disabled until log selected
         copy_button.connect("clicked", self._on_copy_detail_clicked)
@@ -393,7 +394,7 @@ class LogsView(Gtk.Box):
         # Export to Text button
         export_text_button = Gtk.Button()
         export_text_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
-        export_text_button.set_tooltip_text("Export to text file")
+        export_text_button.set_tooltip_text(_("Export to text file"))
         export_text_button.add_css_class("flat")
         export_text_button.set_sensitive(False)  # Disabled until log selected
         export_text_button.connect("clicked", self._on_export_detail_text_clicked)
@@ -402,7 +403,7 @@ class LogsView(Gtk.Box):
         # Export to CSV button
         export_csv_button = Gtk.Button()
         export_csv_button.set_icon_name(resolve_icon_name("x-office-spreadsheet-symbolic"))
-        export_csv_button.set_tooltip_text("Export to CSV file")
+        export_csv_button.set_tooltip_text(_("Export to CSV file"))
         export_csv_button.add_css_class("flat")
         export_csv_button.set_sensitive(False)  # Disabled until log selected
         export_csv_button.connect("clicked", self._on_export_detail_csv_clicked)
@@ -411,7 +412,7 @@ class LogsView(Gtk.Box):
         # Export to JSON button
         export_json_button = Gtk.Button()
         export_json_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
-        export_json_button.set_tooltip_text("Export to JSON file")
+        export_json_button.set_tooltip_text(_("Export to JSON file"))
         export_json_button.add_css_class("flat")
         export_json_button.set_sensitive(False)  # Disabled until log selected
         export_json_button.connect("clicked", self._on_export_detail_json_clicked)
@@ -420,7 +421,7 @@ class LogsView(Gtk.Box):
         # Fullscreen button
         fullscreen_button = Gtk.Button()
         fullscreen_button.set_icon_name(resolve_icon_name("view-fullscreen-symbolic"))
-        fullscreen_button.set_tooltip_text("View fullscreen")
+        fullscreen_button.set_tooltip_text(_("View fullscreen"))
         fullscreen_button.add_css_class("flat")
         fullscreen_button.connect("clicked", self._on_fullscreen_detail_clicked)
         self._fullscreen_detail_button = fullscreen_button
@@ -455,7 +456,7 @@ class LogsView(Gtk.Box):
 
         # Set placeholder text
         buffer = self._detail_text.get_buffer()
-        buffer.set_text("Select a log entry to view details.")
+        buffer.set_text(_("Select a log entry to view details."))
 
         scrolled.set_child(self._detail_text)
         detail_box.append(scrolled)
@@ -472,8 +473,8 @@ class LogsView(Gtk.Box):
         """
         # Daemon logs group
         daemon_group = Adw.PreferencesGroup()
-        daemon_group.set_title("ClamAV Daemon Logs")
-        daemon_group.set_description("Live logs from the clamd daemon")
+        daemon_group.set_title(_("ClamAV Daemon Logs"))
+        daemon_group.set_description(_("Live logs from the clamd daemon"))
         self._daemon_group = daemon_group
 
         # Header box with export and fullscreen buttons
@@ -483,7 +484,7 @@ class LogsView(Gtk.Box):
         # Export button
         export_button = Gtk.Button()
         export_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
-        export_button.set_tooltip_text("Export daemon logs to file")
+        export_button.set_tooltip_text(_("Export daemon logs to file"))
         export_button.add_css_class("flat")
         export_button.set_sensitive(False)  # Disabled until logs are loaded
         export_button.connect("clicked", self._on_export_daemon_logs_clicked)
@@ -492,7 +493,7 @@ class LogsView(Gtk.Box):
         # Fullscreen button
         fullscreen_button = Gtk.Button()
         fullscreen_button.set_icon_name(resolve_icon_name("view-fullscreen-symbolic"))
-        fullscreen_button.set_tooltip_text("View fullscreen")
+        fullscreen_button.set_tooltip_text(_("View fullscreen"))
         fullscreen_button.add_css_class("flat")
         fullscreen_button.connect("clicked", self._on_fullscreen_daemon_clicked)
         self._fullscreen_daemon_button = fullscreen_button
@@ -503,14 +504,14 @@ class LogsView(Gtk.Box):
 
         # Status row
         self._daemon_status_row = Adw.ActionRow()
-        self._daemon_status_row.set_title("Daemon Status")
-        self._daemon_status_row.set_subtitle("Checking...")
+        self._daemon_status_row.set_title(_("Daemon Status"))
+        self._daemon_status_row.set_subtitle(_("Checking..."))
         self._daemon_status_icon = add_row_icon(self._daemon_status_row, "dialog-question-symbolic")
 
         # Refresh toggle button for live updates
         self._live_toggle = Gtk.ToggleButton()
         self._live_toggle.set_icon_name(resolve_icon_name("media-playback-start-symbolic"))
-        self._live_toggle.set_tooltip_text("Start live log updates")
+        self._live_toggle.set_tooltip_text(_("Start live log updates"))
         self._live_toggle.set_valign(Gtk.Align.CENTER)
         self._live_toggle.connect("toggled", self._on_live_toggle)
         safe_add_suffix(self._daemon_status_row, self._live_toggle)
@@ -537,7 +538,9 @@ class LogsView(Gtk.Box):
         # Set placeholder text
         buffer = self._daemon_text.get_buffer()
         buffer.set_text(
-            "Daemon logs will appear here.\n\nClick the play button to start live updates."
+            _("Daemon logs will appear here.")
+            + "\n\n"
+            + _("Click the play button to start live updates.")
         )
 
         scrolled.set_child(self._daemon_text)
@@ -716,7 +719,7 @@ class LogsView(Gtk.Box):
         if row is None:
             self._selected_log = None
             buffer = self._detail_text.get_buffer()
-            buffer.set_text("Select a log entry to view details.")
+            buffer.set_text(_("Select a log entry to view details."))
             # Disable copy/export buttons when no log is selected
             self._copy_detail_button.set_sensitive(False)
             self._export_detail_text_button.set_sensitive(False)
@@ -749,24 +752,24 @@ class LogsView(Gtk.Box):
 
         # Header
         if entry.type == "scan":
-            lines.append("SCAN LOG")
+            lines.append(_("SCAN LOG"))
         else:
-            lines.append("UPDATE LOG")
+            lines.append(_("UPDATE LOG"))
 
         lines.append("=" * 50)
         lines.append("")
 
         # Metadata
-        lines.append(f"ID: {entry.id}")
-        lines.append(f"Timestamp: {entry.timestamp}")
-        lines.append(f"Type: {entry.type}")
-        lines.append(f"Status: {entry.status}")
+        lines.append(_("ID: {id}").format(id=entry.id))
+        lines.append(_("Timestamp: {timestamp}").format(timestamp=entry.timestamp))
+        lines.append(_("Type: {type}").format(type=entry.type))
+        lines.append(_("Status: {status}").format(status=entry.status))
 
         if entry.path:
-            lines.append(f"Path: {entry.path}")
+            lines.append(_("Path: {path}").format(path=entry.path))
 
         if entry.duration > 0:
-            lines.append(f"Duration: {entry.duration:.2f} seconds")
+            lines.append(_("Duration: {duration:.2f} seconds").format(duration=entry.duration))
 
         lines.append("")
 
@@ -780,41 +783,51 @@ class LogsView(Gtk.Box):
                 or stats["directories_scanned"] > 0
                 or stats["duration"] > 0
             ):
-                lines.append("Statistics Summary:")
+                lines.append(_("Statistics Summary:"))
                 lines.append("-" * 50)
 
                 if stats["files_scanned"] > 0:
-                    lines.append(f"  Files Scanned: {stats['files_scanned']:,}")
+                    lines.append(
+                        _("  Files Scanned: {count}").format(
+                            count="{:,}".format(stats["files_scanned"])
+                        )
+                    )
 
                 if stats["directories_scanned"] > 0:
-                    lines.append(f"  Directories Scanned: {stats['directories_scanned']:,}")
+                    lines.append(
+                        _("  Directories Scanned: {count}").format(
+                            count="{:,}".format(stats["directories_scanned"])
+                        )
+                    )
 
                 if stats["duration"] > 0:
                     # Format duration nicely
                     duration = stats["duration"]
                     if duration < 60:
-                        duration_str = f"{duration:.2f} seconds"
+                        duration_str = _("{seconds:.2f} seconds").format(seconds=duration)
                     elif duration < 3600:
                         minutes = int(duration // 60)
                         seconds = duration % 60
-                        duration_str = f"{minutes}m {seconds:.0f}s"
+                        duration_str = _("{minutes}m {seconds:.0f}s").format(
+                            minutes=minutes, seconds=seconds
+                        )
                     else:
                         hours = int(duration // 3600)
                         minutes = int((duration % 3600) // 60)
-                        duration_str = f"{hours}h {minutes}m"
-                    lines.append(f"  Duration: {duration_str}")
+                        duration_str = _("{hours}h {minutes}m").format(hours=hours, minutes=minutes)
+                    lines.append(_("  Duration: {duration}").format(duration=duration_str))
 
                 lines.append("")
 
         # Summary
-        lines.append("Summary:")
+        lines.append(_("Summary:"))
         lines.append(f"  {entry.summary}")
         lines.append("")
 
         # Full details
         if entry.details:
             lines.append("-" * 50)
-            lines.append("Full Output:")
+            lines.append(_("Full Output:"))
             lines.append("-" * 50)
             lines.append(entry.details)
 
@@ -831,7 +844,7 @@ class LogsView(Gtk.Box):
         content = buffer.get_text(start, end, False)
 
         # Create and present the fullscreen dialog
-        dialog = FullscreenLogDialog(title="Log Details", content=content)
+        dialog = FullscreenLogDialog(title=_("Log Details"), content=content)
         dialog.set_transient_for(self.get_root())
         dialog.present()
 
@@ -1156,7 +1169,7 @@ class LogsView(Gtk.Box):
 
             # Clear detail view
             buffer = self._detail_text.get_buffer()
-            buffer.set_text("Select a log entry to view details.")
+            buffer.set_text(_("Select a log entry to view details."))
             self._selected_log = None
 
             # Disable copy/export buttons when logs are cleared
@@ -1213,20 +1226,20 @@ class LogsView(Gtk.Box):
         status, message = self._log_manager.get_daemon_status()
 
         if status == DaemonStatus.RUNNING:
-            self._daemon_status_row.set_subtitle("Running")
+            self._daemon_status_row.set_subtitle(_("Running"))
             self._daemon_status_icon.set_from_icon_name(resolve_icon_name("object-select-symbolic"))
             # Remove any warning/error classes and add success
             self._daemon_status_row.remove_css_class("warning")
             self._daemon_status_row.remove_css_class("error")
             self._live_toggle.set_sensitive(True)
         elif status == DaemonStatus.STOPPED:
-            self._daemon_status_row.set_subtitle("Stopped")
+            self._daemon_status_row.set_subtitle(_("Stopped"))
             self._daemon_status_icon.set_from_icon_name(
                 resolve_icon_name("media-playback-stop-symbolic")
             )
             self._live_toggle.set_sensitive(True)
         elif status == DaemonStatus.NOT_INSTALLED:
-            self._daemon_status_row.set_subtitle("Not installed")
+            self._daemon_status_row.set_subtitle(_("Not installed"))
             self._daemon_status_icon.set_from_icon_name(
                 resolve_icon_name("dialog-information-symbolic")
             )
@@ -1234,12 +1247,14 @@ class LogsView(Gtk.Box):
             # Update daemon text with helpful message
             buffer = self._daemon_text.get_buffer()
             buffer.set_text(
-                "ClamAV daemon (clamd) is not installed.\n\n"
-                "The daemon is optional and provides faster scanning.\n"
-                "You can still use ClamUI for on-demand scanning without it."
+                _(
+                    "ClamAV daemon (clamd) is not installed.\n\n"
+                    "The daemon is optional and provides faster scanning.\n"
+                    "You can still use ClamUI for on-demand scanning without it."
+                )
             )
         else:  # UNKNOWN
-            self._daemon_status_row.set_subtitle(message or "Unknown")
+            self._daemon_status_row.set_subtitle(message or _("Unknown"))
             self._daemon_status_icon.set_from_icon_name(
                 resolve_icon_name("dialog-question-symbolic")
             )
@@ -1252,12 +1267,12 @@ class LogsView(Gtk.Box):
         if button.get_active():
             # Start live updates
             button.set_icon_name(resolve_icon_name("media-playback-pause-symbolic"))
-            button.set_tooltip_text("Stop live log updates")
+            button.set_tooltip_text(_("Stop live log updates"))
             self._start_daemon_log_refresh()
         else:
             # Stop live updates
             button.set_icon_name(resolve_icon_name("media-playback-start-symbolic"))
-            button.set_tooltip_text("Start live log updates")
+            button.set_tooltip_text(_("Start live log updates"))
             self._stop_daemon_log_refresh()
 
     def _start_daemon_log_refresh(self):

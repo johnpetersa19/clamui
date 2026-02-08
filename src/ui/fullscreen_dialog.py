@@ -9,6 +9,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ..core.i18n import N_, _
 from .compat import create_toolbar_view
 
 
@@ -32,7 +33,7 @@ class FullscreenLogDialog(Adw.Window):
     """
 
     # Placeholder text for empty content
-    EMPTY_PLACEHOLDER = "No content to display"
+    EMPTY_PLACEHOLDER = N_("No content to display")
 
     def __init__(self, title: str, content: str = "", **kwargs):
         """
@@ -119,7 +120,7 @@ class FullscreenLogDialog(Adw.Window):
         if content:
             buffer.set_text(content)
         else:
-            buffer.set_text(self.EMPTY_PLACEHOLDER)
+            buffer.set_text(_(self.EMPTY_PLACEHOLDER))
 
     def get_text_content(self) -> str:
         """
@@ -134,7 +135,7 @@ class FullscreenLogDialog(Adw.Window):
         text = buffer.get_text(start, end, False)
 
         # Return empty string if only placeholder is shown
-        if text == self.EMPTY_PLACEHOLDER:
+        if text == _(self.EMPTY_PLACEHOLDER):
             return ""
 
         return text

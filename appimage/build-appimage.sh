@@ -778,6 +778,60 @@ bundle_adwaita_icons() {
 }
 
 #
+# Bundle Locale Files (i18n)
+#
+# Compile .po translation files to .mo and install them into the AppDir
+# so the application can be used in different languages.
+#
+
+bundle_locales() {
+	log_info "=== Bundling Locale Files ==="
+	echo
+
+	PO_DIR="$PROJECT_ROOT/po"
+	LOCALE_DEST="$APPDIR/usr/share/locale"
+
+	if [ ! -d "$PO_DIR" ]; then
+		log_warning "No po/ directory found, skipping locale bundling"
+		return 0
+	fi
+
+	# Read LINGUAS file for list of languages
+	LINGUAS_FILE="$PO_DIR/LINGUAS"
+	if [ ! -f "$LINGUAS_FILE" ]; then
+		log_warning "No po/LINGUAS file found, skipping locale bundling"
+		return 0
+	fi
+
+	LANG_COUNT=0
+	while IFS= read -r lang || [ -n "$lang" ]; do
+		# Skip comments and empty lines
+		lang=$(echo "$lang" | sed 's/#.*//' | tr -d '[:space:]')
+		[ -z "$lang" ] && continue
+
+		PO_FILE="$PO_DIR/$lang.po"
+		if [ ! -f "$PO_FILE" ]; then
+			log_warning "Missing translation file: $PO_FILE"
+			continue
+		fi
+
+		MO_DIR="$LOCALE_DEST/$lang/LC_MESSAGES"
+		mkdir -p "$MO_DIR"
+		msgfmt -o "$MO_DIR/clamui.mo" "$PO_FILE"
+		LANG_COUNT=$((LANG_COUNT + 1))
+	done < "$LINGUAS_FILE"
+
+	if [ "$LANG_COUNT" -eq 0 ]; then
+		log_info "No translations to bundle (LINGUAS is empty)"
+	else
+		log_success "Bundled $LANG_COUNT language(s)"
+	fi
+
+	echo
+	return 0
+}
+
+#
 # Patch GTK Plugin Hook for libadwaita
 #
 # The linuxdeploy GTK plugin forces GTK_THEME="Adwaita:dark" which overrides
@@ -1178,6 +1232,11 @@ main() {
 	# Bundle Adwaita icon theme for proper symbolic icon rendering
 	if ! bundle_adwaita_icons; then
 		log_warning "Failed to bundle Adwaita icons (non-fatal)"
+	fi
+
+	# Bundle locale files for i18n
+	if ! bundle_locales; then
+		log_warning "Failed to bundle locale files (non-fatal)"
 	fi
 
 	# Copy desktop integration files

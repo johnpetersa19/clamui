@@ -22,6 +22,7 @@ from ...core.flatpak import (
     get_freshclam_config_path,
     is_flatpak,
 )
+from ...core.i18n import N_, _
 from ...core.scheduler import Scheduler
 from ..compat import create_toolbar_view
 from ..utils import resolve_icon_name
@@ -41,15 +42,15 @@ from .virustotal_page import VirusTotalPage
 
 # Navigation items configuration: (page_id, icon_name, display_label)
 NAVIGATION_ITEMS = [
-    ("behavior", "preferences-system-symbolic", "Behavior"),
-    ("exclusions", "action-unavailable-symbolic", "Exclusions"),
-    ("database", "software-update-available-symbolic", "Database"),
-    ("scanner", "document-properties-symbolic", "Scanner"),
-    ("scheduled", "alarm-symbolic", "Scheduled"),
-    ("onaccess", "security-high-symbolic", "On-Access"),
-    ("virustotal", "network-server-symbolic", "VirusTotal"),
-    ("debug", "applications-system-symbolic", "Debug"),
-    ("save", "document-save-symbolic", "Save"),
+    ("behavior", "preferences-system-symbolic", N_("Behavior")),
+    ("exclusions", "action-unavailable-symbolic", N_("Exclusions")),
+    ("database", "software-update-available-symbolic", N_("Database")),
+    ("scanner", "document-properties-symbolic", N_("Scanner")),
+    ("scheduled", "alarm-symbolic", N_("Scheduled")),
+    ("onaccess", "security-high-symbolic", N_("On-Access")),
+    ("virustotal", "network-server-symbolic", N_("VirusTotal")),
+    ("debug", "applications-system-symbolic", N_("Debug")),
+    ("save", "document-save-symbolic", N_("Save")),
 ]
 
 
@@ -86,8 +87,8 @@ class PreferencesSidebarRow(Gtk.ListBoxRow):
         icon.set_icon_size(Gtk.IconSize.NORMAL)
         box.append(icon)
 
-        # Label
-        label_widget = Gtk.Label(label=label)
+        # Label - translate at display time (labels use N_() for deferred translation)
+        label_widget = Gtk.Label(label=_(label))
         label_widget.set_xalign(0)
         label_widget.set_hexpand(True)
         box.append(label_widget)
@@ -139,7 +140,7 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
         self._tray_available = tray_available
 
         # Set window properties
-        self.set_title("Preferences")
+        self.set_title(_("Preferences"))
         self.set_default_size(850, 600)
         self.set_modal(True)
 
@@ -283,13 +284,13 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
 
         # Back button (hidden when not folded)
         self._back_button = Gtk.Button.new_from_icon_name(resolve_icon_name("go-previous-symbolic"))
-        self._back_button.set_tooltip_text("Back to navigation")
+        self._back_button.set_tooltip_text(_("Back to navigation"))
         self._back_button.connect("clicked", self._on_back_clicked)
         self._back_button.set_visible(False)
         header_bar.pack_start(self._back_button)
 
         # Title widget
-        self._title_label = Gtk.Label(label="Preferences")
+        self._title_label = Gtk.Label(label=_("Preferences"))
         self._title_label.add_css_class("title")
         header_bar.set_title_widget(self._title_label)
 
@@ -454,7 +455,7 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
 
         # Update title to reflect current page
         page_label = self._get_page_label(page_id)
-        self._title_label.set_label(f"Preferences — {page_label}")
+        self._title_label.set_label(_("Preferences — {page}").format(page=page_label))
 
         # If leaflet is folded, navigate to content
         if self._leaflet.get_folded():
@@ -462,9 +463,9 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
 
     def _get_page_label(self, page_id: str) -> str:
         """Get the display label for a page ID."""
-        for pid, _, label in NAVIGATION_ITEMS:
+        for pid, _icon, label in NAVIGATION_ITEMS:
             if pid == page_id:
-                return label
+                return _(label)
         return page_id.capitalize()
 
     def _on_leaflet_folded_changed(self, leaflet, pspec):
@@ -477,7 +478,7 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
             selected_row = self._sidebar_list.get_selected_row()
             if selected_row and isinstance(selected_row, PreferencesSidebarRow):
                 page_label = self._get_page_label(selected_row.page_id)
-                self._title_label.set_label(f"Preferences — {page_label}")
+                self._title_label.set_label(_("Preferences — {page}").format(page=page_label))
 
     def _on_back_clicked(self, button):
         """Handle back button click to return to sidebar."""

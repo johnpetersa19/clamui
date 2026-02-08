@@ -17,6 +17,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 from ...core.flatpak import is_flatpak
+from ...core.i18n import N_, _
 from ..compat import create_switch_row
 from ..utils import resolve_icon_name
 from .base import PreferencesPageMixin, create_navigation_row, styled_prefix_icon
@@ -39,7 +40,11 @@ class BehaviorPage(PreferencesPageMixin):
 
     # Mapping between close_behavior setting values and ComboRow indices
     CLOSE_BEHAVIOR_OPTIONS = ["minimize", "quit", "ask"]
-    CLOSE_BEHAVIOR_LABELS = ["Minimize to tray", "Quit completely", "Always ask"]
+    CLOSE_BEHAVIOR_LABELS = [
+        N_("Minimize to tray"),
+        N_("Quit completely"),
+        N_("Always ask"),
+    ]
 
     def __init__(
         self,
@@ -71,7 +76,7 @@ class BehaviorPage(PreferencesPageMixin):
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="Behavior",
+            title=_("Behavior"),
             icon_name=resolve_icon_name("preferences-system-symbolic"),
         )
 
@@ -82,10 +87,12 @@ class BehaviorPage(PreferencesPageMixin):
         else:
             # Show info message when tray is not available
             info_group = Adw.PreferencesGroup()
-            info_group.set_title("Window Behavior")
+            info_group.set_title(_("Window Behavior"))
             info_group.set_description(
-                "System tray is not available. Window behavior settings "
-                "require a system tray to be active."
+                _(
+                    "System tray is not available. Window behavior settings "
+                    "require a system tray to be active."
+                )
             )
             page.add(info_group)
 
@@ -108,19 +115,21 @@ class BehaviorPage(PreferencesPageMixin):
             Configured Adw.PreferencesGroup for window behavior settings
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Window Behavior")
-        group.set_description("Configure what happens when closing the window")
+        group.set_title(_("Window Behavior"))
+        group.set_description(_("Configure what happens when closing the window"))
 
         # Close behavior combo row
         self._close_behavior_row = Adw.ComboRow()
-        self._close_behavior_row.set_title("When closing window")
-        self._close_behavior_row.set_subtitle("Choose what happens when you close the main window")
+        self._close_behavior_row.set_title(_("When closing window"))
+        self._close_behavior_row.set_subtitle(
+            _("Choose what happens when you close the main window")
+        )
         self._close_behavior_row.add_prefix(styled_prefix_icon("window-close-symbolic"))
 
         # Create string list model for options
         model = Gtk.StringList()
         for label in self.CLOSE_BEHAVIOR_LABELS:
-            model.append(label)
+            model.append(_(label))
         self._close_behavior_row.set_model(model)
 
         # Connect signal
@@ -143,14 +152,14 @@ class BehaviorPage(PreferencesPageMixin):
             Configured Adw.PreferencesGroup for scan behavior settings
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Scan Behavior")
-        group.set_description("Configure how scans are displayed")
+        group.set_title(_("Scan Behavior"))
+        group.set_description(_("Configure how scans are displayed"))
 
         # Live progress toggle
         self._live_progress_row = create_switch_row(icon_name="view-refresh-symbolic")
-        self._live_progress_row.set_title("Show Live Scan Progress")
+        self._live_progress_row.set_title(_("Show Live Scan Progress"))
         self._live_progress_row.set_subtitle(
-            "Display files being scanned in real-time with detailed progress"
+            _("Display files being scanned in real-time with detailed progress")
         )
 
         # Connect signal
@@ -202,14 +211,14 @@ class BehaviorPage(PreferencesPageMixin):
             Configured Adw.PreferencesGroup for file manager integration settings
         """
         group = Adw.PreferencesGroup()
-        group.set_title("File Manager Integration")
+        group.set_title(_("File Manager Integration"))
         group.set_description(
-            "Add context menu actions to scan files directly from your file manager"
+            _("Add context menu actions to scan files directly from your file manager")
         )
 
         row = create_navigation_row(
-            title="Configure Integration",
-            subtitle="Install or manage 'Scan with ClamUI' menu actions",
+            title=_("Configure Integration"),
+            subtitle=_("Install or manage 'Scan with ClamUI' menu actions"),
             icon_name="system-file-manager-symbolic",
         )
         row.connect("activated", self._on_file_manager_integration_clicked)

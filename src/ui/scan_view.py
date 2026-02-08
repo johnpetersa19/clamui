@@ -16,6 +16,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
+from ..core.i18n import _, ngettext
 from ..core.quarantine import QuarantineManager
 from ..core.scanner import Scanner, ScanProgress, ScanResult, ScanStatus
 from ..core.utils import (
@@ -367,13 +368,15 @@ class ScanView(Gtk.Box):
 
         # Reject drops during active scan
         if self._is_scanning:
-            self._show_drop_error("Scan in progress - please wait until the current scan completes")
+            self._show_drop_error(
+                _("Scan in progress - please wait until the current scan completes")
+            )
             return False
 
         # Extract files from Gdk.FileList
         files = value.get_files()
         if not files:
-            self._show_drop_error("No files were dropped")
+            self._show_drop_error(_("No files were dropped"))
             return False
 
         # Get paths from Gio.File objects (None for remote files)
@@ -393,7 +396,7 @@ class ScanView(Gtk.Box):
             # Show the first error (most relevant for user)
             self._show_drop_error(errors[0])
         else:
-            self._show_drop_error("Unable to accept dropped files")
+            self._show_drop_error(_("Unable to accept dropped files"))
         return False
 
     def _on_drag_enter(self, target, x, y) -> Gdk.DragAction:
@@ -470,18 +473,18 @@ class ScanView(Gtk.Box):
         """Create the scan profile selector section."""
         # Profile selection frame
         profile_group = Adw.PreferencesGroup()
-        profile_group.set_title("Scan Profile")
+        profile_group.set_title(_("Scan Profile"))
         self._profile_group = profile_group
 
         # Profile selection row
         profile_row = Adw.ActionRow()
-        profile_row.set_title("Profile")
+        profile_row.set_title(_("Profile"))
         add_row_icon(profile_row, "document-properties-symbolic")
         self._profile_row = profile_row
 
         # Create string list for dropdown
         self._profile_string_list = Gtk.StringList()
-        self._profile_string_list.append("No Profile (Manual)")
+        self._profile_string_list.append(_("No Profile (Manual)"))
 
         # Create the dropdown
         self._profile_dropdown = Gtk.DropDown()
@@ -493,7 +496,7 @@ class ScanView(Gtk.Box):
         # Create manage profiles button
         manage_profiles_btn = Gtk.Button()
         manage_profiles_btn.set_icon_name(resolve_icon_name("emblem-system-symbolic"))
-        manage_profiles_btn.set_tooltip_text("Manage profiles")
+        manage_profiles_btn.set_tooltip_text(_("Manage profiles"))
         manage_profiles_btn.add_css_class("flat")
         manage_profiles_btn.set_valign(Gtk.Align.CENTER)
         manage_profiles_btn.connect("clicked", self._on_manage_profiles_clicked)
@@ -561,11 +564,11 @@ class ScanView(Gtk.Box):
         # Clear and rebuild the string list
         # GTK4 StringList doesn't have a clear method, so rebuild
         n_items = self._profile_string_list.get_n_items()
-        for _ in range(n_items):
+        for _i in range(n_items):
             self._profile_string_list.remove(0)
 
         # Add "No Profile" option
-        self._profile_string_list.append("No Profile (Manual)")
+        self._profile_string_list.append(_("No Profile (Manual)"))
 
         # Add each profile
         for profile in self._profile_list:
@@ -612,7 +615,9 @@ class ScanView(Gtk.Box):
                     # Warn if no valid targets were found
                     if valid_count == 0:
                         self._show_toast(
-                            f"Profile '{self._selected_profile.name}' has no valid targets"
+                            _("Profile '{name}' has no valid targets").format(
+                                name=self._selected_profile.name
+                            )
                         )
             else:
                 self._selected_profile = None
@@ -668,8 +673,8 @@ class ScanView(Gtk.Box):
         """Create the file/folder selection UI section with multi-path support."""
         # Container for selection UI
         self._selection_group = Adw.PreferencesGroup()
-        self._selection_group.set_title("Scan Targets")
-        self._selection_group.set_description("Drop files here or click Add")
+        self._selection_group.set_title(_("Scan Targets"))
+        self._selection_group.set_description(_("Drop files here or click Add"))
 
         # Header suffix with Add buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -678,7 +683,7 @@ class ScanView(Gtk.Box):
         # Add Files button
         self._add_files_button = Gtk.Button()
         self._add_files_button.set_icon_name(resolve_icon_name("document-new-symbolic"))
-        self._add_files_button.set_tooltip_text("Add files")
+        self._add_files_button.set_tooltip_text(_("Add files"))
         self._add_files_button.add_css_class("flat")
         self._add_files_button.connect("clicked", self._on_select_file_clicked)
         button_box.append(self._add_files_button)
@@ -686,7 +691,7 @@ class ScanView(Gtk.Box):
         # Add Folders button
         self._add_folders_button = Gtk.Button()
         self._add_folders_button.set_icon_name(resolve_icon_name("folder-new-symbolic"))
-        self._add_folders_button.set_tooltip_text("Add folders")
+        self._add_folders_button.set_tooltip_text(_("Add folders"))
         self._add_folders_button.add_css_class("flat")
         self._add_folders_button.connect("clicked", self._on_select_folder_clicked)
         button_box.append(self._add_folders_button)
@@ -694,7 +699,7 @@ class ScanView(Gtk.Box):
         # Clear All button (visible when multiple paths exist)
         self._clear_all_button = Gtk.Button()
         self._clear_all_button.set_icon_name(resolve_icon_name("edit-clear-all-symbolic"))
-        self._clear_all_button.set_tooltip_text("Clear all")
+        self._clear_all_button.set_tooltip_text(_("Clear all"))
         self._clear_all_button.add_css_class("flat")
         self._clear_all_button.connect("clicked", self._on_clear_all_clicked)
         self._clear_all_button.set_visible(False)
@@ -709,8 +714,8 @@ class ScanView(Gtk.Box):
 
         # Placeholder row for empty list
         self._paths_placeholder = Adw.ActionRow()
-        self._paths_placeholder.set_title("No targets added")
-        self._paths_placeholder.set_subtitle("Drop files here or click Add Files/Folders")
+        self._paths_placeholder.set_title(_("No targets added"))
+        self._paths_placeholder.set_subtitle(_("Drop files here or click Add Files/Folders"))
         add_row_icon(self._paths_placeholder, "folder-symbolic")
         self._paths_placeholder.add_css_class("dim-label")
         self._paths_listbox.append(self._paths_placeholder)
@@ -744,7 +749,7 @@ class ScanView(Gtk.Box):
         # Remove button
         remove_btn = Gtk.Button()
         remove_btn.set_icon_name(resolve_icon_name("edit-delete-symbolic"))
-        remove_btn.set_tooltip_text("Remove")
+        remove_btn.set_tooltip_text(_("Remove"))
         remove_btn.add_css_class("flat")
         remove_btn.add_css_class("error")
         remove_btn.set_valign(Gtk.Align.CENTER)
@@ -785,7 +790,7 @@ class ScanView(Gtk.Box):
             return
 
         dialog = Gtk.FileDialog()
-        dialog.set_title("Select Files to Scan")
+        dialog.set_title(_("Select Files to Scan"))
 
         # Set initial folder if a path is already selected
         if self._selected_paths:
@@ -831,7 +836,7 @@ class ScanView(Gtk.Box):
     def _show_file_dialog_modern(self, root: Gtk.Window) -> None:
         """Use GTK 4.10+ FileDialog API for folder selection."""
         dialog = Gtk.FileDialog()
-        dialog.set_title("Select Folders to Scan")
+        dialog.set_title(_("Select Folders to Scan"))
 
         # Set initial folder if a path is already selected
         if self._selected_paths:
@@ -859,11 +864,11 @@ class ScanView(Gtk.Box):
     def _show_file_dialog_legacy(self, root: Gtk.Window) -> None:
         """Use GTK 4.0+ FileChooserNative API (fallback for GTK < 4.10)."""
         dialog = Gtk.FileChooserNative.new(
-            "Select Folders to Scan",
+            _("Select Folders to Scan"),
             root,
             Gtk.FileChooserAction.SELECT_FOLDER,
-            "_Open",
-            "_Cancel",
+            _("_Open"),
+            _("_Cancel"),
         )
         dialog.set_select_multiple(True)
 
@@ -1008,13 +1013,13 @@ class ScanView(Gtk.Box):
 
         # Update group title with count
         if path_count == 0:
-            self._selection_group.set_title("Scan Targets")
-            self._selection_group.set_description("Drop files here or click Add")
+            self._selection_group.set_title(_("Scan Targets"))
+            self._selection_group.set_description(_("Drop files here or click Add"))
         elif path_count == 1:
-            self._selection_group.set_title("Scan Target (1)")
+            self._selection_group.set_title(_("Scan Target (1)"))
             self._selection_group.set_description("")
         else:
-            self._selection_group.set_title(f"Scan Targets ({path_count})")
+            self._selection_group.set_title(_("Scan Targets ({count})").format(count=path_count))
             self._selection_group.set_description("")
 
         # Show/hide Clear All button
@@ -1033,8 +1038,8 @@ class ScanView(Gtk.Box):
 
         # Scan button
         self._scan_button = Gtk.Button()
-        self._scan_button.set_label("Start Scan")
-        self._scan_button.set_tooltip_text("Start Scan (F5)")
+        self._scan_button.set_label(_("Start Scan"))
+        self._scan_button.set_tooltip_text(_("Start Scan (F5)"))
         self._scan_button.add_css_class("suggested-action")
         self._scan_button.set_size_request(150, -1)
         self._scan_button.connect("clicked", self._on_scan_clicked)
@@ -1042,9 +1047,9 @@ class ScanView(Gtk.Box):
 
         # EICAR Test button
         self._eicar_button = Gtk.Button()
-        self._eicar_button.set_label("EICAR Test")
+        self._eicar_button.set_label(_("EICAR Test"))
         self._eicar_button.set_tooltip_text(
-            "Run a scan with EICAR test file to verify antivirus detection"
+            _("Run a scan with EICAR test file to verify antivirus detection")
         )
         self._eicar_button.set_size_request(120, -1)
         self._eicar_button.connect("clicked", self._on_eicar_test_clicked)
@@ -1052,8 +1057,8 @@ class ScanView(Gtk.Box):
 
         # Cancel button - hidden initially, shown during scanning
         self._cancel_button = Gtk.Button()
-        self._cancel_button.set_label("Cancel")
-        self._cancel_button.set_tooltip_text("Cancel the current scan")
+        self._cancel_button.set_label(_("Cancel"))
+        self._cancel_button.set_tooltip_text(_("Cancel the current scan"))
         self._cancel_button.add_css_class("destructive-action")
         self._cancel_button.set_size_request(120, -1)
         self._cancel_button.set_visible(False)
@@ -1079,7 +1084,7 @@ class ScanView(Gtk.Box):
 
         # Status label (general scan status)
         self._progress_label = Gtk.Label()
-        self._progress_label.set_label("Scanning...")
+        self._progress_label.set_label(_("Scanning..."))
         self._progress_label.add_css_class("progress-status")
         self._progress_label.add_css_class("dim-label")
         self._progress_label.set_xalign(0)
@@ -1201,10 +1206,14 @@ class ScanView(Gtk.Box):
             pct = int(progress.percentage)
             if self._total_target_count > 1:
                 self._progress_label.set_text(
-                    f"Target {self._current_target_idx} of {self._total_target_count} \u2014 {pct}%"
+                    _("Target {current} of {total} \u2014 {pct}%").format(
+                        current=self._current_target_idx,
+                        total=self._total_target_count,
+                        pct=pct,
+                    )
                 )
             else:
-                self._progress_label.set_text(f"Scanning... {pct}%")
+                self._progress_label.set_text(_("Scanning... {pct}%").format(pct=pct))
 
         # Update file label with current file
         if self._file_label is not None and progress.current_file:
@@ -1218,25 +1227,44 @@ class ScanView(Gtk.Box):
             if self._total_target_count > 1:
                 if progress.files_total:
                     self._stats_label.set_text(
-                        f"Scanned {progress.files_scanned:,} / {progress.files_total:,} files"
-                        f" ({total_scanned:,} total)"
+                        _("Scanned {scanned} / {total} files ({cumulative} total)").format(
+                            scanned=f"{progress.files_scanned:,}",
+                            total=f"{progress.files_total:,}",
+                            cumulative=f"{total_scanned:,}",
+                        )
                     )
                 else:
                     self._stats_label.set_text(
-                        f"Scanned {progress.files_scanned:,} files ({total_scanned:,} total)"
+                        _("Scanned {scanned} files ({cumulative} total)").format(
+                            scanned=f"{progress.files_scanned:,}",
+                            cumulative=f"{total_scanned:,}",
+                        )
                     )
             elif progress.files_total:
                 self._stats_label.set_text(
-                    f"Scanned {progress.files_scanned:,} / {progress.files_total:,} files"
+                    _("Scanned {scanned} / {total} files").format(
+                        scanned=f"{progress.files_scanned:,}",
+                        total=f"{progress.files_total:,}",
+                    )
                 )
             else:
-                self._stats_label.set_text(f"Scanned {progress.files_scanned:,} files")
+                self._stats_label.set_text(
+                    _("Scanned {scanned} files").format(
+                        scanned=f"{progress.files_scanned:,}",
+                    )
+                )
             self._stats_label.set_visible(True)
 
         # Update threat label if infections found
         if self._threat_label is not None:
             if progress.infected_count > 0:
-                self._threat_label.set_text(f"Found {progress.infected_count} threat(s)")
+                self._threat_label.set_text(
+                    ngettext(
+                        "Found {n} threat",
+                        "Found {n} threats",
+                        progress.infected_count,
+                    ).format(n=progress.infected_count)
+                )
                 self._threat_label.add_css_class("error")
                 self._threat_label.set_visible(True)
 
@@ -1301,7 +1329,7 @@ class ScanView(Gtk.Box):
         self._view_results_section.set_visible(False)
 
         self._view_results_button = Gtk.Button()
-        self._view_results_button.set_label("View Results")
+        self._view_results_button.set_label(_("View Results"))
         self._view_results_button.add_css_class("suggested-action")
         self._view_results_button.add_css_class("pill")
         self._view_results_button.set_size_request(200, -1)
@@ -1316,11 +1344,17 @@ class ScanView(Gtk.Box):
             return
 
         if threat_count > 0:
-            self._view_results_button.set_label(f"View Results ({threat_count} Threats)")
+            self._view_results_button.set_label(
+                ngettext(
+                    "View Results ({n} Threat)",
+                    "View Results ({n} Threats)",
+                    threat_count,
+                ).format(n=threat_count)
+            )
             self._view_results_button.remove_css_class("suggested-action")
             self._view_results_button.add_css_class("destructive-action")
         else:
-            self._view_results_button.set_label("View Results")
+            self._view_results_button.set_label(_("View Results"))
             self._view_results_button.remove_css_class("destructive-action")
             self._view_results_button.add_css_class("suggested-action")
 
@@ -1358,7 +1392,7 @@ class ScanView(Gtk.Box):
             button: The Gtk.Button that was clicked
         """
         if not self._selected_paths:
-            self._status_banner.set_title("Please select a file or folder to scan")
+            self._status_banner.set_title(_("Please select a file or folder to scan"))
             set_status_class(self._status_banner, StatusLevel.WARNING)
             self._status_banner.set_revealed(True)
             return
@@ -1445,7 +1479,9 @@ class ScanView(Gtk.Box):
 
         except OSError as e:
             logger.error(f"Failed to create EICAR test file: {e}")
-            self._status_banner.set_title(f"Failed to create EICAR test file: {e}")
+            self._status_banner.set_title(
+                _("Failed to create EICAR test file: {error}").format(error=e)
+            )
             set_status_class(self._status_banner, StatusLevel.ERROR)
             self._status_banner.set_revealed(True)
 
@@ -1468,11 +1504,11 @@ class ScanView(Gtk.Box):
         # Update cancel button text based on number of targets
         path_count = len(self._selected_paths)
         if path_count > 1:
-            self._cancel_button.set_label("Cancel All")
-            self._cancel_button.set_tooltip_text("Cancel all remaining scans")
+            self._cancel_button.set_label(_("Cancel All"))
+            self._cancel_button.set_tooltip_text(_("Cancel all remaining scans"))
         else:
-            self._cancel_button.set_label("Cancel")
-            self._cancel_button.set_tooltip_text("Cancel the current scan")
+            self._cancel_button.set_label(_("Cancel"))
+            self._cancel_button.set_tooltip_text(_("Cancel the current scan"))
 
         # Dismiss any previous status banner
         self._status_banner.set_revealed(False)
@@ -1492,17 +1528,21 @@ class ScanView(Gtk.Box):
                     display_path = "..." + display_path[-47:]
                 if show_live_progress:
                     self._progress_label.set_label(
-                        f"Scanning {display_path} \u2014 File count pending"
+                        _("Scanning {path} \u2014 File count pending").format(path=display_path)
                     )
                 else:
-                    self._progress_label.set_label(f"Scanning {display_path}")
+                    self._progress_label.set_label(_("Scanning {path}").format(path=display_path))
             else:
                 if show_live_progress:
                     self._progress_label.set_label(
-                        f"Scanning {path_count} items \u2014 File count pending"
+                        _("Scanning {count} items \u2014 File count pending").format(
+                            count=path_count
+                        )
                     )
                 else:
-                    self._progress_label.set_label(f"Scanning {path_count} items")
+                    self._progress_label.set_label(
+                        _("Scanning {count} items").format(count=path_count)
+                    )
             self._progress_section.set_visible(True)
             self._start_progress_pulse()
 
@@ -1685,9 +1725,13 @@ class ScanView(Gtk.Box):
             display_path = "..." + display_path[-37:]
 
         if total_count == 1:
-            self._progress_label.set_label(f"Scanning {display_path}")
+            self._progress_label.set_label(_("Scanning {path}").format(path=display_path))
         else:
-            self._progress_label.set_label(f"Target {current_idx} of {total_count}: {display_path}")
+            self._progress_label.set_label(
+                _("Target {current} of {total}: {path}").format(
+                    current=current_idx, total=total_count, path=display_path
+                )
+            )
 
         # Reset progress bar for new target — restart pulsing until
         # real progress data arrives from the scanner
@@ -1733,7 +1777,7 @@ class ScanView(Gtk.Box):
         if result.status == ScanStatus.INFECTED:
             self._show_view_results(result.infected_count)
             self._status_banner.set_title(
-                f"Scan complete - {result.infected_count} threat(s) detected"
+                _("Scan complete - {count} threat(s) detected").format(count=result.infected_count)
             )
             set_status_class(self._status_banner, StatusLevel.WARNING)
             self._status_banner.set_revealed(True)
@@ -1742,21 +1786,23 @@ class ScanView(Gtk.Box):
             if result.has_warnings:
                 # Clean but with warnings about skipped files
                 self._status_banner.set_title(
-                    f"Scan complete - No threats found ({result.skipped_count} file(s) not accessible)"
+                    _("Scan complete - No threats found ({count} file(s) not accessible)").format(
+                        count=result.skipped_count
+                    )
                 )
             else:
-                self._status_banner.set_title("Scan complete - No threats found")
+                self._status_banner.set_title(_("Scan complete - No threats found"))
             set_status_class(self._status_banner, StatusLevel.SUCCESS)
             self._status_banner.set_revealed(True)
         elif result.status == ScanStatus.CANCELLED:
             self._show_view_results(result.infected_count)
-            self._status_banner.set_title("Scan cancelled")
+            self._status_banner.set_title(_("Scan cancelled"))
             set_status_class(self._status_banner, StatusLevel.WARNING)
             self._status_banner.set_revealed(True)
         elif result.status == ScanStatus.ERROR:
             self._show_view_results(0)
             error_detail = result.error_message or result.stderr or "Unknown error"
-            self._status_banner.set_title(f"Scan error: {error_detail}")
+            self._status_banner.set_title(_("Scan error: {detail}").format(detail=error_detail))
             set_status_class(self._status_banner, StatusLevel.ERROR)
             self._status_banner.set_revealed(True)
             logger.error(
@@ -1764,7 +1810,9 @@ class ScanView(Gtk.Box):
             )
         else:
             self._show_view_results(0)
-            self._status_banner.set_title(f"Scan completed with status: {result.status.value}")
+            self._status_banner.set_title(
+                _("Scan completed with status: {status}").format(status=result.status.value)
+            )
             set_status_class(self._status_banner, StatusLevel.WARNING)
             self._status_banner.set_revealed(True)
 
@@ -1796,7 +1844,7 @@ class ScanView(Gtk.Box):
         if self._on_scan_state_changed:
             self._on_scan_state_changed(self._is_scanning)
 
-        self._status_banner.set_title(f"Scan error: {error_msg}")
+        self._status_banner.set_title(_("Scan error: {detail}").format(detail=error_msg))
         set_status_class(self._status_banner, StatusLevel.ERROR)
         self._status_banner.set_revealed(True)
 
@@ -1829,13 +1877,13 @@ class ScanView(Gtk.Box):
             "clamscan": "clamscan (standalone)",
         }
         backend_display = backend_names.get(backend, backend)
-        self._backend_label.set_label(f"Backend: {backend_display}")
+        self._backend_label.set_label(_("Backend: {name}").format(name=backend_display))
 
     def _create_status_bar(self):
         """Create the status banner."""
         self._status_banner = create_banner()
-        self._status_banner.set_title("Ready to scan")
-        self._status_banner.set_button_label("Dismiss")
+        self._status_banner.set_title(_("Ready to scan"))
+        self._status_banner.set_button_label(_("Dismiss"))
         self._status_banner.connect("button-clicked", self._on_status_banner_dismissed)
         self.append(self._status_banner)
 

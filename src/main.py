@@ -38,6 +38,9 @@ def _setup_path():
 # Set up path before importing application modules
 _setup_path()
 
+# Initialize i18n before any translatable strings are used
+from .core.i18n import _  # noqa: F401, E402
+
 
 def _configure_logging():
     """
@@ -160,7 +163,7 @@ def parse_file_arguments(argv: list[str]) -> list[str]:
     Returns:
         List of file/folder paths to scan. Empty list if no paths provided.
     """
-    file_paths, _, _ = parse_arguments(argv)
+    file_paths, _vt, _unknown = parse_arguments(argv)
     return file_paths
 
 

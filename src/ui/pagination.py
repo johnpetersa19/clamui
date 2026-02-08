@@ -14,6 +14,8 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk
 
+from ..core.i18n import _
+
 
 class PaginatedListController:
     """
@@ -174,10 +176,12 @@ class PaginatedListController:
         # Progress label
         remaining = len(entries) - self._displayed_count
         progress_label = Gtk.Label()
-        progress_label.set_markup(
-            f"<span size='small'>Showing {self._displayed_count} of "
-            f"{len(entries)} {entries_label}</span>"
+        progress_text = _("Showing {displayed} of {total} {label}").format(
+            displayed=self._displayed_count,
+            total=len(entries),
+            label=entries_label,
         )
+        progress_label.set_markup(f"<span size='small'>{progress_text}</span>")
         progress_label.add_css_class("dim-label")
         load_more_box.append(progress_label)
 
@@ -187,7 +191,9 @@ class PaginatedListController:
 
         # "Show More" button
         show_more_btn = Gtk.Button()
-        show_more_btn.set_label(f"Show {min(self._batch_size, remaining)} More")
+        show_more_btn.set_label(
+            _("Show {count} More").format(count=min(self._batch_size, remaining))
+        )
         show_more_btn.add_css_class("pill")
         show_more_btn.connect("clicked", self._on_load_more_clicked)
         button_box.append(show_more_btn)
@@ -195,7 +201,9 @@ class PaginatedListController:
         # "Show All" button (only if many remaining)
         if remaining > self._batch_size:
             show_all_btn = Gtk.Button()
-            show_all_btn.set_label(f"Show All ({remaining} remaining)")
+            show_all_btn.set_label(
+                _("Show All ({remaining} remaining)").format(remaining=remaining)
+            )
             show_all_btn.add_css_class("pill")
             show_all_btn.connect("clicked", self._on_show_all_clicked)
             button_box.append(show_all_btn)

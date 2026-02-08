@@ -413,6 +413,40 @@ LAUNCHER
 	return 0
 }
 
+# Compile and install locale files for i18n
+compile_locales() {
+	log_info "=== Compiling Locale Files ==="
+	echo
+
+	PO_DIR="$PROJECT_ROOT/po"
+	LINGUAS_FILE="$PO_DIR/LINGUAS"
+
+	if [ ! -f "$LINGUAS_FILE" ]; then
+		log_info "No po/LINGUAS file found, skipping locale compilation"
+		return 0
+	fi
+
+	LANG_COUNT=0
+	while IFS= read -r lang || [ -n "$lang" ]; do
+		lang=$(echo "$lang" | sed 's/#.*//' | tr -d '[:space:]')
+		[ -z "$lang" ] && continue
+		[ -f "$PO_DIR/$lang.po" ] || continue
+
+		MO_DIR="$BUILD_DIR/usr/share/locale/$lang/LC_MESSAGES"
+		mkdir -p "$MO_DIR"
+		msgfmt -o "$MO_DIR/clamui.mo" "$PO_DIR/$lang.po"
+		LANG_COUNT=$((LANG_COUNT + 1))
+	done < "$LINGUAS_FILE"
+
+	if [ "$LANG_COUNT" -eq 0 ]; then
+		log_info "No translations to compile (LINGUAS is empty)"
+	else
+		log_success "Compiled $LANG_COUNT language(s)"
+	fi
+
+	return 0
+}
+
 # Copy desktop entry, icon, and metainfo files
 copy_desktop_files() {
 	log_info "=== Copying Desktop Integration Files ==="
@@ -659,6 +693,13 @@ main() {
 		log_error "Failed to create launcher script."
 		cleanup_build_dir
 		exit 1
+	fi
+
+	echo
+
+	# Compile locale files for i18n
+	if ! compile_locales; then
+		log_warning "Failed to compile locale files (non-fatal)"
 	fi
 
 	echo

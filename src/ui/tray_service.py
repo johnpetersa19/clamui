@@ -23,6 +23,7 @@ Usage:
     python -m src.ui.tray_service
 """
 
+import gettext
 import json
 import logging
 import os
@@ -66,6 +67,24 @@ except (ValueError, ImportError) as e:
 if not DBUS_AVAILABLE:
     print(json.dumps({"event": "error", "message": "GIO D-Bus not available"}), flush=True)
     sys.exit(1)
+
+# Initialize i18n for this subprocess
+# Uses the same dual-import strategy as tray_icons below:
+# relative import when loaded as a package, direct init when run as a script.
+try:
+    try:
+        from ..core.i18n import _
+    except ImportError:
+        import importlib.util
+
+        _i18n_path = Path(__file__).parent.parent / "core" / "i18n.py"
+        _i18n_spec = importlib.util.spec_from_file_location("i18n", _i18n_path)
+        _i18n_module = importlib.util.module_from_spec(_i18n_spec)
+        _i18n_spec.loader.exec_module(_i18n_module)
+        _ = _i18n_module._
+except Exception:
+    # Ultimate fallback: passthrough (no translations)
+    _ = gettext.gettext
 
 # Import tray icon generator
 CUSTOM_ICONS_AVAILABLE = False
@@ -273,7 +292,7 @@ class TrayService:
         # Show/Hide Window
         toggle_item = Dbusmenu.Menuitem.new_with_id(item_id)
         item_id += 1
-        toggle_label = "Hide Window" if self._window_visible else "Show Window"
+        toggle_label = _("Hide Window") if self._window_visible else _("Show Window")
         toggle_item.property_set(Dbusmenu.MENUITEM_PROP_LABEL, toggle_label)
         toggle_item.connect("item-activated", self._on_menu_toggle_window)
         self._menu_root.child_append(toggle_item)
@@ -287,14 +306,14 @@ class TrayService:
         # Quick Scan
         quick_scan = Dbusmenu.Menuitem.new_with_id(item_id)
         item_id += 1
-        quick_scan.property_set(Dbusmenu.MENUITEM_PROP_LABEL, "Quick Scan")
+        quick_scan.property_set(Dbusmenu.MENUITEM_PROP_LABEL, _("Quick Scan"))
         quick_scan.connect("item-activated", self._on_menu_quick_scan)
         self._menu_root.child_append(quick_scan)
 
         # Full Scan
         full_scan = Dbusmenu.Menuitem.new_with_id(item_id)
         item_id += 1
-        full_scan.property_set(Dbusmenu.MENUITEM_PROP_LABEL, "Full Scan")
+        full_scan.property_set(Dbusmenu.MENUITEM_PROP_LABEL, _("Full Scan"))
         full_scan.connect("item-activated", self._on_menu_full_scan)
         self._menu_root.child_append(full_scan)
 
@@ -307,7 +326,7 @@ class TrayService:
         # Update Definitions
         update_item = Dbusmenu.Menuitem.new_with_id(item_id)
         item_id += 1
-        update_item.property_set(Dbusmenu.MENUITEM_PROP_LABEL, "Update Definitions")
+        update_item.property_set(Dbusmenu.MENUITEM_PROP_LABEL, _("Update Definitions"))
         update_item.connect("item-activated", self._on_menu_update)
         self._menu_root.child_append(update_item)
 
@@ -319,7 +338,7 @@ class TrayService:
 
         # Quit
         quit_item = Dbusmenu.Menuitem.new_with_id(item_id)
-        quit_item.property_set(Dbusmenu.MENUITEM_PROP_LABEL, "Quit")
+        quit_item.property_set(Dbusmenu.MENUITEM_PROP_LABEL, _("Quit"))
         quit_item.connect("item-activated", self._on_menu_quit)
         self._menu_root.child_append(quit_item)
 
@@ -363,7 +382,8 @@ class TrayService:
 
     def _get_tooltip(self) -> str:
         """Get the tooltip text."""
-        tooltip = f"ClamUI - {self._current_status.capitalize()}"
+        status_display = self._current_status.capitalize()
+        tooltip = _("ClamUI - {status}").format(status=status_display)
         if self._progress_label:
             tooltip += f" ({self._progress_label})"
         return tooltip

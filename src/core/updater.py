@@ -22,6 +22,7 @@ from .flatpak import (
     get_clamav_database_dir,
     is_flatpak,
 )
+from .i18n import _
 from .log_manager import LogEntry, LogManager
 from .utils import check_freshclam_installed, get_freshclam_path, wrap_host_command
 
@@ -204,7 +205,9 @@ class FreshclamUpdater:
         status, pid = self.check_freshclam_service()
 
         if status != FreshclamServiceStatus.RUNNING:
-            return False, f"Freshclam service not running (status: {status.value})"
+            return False, _("Freshclam service not running (status: {status})").format(
+                status=status.value
+            )
 
         if not pid:
             # Try to get PID again
@@ -218,9 +221,9 @@ class FreshclamUpdater:
                 if pid_result.returncode == 0:
                     pid = pid_result.stdout.strip().split()[0]
                 else:
-                    return False, "Could not determine freshclam PID"
+                    return False, _("Could not determine freshclam PID")
             except (subprocess.TimeoutExpired, OSError) as e:
-                return False, f"Failed to get freshclam PID: {e}"
+                return False, _("Failed to get freshclam PID: {error}").format(error=e)
 
         # Send SIGUSR1 to trigger update
         try:
@@ -234,16 +237,18 @@ class FreshclamUpdater:
 
             if result.returncode == 0:
                 logger.info("Sent SIGUSR1 to freshclam service (PID %s)", pid)
-                return True, f"Update signal sent to freshclam service (PID {pid})"
+                return True, _("Update signal sent to freshclam service (PID {pid})").format(
+                    pid=pid
+                )
             else:
                 error = result.stderr.strip() or "Unknown error"
                 logger.warning("Failed to send signal to freshclam: %s", error)
-                return False, f"Failed to send signal: {error}"
+                return False, _("Failed to send signal: {error}").format(error=error)
 
         except subprocess.TimeoutExpired:
-            return False, "Timeout sending signal to freshclam"
+            return False, _("Timeout sending signal to freshclam")
         except OSError as e:
-            return False, f"Error sending signal: {e}"
+            return False, _("Error sending signal: {error}").format(error=e)
 
     def update_sync(self, force: bool = False, prefer_service: bool = True) -> UpdateResult:
         """
@@ -335,7 +340,7 @@ class FreshclamUpdater:
                         stderr=error or "",
                         exit_code=-1,
                         databases_updated=0,
-                        error_message=error or "Backup failed",
+                        error_message=error or _("Backup failed"),
                     )
                     duration = time.monotonic() - start_time
                     self._save_update_log(result, duration)
@@ -353,7 +358,7 @@ class FreshclamUpdater:
                         stderr=error or "",
                         exit_code=-1,
                         databases_updated=0,
-                        error_message=error or "Delete failed",
+                        error_message=error or _("Delete failed"),
                     )
                     duration = time.monotonic() - start_time
                     self._save_update_log(result, duration)
@@ -433,7 +438,7 @@ class FreshclamUpdater:
                     stderr=stderr,
                     exit_code=exit_code,
                     databases_updated=0,
-                    error_message="Update timed out after 10 minutes",
+                    error_message=_("Update timed out after 10 minutes"),
                 )
                 duration = time.monotonic() - start_time
                 self._save_update_log(result, duration)
@@ -450,7 +455,7 @@ class FreshclamUpdater:
                     stderr=stderr,
                     exit_code=exit_code,
                     databases_updated=0,
-                    error_message="Update cancelled by user",
+                    error_message=_("Update cancelled by user"),
                 )
                 duration = time.monotonic() - start_time
                 self._save_update_log(result, duration)
@@ -479,7 +484,7 @@ class FreshclamUpdater:
                 stderr="freshclam executable not found",
                 exit_code=-1,
                 databases_updated=0,
-                error_message="freshclam executable not found",
+                error_message=_("freshclam executable not found"),
             )
             duration = time.monotonic() - start_time
             self._save_update_log(result, duration)
@@ -494,7 +499,7 @@ class FreshclamUpdater:
                 stderr=str(e),
                 exit_code=-1,
                 databases_updated=0,
-                error_message=f"Permission denied: {e}",
+                error_message=_("Permission denied: {error}").format(error=e),
             )
             duration = time.monotonic() - start_time
             self._save_update_log(result, duration)
@@ -509,7 +514,7 @@ class FreshclamUpdater:
                 stderr=str(e),
                 exit_code=-1,
                 databases_updated=0,
-                error_message=f"Update failed: {e}",
+                error_message=_("Update failed: {error}").format(error=e),
             )
             duration = time.monotonic() - start_time
             self._save_update_log(result, duration)
@@ -726,9 +731,9 @@ class FreshclamUpdater:
         # Exit code 126 = pkexec: user dismissed auth dialog
         # Exit code 127 = pkexec: not authorized
         if exit_code == 126:
-            return "Authentication cancelled. Database update requires administrator privileges."
+            return _("Authentication cancelled. Database update requires administrator privileges.")
         if exit_code == 127 and "pkexec" in output_lower:
-            return "Authorization failed. You are not authorized to update the database."
+            return _("Authorization failed. You are not authorized to update the database.")
 
         # Rate limiting errors
         rate_limit_patterns = [
@@ -741,51 +746,54 @@ class FreshclamUpdater:
             "blocked temporarily",
         ]
         if any(pattern in output_lower for pattern in rate_limit_patterns):
-            return "Update rate limited by mirror. Please wait a few minutes and try again."
+            return _("Update rate limited by mirror. Please wait a few minutes and try again.")
 
         # CDN/Proxy errors (often indicate rate limiting)
         if "cloudfront" in output_lower or "cloudflare" in output_lower:
-            return "Update blocked by CDN. This may be due to rate limiting. Please wait and try again later."
+            return _(
+                "Update blocked by CDN. This may be due to rate limiting."
+                " Please wait and try again later."
+            )
 
         # Mirror unavailable
         if "mirror" in output_lower and ("down" in output_lower or "unavailable" in output_lower):
-            return "ClamAV mirror is currently unavailable. Please try again later."
+            return _("ClamAV mirror is currently unavailable. Please try again later.")
 
         # Certificate/SSL errors
         if any(
             p in output_lower for p in ["certificate", "ssl error", "tls error", "verify failed"]
         ):
-            return "SSL/TLS certificate error. The mirror may have configuration issues."
+            return _("SSL/TLS certificate error. The mirror may have configuration issues.")
 
         # Timeout errors
         if "timeout" in output_lower or "timed out" in output_lower:
-            return "Connection timed out. Please check your network connection."
+            return _("Connection timed out. Please check your network connection.")
 
         # Check for polkit/pkexec related errors
         if "not authorized" in output_lower or "authorization" in output_lower:
-            return "Authorization failed. Please try again and enter your password."
+            return _("Authorization failed. Please try again and enter your password.")
 
         # Check for lock file error (another freshclam running)
         if "locked" in output_lower or "lock" in output_lower:
-            return "Database is locked. Another freshclam instance may be running."
+            return _("Database is locked. Another freshclam instance may be running.")
 
         # Check for permission errors
         if "permission denied" in output_lower:
-            return "Permission denied. You may need elevated privileges to update the database."
+            return _("Permission denied. You may need elevated privileges to update the database.")
 
         # Check for network errors
         if "can't connect" in output_lower or "connection" in output_lower:
-            return "Connection error. Please check your network connection."
+            return _("Connection error. Please check your network connection.")
 
         # Check for DNS errors
         if "can't resolve" in output_lower or "host not found" in output_lower:
-            return "DNS resolution failed. Please check your network settings."
+            return _("DNS resolution failed. Please check your network settings.")
 
         # Default to stderr content if available
         if stderr.strip():
             return stderr.strip()
 
-        return "Update failed with an unknown error. Check the logs for details."
+        return _("Update failed with an unknown error. Check the logs for details.")
 
     def _save_update_log(self, result: UpdateResult, duration: float) -> None:
         """
@@ -797,13 +805,17 @@ class FreshclamUpdater:
         """
         # Build summary based on update result
         if result.status == UpdateStatus.SUCCESS:
-            summary = f"Database update completed - {result.databases_updated} database(s) updated"
+            summary = _("Database update completed - {count} database(s) updated").format(
+                count=result.databases_updated
+            )
         elif result.status == UpdateStatus.UP_TO_DATE:
-            summary = "Database update completed - Already up to date"
+            summary = _("Database update completed - Already up to date")
         elif result.status == UpdateStatus.CANCELLED:
-            summary = "Database update cancelled"
+            summary = _("Database update cancelled")
         else:
-            summary = f"Database update failed: {result.error_message or 'Unknown error'}"
+            summary = _("Database update failed: {error}").format(
+                error=result.error_message or _("Unknown error")
+            )
 
         # Build details combining stdout and stderr
         details_parts = []

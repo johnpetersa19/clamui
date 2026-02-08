@@ -26,6 +26,8 @@ from typing import Any
 
 import requests
 
+from .i18n import _
+
 logger = logging.getLogger(__name__)
 
 # VirusTotal API configuration
@@ -249,7 +251,7 @@ class VirusTotalClient:
 
         for attempt in range(VT_MAX_RETRIES):
             if self._cancelled:
-                return None, "Scan cancelled"
+                return None, _("Scan cancelled")
 
             try:
                 response = session.request(method, url, **kwargs)
@@ -257,14 +259,14 @@ class VirusTotalClient:
                 # Handle rate limiting from API
                 if response.status_code == 429:
                     logger.warning("VirusTotal API rate limit hit")
-                    return response, "API rate limit exceeded"
+                    return response, _("API rate limit exceeded")
 
                 # Handle authentication errors
                 if response.status_code == 401:
-                    return response, "Invalid API key"
+                    return response, _("Invalid API key")
 
                 if response.status_code == 403:
-                    return response, "API key lacks required permissions"
+                    return response, _("API key lacks required permissions")
 
                 return response, None
 
@@ -273,20 +275,20 @@ class VirusTotalClient:
                 if attempt < VT_MAX_RETRIES - 1:
                     time.sleep(VT_RETRY_BASE_DELAY * (2**attempt))
                 else:
-                    return None, "Request timed out after retries"
+                    return None, _("Request timed out after retries")
 
             except requests.exceptions.ConnectionError:
                 logger.warning(f"Connection error (attempt {attempt + 1}/{VT_MAX_RETRIES})")
                 if attempt < VT_MAX_RETRIES - 1:
                     time.sleep(VT_RETRY_BASE_DELAY * (2**attempt))
                 else:
-                    return None, "Network connection failed after retries"
+                    return None, _("Network connection failed after retries")
 
             except requests.exceptions.RequestException as e:
                 logger.error(f"Request error: {e}")
-                return None, f"Request failed: {e}"
+                return None, _("Request failed: {error}").format(error=e)
 
-        return None, "Unknown request error"
+        return None, _("Unknown request error")
 
     def check_file_hash(self, sha256: str) -> VTScanResult:
         """
@@ -303,7 +305,7 @@ class VirusTotalClient:
                 status=VTScanStatus.ERROR,
                 file_path="",
                 sha256=sha256,
-                error_message="Scan cancelled",
+                error_message=_("Scan cancelled"),
             )
 
         response, error = self._make_request(
@@ -332,7 +334,7 @@ class VirusTotalClient:
                 status=VTScanStatus.ERROR,
                 file_path="",
                 sha256=sha256,
-                error_message="No response received",
+                error_message=_("No response received"),
             )
 
         if response.status_code == 404:
@@ -347,7 +349,7 @@ class VirusTotalClient:
                 status=VTScanStatus.ERROR,
                 file_path="",
                 sha256=sha256,
-                error_message=f"API error: HTTP {response.status_code}",
+                error_message=_("API error: HTTP {code}").format(code=response.status_code),
             )
 
         return self._parse_file_report(response.json(), sha256)
@@ -426,7 +428,7 @@ class VirusTotalClient:
                 status=VTScanStatus.ERROR,
                 file_path="",
                 sha256=sha256,
-                error_message=f"Failed to parse response: {e}",
+                error_message=_("Failed to parse response: {error}").format(error=e),
             )
 
     def upload_file(self, file_path: str, sha256: str) -> VTScanResult:
@@ -445,7 +447,7 @@ class VirusTotalClient:
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
                 sha256=sha256,
-                error_message="Scan cancelled",
+                error_message=_("Scan cancelled"),
             )
 
         try:
@@ -462,14 +464,14 @@ class VirusTotalClient:
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
                 sha256=sha256,
-                error_message="File not found",
+                error_message=_("File not found"),
             )
         except PermissionError:
             return VTScanResult(
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
                 sha256=sha256,
-                error_message="Permission denied",
+                error_message=_("Permission denied"),
             )
 
         if error:
@@ -493,7 +495,7 @@ class VirusTotalClient:
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
                 sha256=sha256,
-                error_message=f"Upload failed: HTTP {status_code}",
+                error_message=_("Upload failed: HTTP {code}").format(code=status_code),
             )
 
         # After upload, poll for results using the analysis ID
@@ -538,7 +540,7 @@ class VirusTotalClient:
                     status=VTScanStatus.ERROR,
                     file_path=file_path,
                     sha256=sha256,
-                    error_message="Scan cancelled",
+                    error_message=_("Scan cancelled"),
                 )
 
             if not self._wait_for_rate_limit():
@@ -546,7 +548,7 @@ class VirusTotalClient:
                     status=VTScanStatus.ERROR,
                     file_path=file_path,
                     sha256=sha256,
-                    error_message="Scan cancelled",
+                    error_message=_("Scan cancelled"),
                 )
 
             response, error = self._make_request(
@@ -588,7 +590,7 @@ class VirusTotalClient:
         result.file_path = file_path
         if result.status == VTScanStatus.NOT_FOUND:
             result.status = VTScanStatus.PENDING
-            result.error_message = "Analysis still in progress"
+            result.error_message = _("Analysis still in progress")
         return result
 
     def scan_file_sync(self, file_path: str) -> VTScanResult:
@@ -616,7 +618,7 @@ class VirusTotalClient:
             return VTScanResult(
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
-                error_message="API key not configured",
+                error_message=_("API key not configured"),
             )
 
         # Validate file exists
@@ -624,14 +626,14 @@ class VirusTotalClient:
             return VTScanResult(
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
-                error_message="File not found",
+                error_message=_("File not found"),
             )
 
         if not os.path.isfile(file_path):
             return VTScanResult(
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
-                error_message="Path is not a file",
+                error_message=_("Path is not a file"),
             )
 
         # Check file size
@@ -641,7 +643,7 @@ class VirusTotalClient:
             return VTScanResult(
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
-                error_message=f"Cannot access file: {e}",
+                error_message=_("Cannot access file: {error}").format(error=e),
             )
 
         if file_size > VT_MAX_FILE_SIZE:
@@ -649,15 +651,16 @@ class VirusTotalClient:
             return VTScanResult(
                 status=VTScanStatus.FILE_TOO_LARGE,
                 file_path=file_path,
-                error_message=f"File too large ({size_mb:.1f}MB). "
-                f"Maximum size is {VT_MAX_FILE_SIZE // (1024 * 1024)}MB",
+                error_message=_("File too large ({size}MB). Maximum size is {max}MB").format(
+                    size=f"{size_mb:.1f}", max=VT_MAX_FILE_SIZE // (1024 * 1024)
+                ),
             )
 
         if file_size == 0:
             return VTScanResult(
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
-                error_message="Cannot scan empty files",
+                error_message=_("Cannot scan empty files"),
             )
 
         # Calculate SHA256
@@ -668,7 +671,7 @@ class VirusTotalClient:
             return VTScanResult(
                 status=VTScanStatus.ERROR,
                 file_path=file_path,
-                error_message=f"Cannot read file: {e}",
+                error_message=_("Cannot read file: {error}").format(error=e),
             )
 
         logger.info(f"SHA256: {sha256}")

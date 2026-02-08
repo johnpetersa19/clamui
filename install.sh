@@ -532,6 +532,18 @@ main() {
 		exit 1
 	fi
 
+	# Compile and install locale files for i18n (non-fatal)
+	if [ -f "$SCRIPT_DIR/po/LINGUAS" ] && command -v msgfmt >/dev/null 2>&1; then
+		LOCALE_DIR="$SHARE_DIR/locale"
+		while IFS= read -r lang || [ -n "$lang" ]; do
+			lang=$(echo "$lang" | sed 's/#.*//' | tr -d '[:space:]')
+			[ -z "$lang" ] && continue
+			[ -f "$SCRIPT_DIR/po/$lang.po" ] || continue
+			mkdir -p "$LOCALE_DIR/$lang/LC_MESSAGES"
+			msgfmt -o "$LOCALE_DIR/$lang/LC_MESSAGES/clamui.mo" "$SCRIPT_DIR/po/$lang.po"
+		done < "$SCRIPT_DIR/po/LINGUAS"
+	fi
+
 	log_success "=== ClamUI Installation Complete ==="
 	echo
 	log_info "You may need to log out and back in, or run:"

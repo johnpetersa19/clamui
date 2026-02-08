@@ -22,6 +22,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk
 
+from ..core.i18n import _
 from .utils import resolve_icon_name
 
 # =============================================================================
@@ -376,7 +377,7 @@ def create_header_button_box(
 
 def create_refresh_header(
     on_refresh_clicked: Callable[[Gtk.Button], None],
-    tooltip: str = "Refresh",
+    tooltip: str | None = None,
 ) -> tuple[Gtk.Box, Gtk.Spinner, Gtk.Button]:
     """
     Create a standard refresh header with spinner and refresh button.
@@ -410,7 +411,7 @@ def create_refresh_header(
 
     refresh_button = Gtk.Button()
     refresh_button.set_icon_name(resolve_icon_name("view-refresh-symbolic"))
-    refresh_button.set_tooltip_text(tooltip)
+    refresh_button.set_tooltip_text(tooltip if tooltip is not None else _("Refresh"))
     refresh_button.add_css_class("flat")
     refresh_button.connect("clicked", on_refresh_clicked)
     header_box.append(refresh_button)

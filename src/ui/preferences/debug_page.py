@@ -19,6 +19,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from ...core.flatpak import is_flatpak
+from ...core.i18n import N_, _, ngettext
 from ...core.logging_config import get_logging_config
 from ...core.sanitize import sanitize_path_for_logging
 from ..compat import create_toolbar_view
@@ -47,10 +48,10 @@ class DebugPage(PreferencesPageMixin):
     # Log level options for ComboRow
     LOG_LEVEL_OPTIONS = ["DEBUG", "INFO", "WARNING", "ERROR"]
     LOG_LEVEL_DESCRIPTIONS = [
-        "Verbose debugging information",
-        "General operational messages",
-        "Warnings and errors only (recommended)",
-        "Errors only",
+        N_("Verbose debugging information"),
+        N_("General operational messages"),
+        N_("Warnings and errors only (recommended)"),
+        N_("Errors only"),
     ]
 
     def __init__(self, settings_manager=None, parent_window=None):
@@ -77,7 +78,7 @@ class DebugPage(PreferencesPageMixin):
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="Debug",
+            title=_("Debug"),
             icon_name=resolve_icon_name("applications-system-symbolic"),
         )
 
@@ -103,16 +104,18 @@ class DebugPage(PreferencesPageMixin):
             Configured Adw.PreferencesGroup for logging settings
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Logging Settings")
+        group.set_title(_("Logging Settings"))
         group.set_description(
-            "Configure debug logging for troubleshooting. "
-            "Higher levels produce more detailed logs but use more disk space."
+            _(
+                "Configure debug logging for troubleshooting. "
+                "Higher levels produce more detailed logs but use more disk space."
+            )
         )
 
         # Log level combo row
         self._log_level_row = Adw.ComboRow()
-        self._log_level_row.set_title("Log Level")
-        self._log_level_row.set_subtitle("Set the verbosity of debug logs")
+        self._log_level_row.set_title(_("Log Level"))
+        self._log_level_row.set_subtitle(_("Set the verbosity of debug logs"))
         self._log_level_row.add_prefix(styled_prefix_icon("utilities-terminal-symbolic"))
 
         # Create string list model for options
@@ -137,7 +140,7 @@ class DebugPage(PreferencesPageMixin):
         log_path_display = sanitize_path_for_logging(str(log_dir))
 
         location_row = Adw.ActionRow()
-        location_row.set_title("Log File Location")
+        location_row.set_title(_("Log File Location"))
         location_row.set_subtitle(log_path_display)
 
         # Add folder icon as prefix
@@ -145,10 +148,10 @@ class DebugPage(PreferencesPageMixin):
 
         # Add "Open Folder" button as suffix
         open_button = Gtk.Button()
-        open_button.set_label("Open")
+        open_button.set_label(_("Open"))
         open_button.set_valign(Gtk.Align.CENTER)
         open_button.add_css_class("flat")
-        open_button.set_tooltip_text("Open log folder in file manager")
+        open_button.set_tooltip_text(_("Open log folder in file manager"))
         open_button.connect("clicked", self._on_open_folder_clicked)
         location_row.add_suffix(open_button)
 
@@ -164,12 +167,12 @@ class DebugPage(PreferencesPageMixin):
             Configured Adw.PreferencesGroup for log management
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Log Management")
-        group.set_description("Export logs for sharing or clear them to free disk space.")
+        group.set_title(_("Log Management"))
+        group.set_description(_("Export logs for sharing or clear them to free disk space."))
 
         # Current log size row
         self._log_size_row = Adw.ActionRow()
-        self._log_size_row.set_title("Current Log Size")
+        self._log_size_row.set_title(_("Current Log Size"))
         self._update_log_size_display()
 
         # Add size icon as prefix
@@ -180,7 +183,7 @@ class DebugPage(PreferencesPageMixin):
         refresh_button.set_icon_name(resolve_icon_name("view-refresh-symbolic"))
         refresh_button.set_valign(Gtk.Align.CENTER)
         refresh_button.add_css_class("flat")
-        refresh_button.set_tooltip_text("Refresh size")
+        refresh_button.set_tooltip_text(_("Refresh size"))
         refresh_button.connect("clicked", lambda _: self._update_log_size_display())
         self._log_size_row.add_suffix(refresh_button)
 
@@ -188,18 +191,18 @@ class DebugPage(PreferencesPageMixin):
 
         # Export logs row
         export_row = Adw.ActionRow()
-        export_row.set_title("Export Logs")
-        export_row.set_subtitle("Save all log files to a ZIP archive for sharing")
+        export_row.set_title(_("Export Logs"))
+        export_row.set_subtitle(_("Save all log files to a ZIP archive for sharing"))
 
         # Add export icon as prefix
         export_row.add_prefix(styled_prefix_icon("document-save-symbolic"))
 
         # Add export button
         self._export_button = Gtk.Button()
-        self._export_button.set_label("Export")
+        self._export_button.set_label(_("Export"))
         self._export_button.set_valign(Gtk.Align.CENTER)
         self._export_button.add_css_class("suggested-action")
-        self._export_button.set_tooltip_text("Export logs to ZIP file")
+        self._export_button.set_tooltip_text(_("Export logs to ZIP file"))
         self._export_button.connect("clicked", self._on_export_clicked)
         export_row.add_suffix(self._export_button)
 
@@ -207,18 +210,18 @@ class DebugPage(PreferencesPageMixin):
 
         # Clear logs row
         clear_row = Adw.ActionRow()
-        clear_row.set_title("Clear Logs")
-        clear_row.set_subtitle("Delete all log files to free disk space")
+        clear_row.set_title(_("Clear Logs"))
+        clear_row.set_subtitle(_("Delete all log files to free disk space"))
 
         # Add clear icon as prefix
         clear_row.add_prefix(styled_prefix_icon("user-trash-symbolic"))
 
         # Add clear button
         self._clear_button = Gtk.Button()
-        self._clear_button.set_label("Clear")
+        self._clear_button.set_label(_("Clear"))
         self._clear_button.set_valign(Gtk.Align.CENTER)
         self._clear_button.add_css_class("destructive-action")
-        self._clear_button.set_tooltip_text("Delete all log files")
+        self._clear_button.set_tooltip_text(_("Delete all log files"))
         self._clear_button.connect("clicked", self._on_clear_clicked)
         clear_row.add_suffix(self._clear_button)
 
@@ -234,12 +237,12 @@ class DebugPage(PreferencesPageMixin):
             Configured Adw.PreferencesGroup for system information
         """
         group = Adw.PreferencesGroup()
-        group.set_title("System Information")
-        group.set_description("Useful information for troubleshooting and bug reports.")
+        group.set_title(_("System Information"))
+        group.set_description(_("Useful information for troubleshooting and bug reports."))
 
         # Installation type row
         install_row = Adw.ActionRow()
-        install_row.set_title("Installation Type")
+        install_row.set_title(_("Installation Type"))
         install_row.set_subtitle(self._get_installation_type())
 
         # Add package icon as prefix
@@ -249,7 +252,7 @@ class DebugPage(PreferencesPageMixin):
 
         # Distribution row
         distro_row = Adw.ActionRow()
-        distro_row.set_title("Distribution")
+        distro_row.set_title(_("Distribution"))
         distro_row.set_subtitle(self._get_distro_info())
 
         # Add computer icon as prefix
@@ -259,7 +262,7 @@ class DebugPage(PreferencesPageMixin):
 
         # Desktop environment row
         desktop_row = Adw.ActionRow()
-        desktop_row.set_title("Desktop Environment")
+        desktop_row.set_title(_("Desktop Environment"))
         desktop_row.set_subtitle(self._get_desktop_environment())
 
         # Add preferences icon as prefix
@@ -269,7 +272,7 @@ class DebugPage(PreferencesPageMixin):
 
         # Python version row
         python_row = Adw.ActionRow()
-        python_row.set_title("Python Version")
+        python_row.set_title(_("Python Version"))
         python_row.set_subtitle(platform.python_version())
 
         # Add code icon as prefix
@@ -279,7 +282,7 @@ class DebugPage(PreferencesPageMixin):
 
         # GTK version row
         gtk_row = Adw.ActionRow()
-        gtk_row.set_title("GTK Version")
+        gtk_row.set_title(_("GTK Version"))
         gtk_row.set_subtitle(self._get_gtk_version())
 
         # Add application icon as prefix
@@ -289,18 +292,18 @@ class DebugPage(PreferencesPageMixin):
 
         # Copy all info button row
         copy_row = Adw.ActionRow()
-        copy_row.set_title("Copy System Info")
-        copy_row.set_subtitle("Copy all system information to clipboard")
+        copy_row.set_title(_("Copy System Info"))
+        copy_row.set_subtitle(_("Copy all system information to clipboard"))
 
         # Add copy icon as prefix
         copy_row.add_prefix(styled_prefix_icon("edit-copy-symbolic"))
 
         # Add copy button
         copy_button = Gtk.Button()
-        copy_button.set_label("Copy")
+        copy_button.set_label(_("Copy"))
         copy_button.set_valign(Gtk.Align.CENTER)
         copy_button.add_css_class("suggested-action")
-        copy_button.set_tooltip_text("Copy system information to clipboard")
+        copy_button.set_tooltip_text(_("Copy system information to clipboard"))
         copy_button.connect("clicked", self._on_copy_system_info_clicked)
         copy_row.add_suffix(copy_button)
 
@@ -443,15 +446,15 @@ class DebugPage(PreferencesPageMixin):
     def _on_copy_system_info_clicked(self, _button):
         """Handle Copy System Info button click."""
         info_lines = [
-            "ClamUI System Information",
+            _("ClamUI System Information"),
             "=" * 40,
-            f"Installation Type: {self._get_installation_type()}",
-            f"Distribution: {self._get_distro_info()}",
-            f"Desktop Environment: {self._get_desktop_environment()}",
-            f"Python Version: {platform.python_version()}",
-            f"GTK Version: {self._get_gtk_version()}",
-            f"Platform: {platform.platform()}",
-            f"Architecture: {platform.machine()}",
+            _("Installation Type: {value}").format(value=self._get_installation_type()),
+            _("Distribution: {value}").format(value=self._get_distro_info()),
+            _("Desktop Environment: {value}").format(value=self._get_desktop_environment()),
+            _("Python Version: {value}").format(value=platform.python_version()),
+            _("GTK Version: {value}").format(value=self._get_gtk_version()),
+            _("Platform: {value}").format(value=platform.platform()),
+            _("Architecture: {value}").format(value=platform.machine()),
         ]
 
         info_text = "\n".join(info_lines)
@@ -460,7 +463,7 @@ class DebugPage(PreferencesPageMixin):
         clipboard = Gdk.Display.get_default().get_clipboard()
         clipboard.set(info_text)
 
-        self._show_toast("System information copied to clipboard")
+        self._show_toast(_("System information copied to clipboard"))
 
     def _load_log_level(self):
         """Load the current log level setting into the ComboRow."""
@@ -523,19 +526,19 @@ class DebugPage(PreferencesPageMixin):
 
         # Format size for display
         if total_bytes < 1024:
-            size_str = f"{total_bytes} bytes"
+            size_str = _("{count} bytes").format(count=total_bytes)
         elif total_bytes < 1024 * 1024:
-            size_str = f"{total_bytes / 1024:.1f} KB"
+            size_str = _("{size} KB").format(size=f"{total_bytes / 1024:.1f}")
         else:
-            size_str = f"{total_bytes / (1024 * 1024):.1f} MB"
+            size_str = _("{size} MB").format(size=f"{total_bytes / (1024 * 1024):.1f}")
 
         # Count log files
         log_files = logging_config.get_log_files()
         file_count = len(log_files)
-        if file_count == 1:
-            subtitle = f"{size_str} (1 file)"
-        else:
-            subtitle = f"{size_str} ({file_count} files)"
+        file_count_str = ngettext("{count} file", "{count} files", file_count).format(
+            count=file_count
+        )
+        subtitle = _("{size} ({files})").format(size=size_str, files=file_count_str)
 
         self._log_size_row.set_subtitle(subtitle)
 
@@ -553,9 +556,11 @@ class DebugPage(PreferencesPageMixin):
         log_files = logging_config.get_log_files()
         if not log_files:
             self._show_simple_dialog(
-                "No Logs to Export",
-                "There are no log files to export. Logs will be created "
-                "when debug logging is enabled and the application runs.",
+                _("No Logs to Export"),
+                _(
+                    "There are no log files to export. Logs will be created "
+                    "when debug logging is enabled and the application runs."
+                ),
             )
             return
 
@@ -635,7 +640,7 @@ class DebugPage(PreferencesPageMixin):
     def _show_clear_confirmation_dialog(self):
         """Show a confirmation dialog before clearing logs."""
         dialog = Adw.Window()
-        dialog.set_title("Clear Logs")
+        dialog.set_title(_("Clear Logs"))
         dialog.set_default_size(400, -1)
         dialog.set_modal(True)
         dialog.set_deletable(True)

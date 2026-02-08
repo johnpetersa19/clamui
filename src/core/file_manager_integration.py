@@ -18,6 +18,7 @@ from enum import Enum
 from pathlib import Path
 
 from .flatpak import is_flatpak
+from .i18n import N_, _
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,7 @@ def get_available_integrations() -> list[IntegrationInfo]:
         IntegrationInfo(
             file_manager=FileManager.NEMO,
             display_name="Nemo",
-            description="Linux Mint / Cinnamon file manager",
+            description=N_("Linux Mint / Cinnamon file manager"),
             source_files=NEMO_INTEGRATIONS,
             is_installed=nemo_installed,
             is_available=nemo_available,
@@ -217,7 +218,7 @@ def get_available_integrations() -> list[IntegrationInfo]:
         IntegrationInfo(
             file_manager=FileManager.NAUTILUS,
             display_name="Nautilus",
-            description="GNOME Files",
+            description=N_("GNOME Files"),
             source_files=NAUTILUS_INTEGRATIONS,
             is_installed=nautilus_installed,
             is_available=nautilus_available,
@@ -231,7 +232,7 @@ def get_available_integrations() -> list[IntegrationInfo]:
         IntegrationInfo(
             file_manager=FileManager.DOLPHIN,
             display_name="Dolphin",
-            description="KDE file manager",
+            description=N_("KDE file manager"),
             source_files=DOLPHIN_INTEGRATIONS,
             is_installed=dolphin_installed,
             is_available=dolphin_available,
@@ -255,10 +256,10 @@ def install_integration(file_manager: FileManager) -> tuple[bool, str | None]:
         Tuple of (success, error_message).
     """
     if not is_flatpak():
-        return False, "Not running as Flatpak"
+        return False, _("Not running as Flatpak")
 
     if not INTEGRATIONS_SOURCE_DIR.exists():
-        return False, "Integration files not found"
+        return False, _("Integration files not found")
 
     local_share = _get_local_share_dir()
 
@@ -269,7 +270,7 @@ def install_integration(file_manager: FileManager) -> tuple[bool, str | None]:
     elif file_manager == FileManager.DOLPHIN:
         files = DOLPHIN_INTEGRATIONS
     else:
-        return False, f"Unknown file manager: {file_manager}"
+        return False, _("Unknown file manager: {name}").format(name=file_manager)
 
     try:
         for source_name, dest_rel in files:
@@ -295,13 +296,13 @@ def install_integration(file_manager: FileManager) -> tuple[bool, str | None]:
         return True, None
 
     except PermissionError as e:
-        error_msg = f"Permission denied: {e}"
-        logger.error(error_msg)
+        error_msg = _("Permission denied: {error}").format(error=e)
+        logger.error("Permission denied: %s", e)
         return False, error_msg
 
     except Exception as e:
-        error_msg = f"Failed to install integration: {e}"
-        logger.error(error_msg)
+        error_msg = _("Failed to install integration: {error}").format(error=e)
+        logger.error("Failed to install integration: %s", e)
         return False, error_msg
 
 
@@ -326,10 +327,10 @@ def remove_integration(file_manager: FileManager) -> tuple[bool, str | None]:
     elif file_manager == FileManager.DOLPHIN:
         files = DOLPHIN_INTEGRATIONS
     else:
-        return False, f"Unknown file manager: {file_manager}"
+        return False, _("Unknown file manager: {name}").format(name=file_manager)
 
     try:
-        for _, dest_rel in files:
+        for _source_name, dest_rel in files:
             dest_path = local_share / dest_rel
 
             if dest_path.exists():
@@ -339,13 +340,13 @@ def remove_integration(file_manager: FileManager) -> tuple[bool, str | None]:
         return True, None
 
     except PermissionError as e:
-        error_msg = f"Permission denied: {e}"
-        logger.error(error_msg)
+        error_msg = _("Permission denied: {error}").format(error=e)
+        logger.error("Permission denied: %s", e)
         return False, error_msg
 
     except Exception as e:
-        error_msg = f"Failed to remove integration: {e}"
-        logger.error(error_msg)
+        error_msg = _("Failed to remove integration: {error}").format(error=e)
+        logger.error("Failed to remove integration: %s", e)
         return False, error_msg
 
 

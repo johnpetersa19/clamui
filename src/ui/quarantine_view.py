@@ -21,6 +21,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk, Pango
 
+from ..core.i18n import _, ngettext
 from ..core.quarantine import (
     QuarantineEntry,
     QuarantineManager,
@@ -151,18 +152,18 @@ class QuarantineView(Gtk.Box):
         """Create the storage information section."""
         # Storage info group
         storage_group = Adw.PreferencesGroup()
-        storage_group.set_title("Quarantine Storage")
-        storage_group.set_description("Secure storage for isolated threats")
+        storage_group.set_title(_("Quarantine Storage"))
+        storage_group.set_description(_("Secure storage for isolated threats"))
 
         # Storage info row
         self._storage_row = Adw.ActionRow()
-        self._storage_row.set_title("Total Size")
-        self._storage_row.set_subtitle("Calculating...")
+        self._storage_row.set_title(_("Total Size"))
+        self._storage_row.set_subtitle(_("Calculating..."))
         add_row_icon(self._storage_row, "drive-harddisk-symbolic")
 
         # Count indicator
         self._count_label = Gtk.Label()
-        self._count_label.set_text("0 items")
+        self._count_label.set_text(_("0 items"))
         self._count_label.add_css_class("dim-label")
         self._count_label.set_valign(Gtk.Align.CENTER)
         self._storage_row.add_suffix(self._count_label)
@@ -174,8 +175,8 @@ class QuarantineView(Gtk.Box):
         """Create the quarantine list section."""
         # Quarantine list group
         list_group = Adw.PreferencesGroup()
-        list_group.set_title("Quarantined Files")
-        list_group.set_description("Detected threats isolated from your system")
+        list_group.set_title(_("Quarantined Files"))
+        list_group.set_description(_("Detected threats isolated from your system"))
         self._list_group = list_group
 
         # Header box with search and action buttons
@@ -186,9 +187,11 @@ class QuarantineView(Gtk.Box):
         self._search_entry = Gtk.SearchEntry()
         # set_placeholder_text() requires GTK 4.10+; fall back to GObject property
         if hasattr(self._search_entry, "set_placeholder_text"):
-            self._search_entry.set_placeholder_text("Search by threat name or path...")
+            self._search_entry.set_placeholder_text(_("Search by threat name or path..."))
         else:
-            self._search_entry.set_property("placeholder-text", "Search by threat name or path...")
+            self._search_entry.set_property(
+                "placeholder-text", _("Search by threat name or path...")
+            )
         self._search_entry.set_hexpand(True)
         self._search_entry.connect("search-changed", self._on_search_changed)
         header_box.append(self._search_entry)
@@ -206,7 +209,7 @@ class QuarantineView(Gtk.Box):
         # Refresh button
         refresh_button = Gtk.Button()
         refresh_button.set_icon_name(resolve_icon_name("view-refresh-symbolic"))
-        refresh_button.set_tooltip_text("Refresh quarantine list")
+        refresh_button.set_tooltip_text(_("Refresh quarantine list"))
         refresh_button.add_css_class("flat")
         refresh_button.connect("clicked", self._on_refresh_clicked)
         self._refresh_button = refresh_button
@@ -214,8 +217,8 @@ class QuarantineView(Gtk.Box):
 
         # Clear old items button
         clear_old_button = Gtk.Button()
-        clear_old_button.set_label("Clear Old Items")
-        clear_old_button.set_tooltip_text("Remove quarantined files older than 30 days")
+        clear_old_button.set_label(_("Clear Old Items"))
+        clear_old_button.set_tooltip_text(_("Remove quarantined files older than 30 days"))
         clear_old_button.add_css_class("flat")
         clear_old_button.connect("clicked", self._on_clear_old_clicked)
         self._clear_old_button = clear_old_button
@@ -246,8 +249,8 @@ class QuarantineView(Gtk.Box):
         return create_empty_state(
             EmptyStateConfig(
                 icon_name="shield-safe-symbolic",
-                title="No Quarantined Files",
-                subtitle="Detected threats will be isolated here for review",
+                title=_("No Quarantined Files"),
+                subtitle=_("Detected threats will be isolated here for review"),
                 icon_size=64,
                 margin_vertical=48,
                 title_css_class="title-2",
@@ -259,8 +262,8 @@ class QuarantineView(Gtk.Box):
         return create_empty_state(
             EmptyStateConfig(
                 icon_name="edit-find-symbolic",
-                title="No matching entries",
-                subtitle="Try a different search term",
+                title=_("No matching entries"),
+                subtitle=_("Try a different search term"),
                 icon_size=64,
                 margin_vertical=48,
                 title_css_class="title-2",
@@ -274,7 +277,7 @@ class QuarantineView(Gtk.Box):
         Returns:
             Gtk.ListBoxRow containing spinner and loading text
         """
-        return create_loading_row("Loading quarantine entries...", margin_vertical=48)
+        return create_loading_row(_("Loading quarantine entries..."), margin_vertical=48)
 
     def _on_status_banner_dismissed(self, banner):
         """
@@ -545,14 +548,18 @@ class QuarantineView(Gtk.Box):
         """
         # Show status message
         if removed_count > 0:
-            msg = f"Removed {removed_count} old quarantine entries"
+            msg = ngettext(
+                "Removed {count} old quarantine entry",
+                "Removed {count} old quarantine entries",
+                removed_count,
+            ).format(count=removed_count)
             self._status_banner.set_title(msg)
             self._status_banner.set_revealed(True)
 
             # Refresh the list
             self._load_entries_async()
         else:
-            msg = "No old entries found to remove"
+            msg = _("No old entries found to remove")
             self._status_banner.set_title(msg)
             self._status_banner.set_revealed(True)
 
@@ -602,15 +609,14 @@ class QuarantineView(Gtk.Box):
         # Update count label - show filtered vs total when search is active
         if self._search_query and self._filtered_entries is not None:
             filtered_count = len(self._filtered_entries)
-            if filtered_count == 1 and total_count == 1:
-                item_text = "1 of 1 item"
-            elif filtered_count == 1:
-                item_text = f"1 of {total_count} items"
-            else:
-                item_text = f"{filtered_count} of {total_count} items"
+            item_text = _("{filtered} of {total} items").format(
+                filtered=filtered_count, total=total_count
+            )
         else:
             # No search active - show normal count
-            item_text = f"{total_count} item" if total_count == 1 else f"{total_count} items"
+            item_text = ngettext("{count} item", "{count} items", total_count).format(
+                count=total_count
+            )
 
         self._count_label.set_text(item_text)
 
@@ -651,7 +657,7 @@ class QuarantineView(Gtk.Box):
 
         # Threat name
         threat_label = Gtk.Label()
-        threat_label.set_text(entry.threat_name or "Unknown Threat")
+        threat_label.set_text(entry.threat_name or _("Unknown Threat"))
         threat_label.set_halign(Gtk.Align.START)
         threat_label.add_css_class("heading")
         header_box.append(threat_label)
@@ -660,7 +666,7 @@ class QuarantineView(Gtk.Box):
 
         # Original path
         path_label = Gtk.Label()
-        path_label.set_text(f"Path: {entry.original_path}")
+        path_label.set_text(_("Path: {path}").format(path=entry.original_path))
         path_label.set_halign(Gtk.Align.START)
         path_label.add_css_class("monospace")
         path_label.add_css_class("dim-label")
@@ -681,15 +687,15 @@ class QuarantineView(Gtk.Box):
             except (ValueError, TypeError):
                 date_str = entry.detection_date
         else:
-            date_str = "Unknown"
-        date_label.set_text(f"Quarantined: {date_str}")
+            date_str = _("Unknown")
+        date_label.set_text(_("Quarantined: {date}").format(date=date_str))
         date_label.add_css_class("dim-label")
         date_label.add_css_class("caption")
         metadata_box.append(date_label)
 
         # File size
         size_label = Gtk.Label()
-        size_label.set_text(f"Size: {format_file_size(entry.file_size)}")
+        size_label.set_text(_("Size: {size}").format(size=format_file_size(entry.file_size)))
         size_label.add_css_class("dim-label")
         size_label.add_css_class("caption")
         metadata_box.append(size_label)
@@ -703,14 +709,14 @@ class QuarantineView(Gtk.Box):
 
         # Restore button
         restore_btn = Gtk.Button()
-        restore_btn.set_label("Restore")
+        restore_btn.set_label(_("Restore"))
         restore_btn.add_css_class("pill")
         restore_btn.connect("clicked", self._on_restore_clicked, entry)
         actions_box.append(restore_btn)
 
         # Delete button
         delete_btn = Gtk.Button()
-        delete_btn.set_label("Delete")
+        delete_btn.set_label(_("Delete"))
         delete_btn.add_css_class("pill")
         delete_btn.add_css_class("destructive-action")
         delete_btn.connect("clicked", self._on_delete_clicked, entry)
@@ -742,12 +748,12 @@ class QuarantineView(Gtk.Box):
             False to prevent GLib.idle_add from repeating
         """
         if result.status == QuarantineStatus.SUCCESS:
-            self._status_banner.set_title("File restored successfully")
+            self._status_banner.set_title(_("File restored successfully"))
             self._status_banner.set_revealed(True)
             # Refresh the list after successful restore
             GLib.timeout_add(500, self._load_entries_async)
         else:
-            self._status_banner.set_title(result.error_message or "Failed to restore file")
+            self._status_banner.set_title(result.error_message or _("Failed to restore file"))
             self._status_banner.set_revealed(True)
 
         return False
@@ -773,12 +779,12 @@ class QuarantineView(Gtk.Box):
             False to prevent GLib.idle_add from repeating
         """
         if result.status == QuarantineStatus.SUCCESS:
-            self._status_banner.set_title("File deleted successfully")
+            self._status_banner.set_title(_("File deleted successfully"))
             self._status_banner.set_revealed(True)
             # Refresh the list after successful delete
             GLib.timeout_add(500, self._load_entries_async)
         else:
-            self._status_banner.set_title(result.error_message or "Failed to delete file")
+            self._status_banner.set_title(result.error_message or _("Failed to delete file"))
             self._status_banner.set_revealed(True)
 
         return False

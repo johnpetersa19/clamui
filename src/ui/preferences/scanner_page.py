@@ -18,6 +18,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 from ...core.flatpak import is_flatpak
+from ...core.i18n import _
 from ..compat import create_entry_row, create_switch_row, create_toolbar_view
 from ..utils import resolve_icon_name
 from .base import (
@@ -74,7 +75,7 @@ class ScannerPage(PreferencesPageMixin):
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="Scanner Settings",
+            title=_("Scanner Settings"),
             icon_name=resolve_icon_name("document-properties-symbolic"),
         )
 
@@ -87,7 +88,7 @@ class ScannerPage(PreferencesPageMixin):
 
         # Create file location group
         temp_instance._create_file_location_group(
-            page, "Configuration File", config_path, "clamd.conf location"
+            page, _("Configuration File"), config_path, _("clamd.conf location")
         )
 
         if clamd_available:
@@ -102,10 +103,10 @@ class ScannerPage(PreferencesPageMixin):
         else:
             # Show message that clamd.conf is not available
             group = Adw.PreferencesGroup()
-            group.set_title("Configuration Status")
+            group.set_title(_("Configuration Status"))
             row = Adw.ActionRow()
-            row.set_title("ClamD Configuration")
-            row.set_subtitle("clamd.conf not found - Scanner settings unavailable")
+            row.set_title(_("ClamD Configuration"))
+            row.set_subtitle(_("clamd.conf not found - Scanner settings unavailable"))
             group.add(row)
             page.add(group)
 
@@ -136,26 +137,28 @@ class ScannerPage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Scan Backend")
+        group.set_title(_("Scan Backend"))
 
         from ...core.utils import check_clamd_connection
 
         # Set description based on installation type
         if is_flatpak():
             group.set_description(
-                "Select how ClamUI performs scans. Daemon runs on host via flatpak-spawn. Auto-saved."
+                _(
+                    "Select how ClamUI performs scans. Daemon runs on host via flatpak-spawn. Auto-saved."
+                )
             )
         else:
-            group.set_description("Select how ClamUI performs scans. Auto-saved.")
+            group.set_description(_("Select how ClamUI performs scans. Auto-saved."))
 
         # Scan backend dropdown
         backend_row = Adw.ComboRow()
         backend_model = Gtk.StringList()
-        backend_model.append("Auto (prefer daemon)")
-        backend_model.append("ClamAV Daemon (clamd)")
-        backend_model.append("Standalone Scanner (clamscan)")
+        backend_model.append(_("Auto (prefer daemon)"))
+        backend_model.append(_("ClamAV Daemon (clamd)"))
+        backend_model.append(_("Standalone Scanner (clamscan)"))
         backend_row.set_model(backend_model)
-        backend_row.set_title("Scan Backend")
+        backend_row.set_title(_("Scan Backend"))
 
         # Set current selection from settings
         current_backend = settings_manager.get("scan_backend", "auto")
@@ -177,10 +180,10 @@ class ScannerPage(PreferencesPageMixin):
         # Daemon status indicator
         is_connected, message = check_clamd_connection()
         status_row, status_icon = create_status_row(
-            title="Daemon Status",
+            title=_("Daemon Status"),
             status_ok=is_connected,
-            ok_message="Daemon available",
-            error_message=f"Not available: {message}",
+            ok_message=_("Daemon available"),
+            error_message=_("Not available: {message}").format(message=message),
         )
         widgets_dict["daemon_status_row"] = status_row
         widgets_dict["daemon_status_icon"] = status_icon
@@ -188,7 +191,7 @@ class ScannerPage(PreferencesPageMixin):
 
         # Refresh button
         refresh_button = Gtk.Button()
-        refresh_button.set_label("Refresh Status")
+        refresh_button.set_label(_("Refresh Status"))
         refresh_button.set_valign(Gtk.Align.CENTER)
         refresh_button.add_css_class("flat")
         refresh_button.connect(
@@ -202,8 +205,8 @@ class ScannerPage(PreferencesPageMixin):
 
         # Learn more row - links to documentation
         learn_more_row = create_navigation_row(
-            title="Documentation",
-            subtitle="About scan backends",
+            title=_("Documentation"),
+            subtitle=_("About scan backends"),
             icon_name="help-about-symbolic",
         )
         learn_more_row.connect(
@@ -225,9 +228,13 @@ class ScannerPage(PreferencesPageMixin):
             selected: Index of the selected backend (0=auto, 1=daemon, 2=clamscan)
         """
         subtitles = {
-            0: "Recommended — Automatically uses daemon if available, falls back to clamscan for reliability",
-            1: "Fastest — Instant startup with in-memory database, requires clamd service running",
-            2: "Most compatible — Works anywhere, loads database each scan (3-10 sec startup)",
+            0: _(
+                "Recommended — Automatically uses daemon if available, falls back to clamscan for reliability"
+            ),
+            1: _(
+                "Fastest — Instant startup with in-memory database, requires clamd service running"
+            ),
+            2: _("Most compatible — Works anywhere, loads database each scan (3-10 sec startup)"),
         }
         row.set_subtitle(subtitles.get(selected, subtitles[0]))
 
@@ -268,8 +275,8 @@ class ScannerPage(PreferencesPageMixin):
             row=status_row,
             status_icon=status_icon,
             status_ok=is_connected,
-            ok_message="Daemon available",
-            error_message=f"Not available: {message}",
+            ok_message=_("Daemon available"),
+            error_message=_("Not available: {message}").format(message=message),
         )
 
     @staticmethod
@@ -294,9 +301,11 @@ class ScannerPage(PreferencesPageMixin):
             # Show error if documentation doesn't exist
             ScannerPage._show_message_dialog(
                 parent_window,
-                "Documentation Not Found",
-                "The scan backends documentation file could not be found. "
-                "It may have been moved or deleted.",
+                _("Documentation Not Found"),
+                _(
+                    "The scan backends documentation file could not be found. "
+                    "It may have been moved or deleted."
+                ),
             )
             return
 
@@ -311,8 +320,8 @@ class ScannerPage(PreferencesPageMixin):
             # Show error dialog if opening fails
             ScannerPage._show_message_dialog(
                 parent_window,
-                "Error Opening Documentation",
-                f"Could not open documentation file: {str(e)}",
+                _("Error Opening Documentation"),
+                _("Could not open documentation file: {error}").format(error=str(e)),
             )
 
     @staticmethod
@@ -357,7 +366,7 @@ class ScannerPage(PreferencesPageMixin):
         button_box.set_halign(Gtk.Align.END)
         button_box.set_margin_top(12)
 
-        ok_button = Gtk.Button(label="OK")
+        ok_button = Gtk.Button(label=_("OK"))
         ok_button.add_css_class("suggested-action")
         ok_button.connect("clicked", lambda btn: dialog.close())
         button_box.append(ok_button)
@@ -387,49 +396,49 @@ class ScannerPage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("File Type Scanning")
-        group.set_description("Enable or disable scanning for specific file types")
+        group.set_title(_("File Type Scanning"))
+        group.set_description(_("Enable or disable scanning for specific file types"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # ScanPE switch
         scan_pe_row = create_switch_row("application-x-executable-symbolic")
-        scan_pe_row.set_title("Scan PE Files")
-        scan_pe_row.set_subtitle("Scan Windows/DOS executable files")
+        scan_pe_row.set_title(_("Scan PE Files"))
+        scan_pe_row.set_subtitle(_("Scan Windows/DOS executable files"))
         widgets_dict["ScanPE"] = scan_pe_row
         group.add(scan_pe_row)
 
         # ScanELF switch
         scan_elf_row = create_switch_row("application-x-executable-symbolic")
-        scan_elf_row.set_title("Scan ELF Files")
-        scan_elf_row.set_subtitle("Scan Unix/Linux executable files")
+        scan_elf_row.set_title(_("Scan ELF Files"))
+        scan_elf_row.set_subtitle(_("Scan Unix/Linux executable files"))
         widgets_dict["ScanELF"] = scan_elf_row
         group.add(scan_elf_row)
 
         # ScanOLE2 switch
         scan_ole2_row = create_switch_row("x-office-document-symbolic")
-        scan_ole2_row.set_title("Scan OLE2 Files")
-        scan_ole2_row.set_subtitle("Scan Microsoft Office documents")
+        scan_ole2_row.set_title(_("Scan OLE2 Files"))
+        scan_ole2_row.set_subtitle(_("Scan Microsoft Office documents"))
         widgets_dict["ScanOLE2"] = scan_ole2_row
         group.add(scan_ole2_row)
 
         # ScanPDF switch
         scan_pdf_row = create_switch_row("x-office-document-symbolic")
-        scan_pdf_row.set_title("Scan PDF Files")
-        scan_pdf_row.set_subtitle("Scan PDF documents")
+        scan_pdf_row.set_title(_("Scan PDF Files"))
+        scan_pdf_row.set_subtitle(_("Scan PDF documents"))
         widgets_dict["ScanPDF"] = scan_pdf_row
         group.add(scan_pdf_row)
 
         # ScanHTML switch
         scan_html_row = create_switch_row("text-html-symbolic")
-        scan_html_row.set_title("Scan HTML Files")
-        scan_html_row.set_subtitle("Scan HTML documents")
+        scan_html_row.set_title(_("Scan HTML Files"))
+        scan_html_row.set_subtitle(_("Scan HTML documents"))
         widgets_dict["ScanHTML"] = scan_html_row
         group.add(scan_html_row)
 
         # ScanArchive switch
         scan_archive_row = create_switch_row("package-x-generic-symbolic")
-        scan_archive_row.set_title("Scan Archive Files")
-        scan_archive_row.set_subtitle("Scan compressed archives (ZIP, RAR, etc.)")
+        scan_archive_row.set_title(_("Scan Archive Files"))
+        scan_archive_row.set_subtitle(_("Scan compressed archives (ZIP, RAR, etc.)"))
         widgets_dict["ScanArchive"] = scan_archive_row
         group.add(scan_archive_row)
 
@@ -452,14 +461,14 @@ class ScannerPage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Performance and Limits")
-        group.set_description("Configure scanning limits and performance settings")
+        group.set_title(_("Performance and Limits"))
+        group.set_description(_("Configure scanning limits and performance settings"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # MaxFileSize spin row (in MB, 0-4000)
         max_file_size_row, max_file_size_spin = create_spin_row(
-            title="Max File Size (MB)",
-            subtitle="Maximum file size to scan (0 = unlimited)",
+            title=_("Max File Size (MB)"),
+            subtitle=_("Maximum file size to scan (0 = unlimited)"),
             min_val=0,
             max_val=4000,
             step=1,
@@ -470,8 +479,8 @@ class ScannerPage(PreferencesPageMixin):
 
         # MaxScanSize spin row (in MB, 0-4000)
         max_scan_size_row, max_scan_size_spin = create_spin_row(
-            title="Max Scan Size (MB)",
-            subtitle="Maximum total scan size (0 = unlimited)",
+            title=_("Max Scan Size (MB)"),
+            subtitle=_("Maximum total scan size (0 = unlimited)"),
             min_val=0,
             max_val=4000,
             step=1,
@@ -482,8 +491,8 @@ class ScannerPage(PreferencesPageMixin):
 
         # MaxRecursion spin row (0-255)
         max_recursion_row, max_recursion_spin = create_spin_row(
-            title="Max Archive Recursion",
-            subtitle="Maximum recursion depth for archives",
+            title=_("Max Archive Recursion"),
+            subtitle=_("Maximum recursion depth for archives"),
             min_val=0,
             max_val=255,
             step=1,
@@ -494,8 +503,8 @@ class ScannerPage(PreferencesPageMixin):
 
         # MaxFiles spin row (0-1000000)
         max_files_row, max_files_spin = create_spin_row(
-            title="Max Files in Archive",
-            subtitle="Maximum number of files to scan in archive (0 = unlimited)",
+            title=_("Max Files in Archive"),
+            subtitle=_("Maximum number of files to scan in archive (0 = unlimited)"),
             min_val=0,
             max_val=1000000,
             step=1,
@@ -522,13 +531,13 @@ class ScannerPage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Logging")
-        group.set_description("Configure logging options for the scanner")
+        group.set_title(_("Logging"))
+        group.set_description(_("Configure logging options for the scanner"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # LogFile entry row
         log_file_row = create_entry_row("text-x-generic-symbolic")
-        log_file_row.set_title("Log File Path")
+        log_file_row.set_title(_("Log File Path"))
         log_file_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         log_file_row.set_show_apply_button(False)
         widgets_dict["LogFile"] = log_file_row
@@ -536,15 +545,15 @@ class ScannerPage(PreferencesPageMixin):
 
         # LogVerbose switch
         log_verbose_row = create_switch_row("utilities-terminal-symbolic")
-        log_verbose_row.set_title("Verbose Logging")
-        log_verbose_row.set_subtitle("Enable detailed scanner logging")
+        log_verbose_row.set_title(_("Verbose Logging"))
+        log_verbose_row.set_subtitle(_("Enable detailed scanner logging"))
         widgets_dict["LogVerbose"] = log_verbose_row
         group.add(log_verbose_row)
 
         # LogSyslog switch
         log_syslog_row = create_switch_row("utilities-terminal-symbolic")
-        log_syslog_row.set_title("Syslog Logging")
-        log_syslog_row.set_subtitle("Send log messages to system log")
+        log_syslog_row.set_title(_("Syslog Logging"))
+        log_syslog_row.set_subtitle(_("Send log messages to system log"))
         widgets_dict["LogSyslog"] = log_syslog_row
         group.add(log_syslog_row)
 

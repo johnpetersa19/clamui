@@ -22,6 +22,7 @@ from ..core.file_manager_integration import (
     get_available_integrations,
     install_integration,
 )
+from ..core.i18n import _, ngettext
 from .compat import create_switch_row, create_toolbar_view
 from .utils import resolve_icon_name
 
@@ -77,7 +78,7 @@ class FileManagerIntegrationDialog(Adw.Window):
 
     def _setup_dialog(self):
         """Configure the dialog properties."""
-        self.set_title("File Manager Integration")
+        self.set_title(_("File Manager Integration"))
         self.set_default_size(500, 450)
 
         # Configure as modal dialog
@@ -123,19 +124,23 @@ class FileManagerIntegrationDialog(Adw.Window):
     def _create_info_section(self, preferences_page: Adw.PreferencesPage):
         """Create the information section."""
         info_group = Adw.PreferencesGroup()
-        info_group.set_title("Add Context Menu Actions")
+        info_group.set_title(_("Add Context Menu Actions"))
         info_group.set_description(
-            "ClamUI can add 'Scan with ClamUI' options to your file manager's "
-            "right-click menu. This makes it easy to scan files and folders "
-            "directly from your file browser."
+            _(
+                "ClamUI can add 'Scan with ClamUI' options to your file manager's "
+                "right-click menu. This makes it easy to scan files and folders "
+                "directly from your file browser."
+            )
         )
 
         # Info row about what gets installed
         info_row = Adw.ActionRow()
-        info_row.set_title("What gets installed?")
+        info_row.set_title(_("What gets installed?"))
         info_row.set_subtitle(
-            "Small configuration files are added to your user profile. "
-            "No system files are modified."
+            _(
+                "Small configuration files are added to your user profile. "
+                "No system files are modified."
+            )
         )
 
         info_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-information-symbolic"))
@@ -148,8 +153,8 @@ class FileManagerIntegrationDialog(Adw.Window):
     def _create_file_managers_section(self, preferences_page: Adw.PreferencesPage):
         """Create the file managers selection section."""
         fm_group = Adw.PreferencesGroup()
-        fm_group.set_title("Available File Managers")
-        fm_group.set_description("Select which file managers to integrate with:")
+        fm_group.set_title(_("Available File Managers"))
+        fm_group.set_description(_("Select which file managers to integrate with:"))
 
         # Get available integrations
         integrations = get_available_integrations()
@@ -165,8 +170,8 @@ class FileManagerIntegrationDialog(Adw.Window):
         if available_count == 0:
             # No file managers detected
             no_fm_row = Adw.ActionRow()
-            no_fm_row.set_title("No supported file managers detected")
-            no_fm_row.set_subtitle("ClamUI supports Nemo, Nautilus, and Dolphin file managers.")
+            no_fm_row.set_title(_("No supported file managers detected"))
+            no_fm_row.set_subtitle(_("ClamUI supports Nemo, Nautilus, and Dolphin file managers."))
 
             warning_icon = Gtk.Image.new_from_icon_name(
                 resolve_icon_name("dialog-warning-symbolic")
@@ -192,7 +197,9 @@ class FileManagerIntegrationDialog(Adw.Window):
         row.set_title(integration.display_name)
 
         if integration.is_installed:
-            row.set_subtitle(f"{integration.description} (already installed)")
+            row.set_subtitle(
+                _("{description} (already installed)").format(description=integration.description)
+            )
             row.set_active(True)
             row.set_sensitive(False)
         else:
@@ -236,13 +243,13 @@ class FileManagerIntegrationDialog(Adw.Window):
 
         # Skip button
         skip_button = Gtk.Button()
-        skip_button.set_label("Skip")
+        skip_button.set_label(_("Skip"))
         skip_button.connect("clicked", self._on_skip_clicked)
         button_box.append(skip_button)
 
         # Install button
         install_button = Gtk.Button()
-        install_button.set_label("Install Integration")
+        install_button.set_label(_("Install Integration"))
         install_button.add_css_class("suggested-action")
         install_button.connect("clicked", self._on_install_clicked)
         button_box.append(install_button)
@@ -275,9 +282,19 @@ class FileManagerIntegrationDialog(Adw.Window):
 
         # Show result
         if error_count > 0:
-            self._show_toast(f"Installed {installed_count}, failed {error_count}")
+            self._show_toast(
+                _("Installed {installed}, failed {failed}").format(
+                    installed=installed_count, failed=error_count
+                )
+            )
         elif installed_count > 0:
-            self._show_toast(f"Installed {installed_count} integration(s)")
+            self._show_toast(
+                ngettext(
+                    "Installed {count} integration",
+                    "Installed {count} integrations",
+                    installed_count,
+                ).format(count=installed_count)
+            )
 
         self._save_preference_and_close()
 

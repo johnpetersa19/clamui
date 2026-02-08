@@ -17,6 +17,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ...core.i18n import _
 from ..compat import create_entry_row, create_switch_row
 from ..utils import resolve_icon_name
 from .base import (
@@ -120,7 +121,7 @@ class DatabasePage(PreferencesPageMixin):
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="Database Updates",
+            title=_("Database Updates"),
             icon_name=resolve_icon_name("software-update-available-symbolic"),
         )
 
@@ -130,7 +131,7 @@ class DatabasePage(PreferencesPageMixin):
 
         # Create file location group
         temp_instance._create_file_location_group(
-            page, "Configuration File", config_path, "freshclam.conf location"
+            page, _("Configuration File"), config_path, _("freshclam.conf location")
         )
 
         # Create paths group
@@ -165,13 +166,13 @@ class DatabasePage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Paths")
-        group.set_description("Configure database and log file locations")
+        group.set_title(_("Paths"))
+        group.set_description(_("Configure database and log file locations"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # DatabaseDirectory row
         database_dir_row = create_entry_row()
-        database_dir_row.set_title("Database Directory")
+        database_dir_row.set_title(_("Database Directory"))
         database_dir_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         database_dir_row.set_show_apply_button(False)
         # Add folder icon as prefix
@@ -181,7 +182,7 @@ class DatabasePage(PreferencesPageMixin):
 
         # UpdateLogFile row
         log_file_row = create_entry_row()
-        log_file_row.set_title("Update Log File")
+        log_file_row.set_title(_("Update Log File"))
         log_file_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         log_file_row.set_show_apply_button(False)
         # Add document icon as prefix
@@ -191,7 +192,7 @@ class DatabasePage(PreferencesPageMixin):
 
         # NotifyClamd row
         notify_clamd_row = create_entry_row()
-        notify_clamd_row.set_title("Notify ClamD Config")
+        notify_clamd_row.set_title(_("Notify ClamD Config"))
         notify_clamd_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         notify_clamd_row.set_show_apply_button(False)
         # Add settings icon as prefix
@@ -201,15 +202,15 @@ class DatabasePage(PreferencesPageMixin):
 
         # LogVerbose switch row
         log_verbose_row = create_switch_row("utilities-terminal-symbolic")
-        log_verbose_row.set_title("Verbose Logging")
-        log_verbose_row.set_subtitle("Enable detailed logging for database updates")
+        log_verbose_row.set_title(_("Verbose Logging"))
+        log_verbose_row.set_subtitle(_("Enable detailed logging for database updates"))
         widgets_dict["LogVerbose"] = log_verbose_row
         group.add(log_verbose_row)
 
         # LogSyslog switch row
         log_syslog_row = create_switch_row("utilities-terminal-symbolic")
-        log_syslog_row.set_title("Syslog Logging")
-        log_syslog_row.set_subtitle("Send log messages to system log")
+        log_syslog_row.set_title(_("Syslog Logging"))
+        log_syslog_row.set_subtitle(_("Send log messages to system log"))
         widgets_dict["LogSyslog"] = log_syslog_row
         group.add(log_syslog_row)
 
@@ -230,8 +231,8 @@ class DatabasePage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Update Behavior")
-        group.set_description("Configure how often and where to check for updates")
+        group.set_title(_("Update Behavior"))
+        group.set_description(_("Configure how often and where to check for updates"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # Checks spin row (0-50 updates per day)
@@ -239,8 +240,8 @@ class DatabasePage(PreferencesPageMixin):
         from .base import create_spin_row
 
         checks_row, checks_spin = create_spin_row(
-            title="Checks Per Day",
-            subtitle="Number of update checks per day (0 to disable)",
+            title=_("Checks Per Day"),
+            subtitle=_("Number of update checks per day (0 to disable)"),
             min_val=0,
             max_val=50,
             step=1,
@@ -251,7 +252,7 @@ class DatabasePage(PreferencesPageMixin):
 
         # DatabaseMirror entry row (primary mirror)
         mirror_row = create_entry_row()
-        mirror_row.set_title("Database Mirror")
+        mirror_row.set_title(_("Database Mirror"))
         mirror_row.set_input_purpose(Gtk.InputPurpose.URL)
         mirror_row.set_show_apply_button(False)
         # Add network icon as prefix
@@ -279,10 +280,12 @@ class DatabasePage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Custom Signature Databases")
+        group.set_title(_("Custom Signature Databases"))
         group.set_description(
-            "Third-party signature URLs (e.g., SecuriteInfo). "
-            "Paste URLs or config lines - 'DatabaseCustomURL' prefix auto-stripped."
+            _(
+                "Third-party signature URLs (e.g., SecuriteInfo). "
+                "Paste URLs or config lines - 'DatabaseCustomURL' prefix auto-stripped."
+            )
         )
         group.set_header_suffix(helper._create_permission_indicator())
 
@@ -292,8 +295,8 @@ class DatabasePage(PreferencesPageMixin):
 
         # Entry row for adding new URLs
         entry_row = create_entry_row("list-add-symbolic")
-        entry_row.set_title("Add URL(s)")
-        entry_row.set_subtitle("Paste URL or multi-line config block")
+        entry_row.set_title(_("Add URL(s)"))
+        entry_row.set_subtitle(_("Paste URL or multi-line config block"))
         entry_row.set_input_purpose(Gtk.InputPurpose.URL)
         entry_row.set_show_apply_button(False)
 
@@ -303,8 +306,8 @@ class DatabasePage(PreferencesPageMixin):
 
         # Add button
         add_button = Gtk.Button()
-        add_button.set_label("Add")
-        add_button.set_tooltip_text("Add custom signature URL(s)")
+        add_button.set_label(_("Add"))
+        add_button.set_tooltip_text(_("Add custom signature URL(s)"))
         add_button.connect(
             "clicked", DatabasePage._on_add_custom_url_clicked, entry_row, widgets_dict
         )
@@ -312,8 +315,8 @@ class DatabasePage(PreferencesPageMixin):
 
         # Suggested button
         suggested_button = Gtk.Button()
-        suggested_button.set_label("Suggested")
-        suggested_button.set_tooltip_text("Add free community signature databases (URLhaus)")
+        suggested_button.set_label(_("Suggested"))
+        suggested_button.set_tooltip_text(_("Add free community signature databases (URLhaus)"))
         suggested_button.add_css_class("suggested-action")
         suggested_button.connect("clicked", DatabasePage._on_add_suggested_clicked, widgets_dict)
         button_box.append(suggested_button)
@@ -367,7 +370,7 @@ class DatabasePage(PreferencesPageMixin):
         remove_btn.set_icon_name(resolve_icon_name("user-trash-symbolic") or "user-trash-symbolic")
         remove_btn.add_css_class("flat")
         remove_btn.set_valign(Gtk.Align.CENTER)
-        remove_btn.set_tooltip_text("Remove this URL")
+        remove_btn.set_tooltip_text(_("Remove this URL"))
         remove_btn.connect(
             "clicked", DatabasePage._on_remove_custom_url_clicked, row, url, widgets_dict
         )
@@ -437,13 +440,13 @@ class DatabasePage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Proxy Settings")
-        group.set_description("Configure HTTP proxy for database downloads (optional)")
+        group.set_title(_("Proxy Settings"))
+        group.set_description(_("Configure HTTP proxy for database downloads (optional)"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # HTTPProxyServer entry row
         proxy_server_row = create_entry_row()
-        proxy_server_row.set_title("Proxy Server")
+        proxy_server_row.set_title(_("Proxy Server"))
         proxy_server_row.set_input_purpose(Gtk.InputPurpose.URL)
         proxy_server_row.set_show_apply_button(False)
         # Add network icon as prefix
@@ -456,8 +459,8 @@ class DatabasePage(PreferencesPageMixin):
         from .base import create_spin_row
 
         proxy_port_row, proxy_port_spin = create_spin_row(
-            title="Proxy Port",
-            subtitle="Proxy server port number (0 to disable)",
+            title=_("Proxy Port"),
+            subtitle=_("Proxy server port number (0 to disable)"),
             min_val=0,
             max_val=65535,
             step=1,
@@ -468,7 +471,7 @@ class DatabasePage(PreferencesPageMixin):
 
         # HTTPProxyUsername entry row
         proxy_user_row = create_entry_row()
-        proxy_user_row.set_title("Proxy Username")
+        proxy_user_row.set_title(_("Proxy Username"))
         proxy_user_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         proxy_user_row.set_show_apply_button(False)
         # Add user icon as prefix
@@ -480,7 +483,7 @@ class DatabasePage(PreferencesPageMixin):
         # Using compatible helper for libadwaita 1.0+
         from .base import create_password_entry_row
 
-        proxy_pass_row = create_password_entry_row("Proxy Password")
+        proxy_pass_row = create_password_entry_row(_("Proxy Password"))
         proxy_pass_row.add_prefix(styled_prefix_icon("dialog-password-symbolic"))
         widgets_dict["HTTPProxyPassword"] = proxy_pass_row
         group.add(proxy_pass_row)

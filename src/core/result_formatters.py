@@ -13,6 +13,8 @@ import io
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from .i18n import _
+
 if TYPE_CHECKING:
     from .scanner import ScanResult
 
@@ -73,56 +75,60 @@ def format_results_as_text(result: "ScanResult", timestamp: str | None = None) -
     sub_header_line = "─" * 65
 
     lines.append(header_line)
-    lines.append("ClamUI Scan Report")
+    lines.append(_("ClamUI Scan Report"))
     lines.append(header_line)
-    lines.append(f"Scan Date: {timestamp}")
-    lines.append(f"Scanned Path: {result.path}")
-    lines.append(f"Status: {result.status.value.upper()}")
+    lines.append(_("Scan Date: {timestamp}").format(timestamp=timestamp))
+    lines.append(_("Scanned Path: {path}").format(path=result.path))
+    lines.append(_("Status: {status}").format(status=result.status.value.upper()))
     lines.append("")
 
     # Summary section
     lines.append(sub_header_line)
-    lines.append("Summary")
+    lines.append(_("Summary"))
     lines.append(sub_header_line)
-    lines.append(f"Files Scanned: {result.scanned_files}")
-    lines.append(f"Directories Scanned: {result.scanned_dirs}")
-    lines.append(f"Threats Found: {result.infected_count}")
+    lines.append(_("Files Scanned: {count}").format(count=result.scanned_files))
+    lines.append(_("Directories Scanned: {count}").format(count=result.scanned_dirs))
+    lines.append(_("Threats Found: {count}").format(count=result.infected_count))
     lines.append("")
 
     # Threat details section
     if result.threat_details:
         lines.append(sub_header_line)
-        lines.append("Detected Threats")
+        lines.append(_("Detected Threats"))
         lines.append(sub_header_line)
         lines.append("")
 
         for i, threat in enumerate(result.threat_details, 1):
             severity_upper = threat.severity.upper()
-            lines.append(f"[{i}] {severity_upper} - {threat.category}")
-            lines.append(f"    File: {threat.file_path}")
-            lines.append(f"    Threat: {threat.threat_name}")
+            lines.append(
+                _("[{index}] {severity} - {category}").format(
+                    index=i, severity=severity_upper, category=threat.category
+                )
+            )
+            lines.append(_("    File: {path}").format(path=threat.file_path))
+            lines.append(_("    Threat: {name}").format(name=threat.threat_name))
             lines.append("")
     elif result.status.value == "clean":
         lines.append(sub_header_line)
-        lines.append("No Threats Detected")
+        lines.append(_("No Threats Detected"))
         lines.append(sub_header_line)
         lines.append("")
-        lines.append("✓ All scanned files are clean.")
+        lines.append(_("All scanned files are clean."))
         lines.append("")
     elif result.status.value == "error":
         lines.append(sub_header_line)
-        lines.append("Scan Error")
+        lines.append(_("Scan Error"))
         lines.append(sub_header_line)
         lines.append("")
         if result.error_message:
-            lines.append(f"Error: {result.error_message}")
+            lines.append(_("Error: {message}").format(message=result.error_message))
         lines.append("")
     elif result.status.value == "cancelled":
         lines.append(sub_header_line)
-        lines.append("Scan Cancelled")
+        lines.append(_("Scan Cancelled"))
         lines.append(sub_header_line)
         lines.append("")
-        lines.append("The scan was cancelled before completion.")
+        lines.append(_("The scan was cancelled before completion."))
         lines.append("")
 
     # Footer
@@ -165,7 +171,9 @@ def format_results_as_csv(result: "ScanResult", timestamp: str | None = None) ->
     writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
 
     # Write header row
-    writer.writerow(["File Path", "Threat Name", "Category", "Severity", "Timestamp"])
+    writer.writerow(
+        [_("File Path"), _("Threat Name"), _("Category"), _("Severity"), _("Timestamp")]
+    )
 
     # Write threat details
     if result.threat_details:

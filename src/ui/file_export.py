@@ -26,6 +26,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
 
+from ..core.i18n import _
+
 # Check GTK version for FileDialog support (added in GTK 4.10)
 # Handle edge cases where version detection fails (e.g., during testing with mocks)
 try:
@@ -207,7 +209,7 @@ class FileExportHelper:
             file_path: Path to write to, or None if invalid selection
         """
         if file_path is None:
-            self._show_toast("Invalid file path selected", is_error=True)
+            self._show_toast(_("Invalid file path selected"), is_error=True)
             return
 
         try:
@@ -230,13 +232,15 @@ class FileExportHelper:
             if self._success_message:
                 message = self._success_message
             else:
-                message = f"Exported to {filename}"
+                message = _("Exported to {filename}").format(filename=filename)
             self._show_toast(message)
 
         except PermissionError:
-            self._show_toast("Permission denied - cannot write to selected location", is_error=True)
+            self._show_toast(
+                _("Permission denied - cannot write to selected location"), is_error=True
+            )
         except OSError as e:
-            self._show_toast(f"Error writing file: {str(e)}", is_error=True)
+            self._show_toast(_("Error writing file: {error}").format(error=str(e)), is_error=True)
 
     def _show_toast(self, message: str, is_error: bool = False) -> None:
         """
@@ -261,6 +265,6 @@ class FileExportHelper:
 
 
 # Pre-defined file filters for common export formats
-TEXT_FILTER = FileFilter(name="Text Files", extension="txt", mime_type="text/plain")
-CSV_FILTER = FileFilter(name="CSV Files", extension="csv", mime_type="text/csv")
-JSON_FILTER = FileFilter(name="JSON Files", extension="json", mime_type="application/json")
+TEXT_FILTER = FileFilter(name=_("Text Files"), extension="txt", mime_type="text/plain")
+CSV_FILTER = FileFilter(name=_("CSV Files"), extension="csv", mime_type="text/csv")
+JSON_FILTER = FileFilter(name=_("JSON Files"), extension="json", mime_type="application/json")

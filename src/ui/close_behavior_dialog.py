@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from gi.repository import Adw, Gtk
 
+from ..core.i18n import _
 from .compat import create_toolbar_view
 
 
@@ -64,7 +65,7 @@ class CloseBehaviorDialog(Adw.Window):
 
     def _setup_dialog(self):
         """Configure the dialog properties."""
-        self.set_title("Close Application?")
+        self.set_title(_("Close Application?"))
         self.set_default_size(400, -1)  # Natural height
 
         # Configure as modal dialog
@@ -92,7 +93,7 @@ class CloseBehaviorDialog(Adw.Window):
 
         # Question text
         question_label = Gtk.Label()
-        question_label.set_markup("What would you like to do when closing the window?")
+        question_label.set_markup(_("What would you like to do when closing the window?"))
         question_label.set_wrap(True)
         question_label.set_xalign(0)
         content_box.append(question_label)
@@ -102,8 +103,10 @@ class CloseBehaviorDialog(Adw.Window):
 
         # Minimize to tray option
         self._minimize_row = Adw.ActionRow()
-        self._minimize_row.set_title("Minimize to tray")
-        self._minimize_row.set_subtitle("Hide the window but keep ClamUI running in the background")
+        self._minimize_row.set_title(_("Minimize to tray"))
+        self._minimize_row.set_subtitle(
+            _("Hide the window but keep ClamUI running in the background")
+        )
         self._minimize_row.set_activatable(True)
 
         minimize_check = Gtk.CheckButton()
@@ -116,8 +119,8 @@ class CloseBehaviorDialog(Adw.Window):
 
         # Quit option
         self._quit_row = Adw.ActionRow()
-        self._quit_row.set_title("Quit completely")
-        self._quit_row.set_subtitle("Close the window and exit ClamUI")
+        self._quit_row.set_title(_("Quit completely"))
+        self._quit_row.set_subtitle(_("Close the window and exit ClamUI"))
         self._quit_row.set_activatable(True)
 
         quit_check = Gtk.CheckButton()
@@ -136,7 +139,7 @@ class CloseBehaviorDialog(Adw.Window):
         remember_box.set_margin_top(8)
 
         self._remember_check = Gtk.CheckButton()
-        self._remember_check.set_label("Remember my choice")
+        self._remember_check.set_label(_("Remember my choice"))
         remember_box.append(self._remember_check)
 
         content_box.append(remember_box)
@@ -147,12 +150,12 @@ class CloseBehaviorDialog(Adw.Window):
         button_box.set_margin_top(12)
 
         # Cancel button
-        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button = Gtk.Button(label=_("Cancel"))
         cancel_button.connect("clicked", self._on_cancel_clicked)
         button_box.append(cancel_button)
 
         # Confirm button
-        self._confirm_button = Gtk.Button(label="Confirm")
+        self._confirm_button = Gtk.Button(label=_("Confirm"))
         self._confirm_button.add_css_class("suggested-action")
         self._confirm_button.set_sensitive(True)  # Enabled - quit is default
         self._confirm_button.connect("clicked", self._on_confirm_clicked)

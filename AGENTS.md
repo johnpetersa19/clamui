@@ -90,6 +90,21 @@ Follow the project conventions:
 - **Docstrings** for public methods and classes
 - Run `uv run ruff check --fix` and `uv run ruff format` before committing
 
+### Internationalization (i18n)
+
+All user-facing strings MUST be wrapped with translation functions:
+
+- **`_("text")`** for simple strings
+- **`_("text {var}").format(var=val)`** for strings with variables (NEVER `_(f"..."`)
+- **`ngettext("singular", "plural", count)`** for count-dependent strings
+- **`N_("text")`** for module-level constants (translate with `_()` at display time)
+- Import from: `from ..core.i18n import _, ngettext` (or `N_`, `pgettext` as needed)
+
+**Ruff INT rules** are enabled to catch f-strings in gettext calls at lint time.
+
+When adding new strings, update `po/POTFILES.in` if the file is not already listed,
+then run `./scripts/update-pot.sh`.
+
 ## Agent Workflow Recommendations
 
 ### For Bug Fixes

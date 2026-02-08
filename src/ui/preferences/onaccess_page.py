@@ -16,6 +16,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ...core.i18n import _
 from ..compat import create_entry_row, create_switch_row
 from ..utils import resolve_icon_name
 from .base import (
@@ -68,7 +69,7 @@ class OnAccessPage(PreferencesPageMixin):
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="On Access",
+            title=_("On Access"),
             icon_name=resolve_icon_name("security-high-symbolic"),
         )
 
@@ -91,10 +92,10 @@ class OnAccessPage(PreferencesPageMixin):
         else:
             # Show message that clamd.conf is not available
             group = Adw.PreferencesGroup()
-            group.set_title("Configuration Status")
+            group.set_title(_("Configuration Status"))
             row = Adw.ActionRow()
-            row.set_title("On Access Configuration")
-            row.set_subtitle("clamd.conf not found - On Access settings unavailable")
+            row.set_title(_("On Access Configuration"))
+            row.set_subtitle(_("clamd.conf not found - On Access settings unavailable"))
             group.add(row)
             page.add(group)
 
@@ -115,13 +116,13 @@ class OnAccessPage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Monitored Paths")
-        group.set_description("Directories to monitor. Comma-separated.")
+        group.set_title(_("Monitored Paths"))
+        group.set_description(_("Directories to monitor. Comma-separated."))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # OnAccessIncludePath row
         include_path_row = create_entry_row()
-        include_path_row.set_title("Include Paths")
+        include_path_row.set_title(_("Include Paths"))
         include_path_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         include_path_row.set_show_apply_button(False)
         # Add folder icon as prefix
@@ -131,7 +132,7 @@ class OnAccessPage(PreferencesPageMixin):
 
         # OnAccessExcludePath row
         exclude_path_row = create_entry_row()
-        exclude_path_row.set_title("Exclude Paths")
+        exclude_path_row.set_title(_("Exclude Paths"))
         exclude_path_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         exclude_path_row.set_show_apply_button(False)
         # Add folder icon as prefix
@@ -158,35 +159,35 @@ class OnAccessPage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Behavior Settings")
-        group.set_description("On-Access scanning behavior")
+        group.set_title(_("Behavior Settings"))
+        group.set_description(_("On-Access scanning behavior"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # OnAccessPrevention switch
         prevention_row = create_switch_row("shield-safe-symbolic")
-        prevention_row.set_title("Prevention Mode")
-        prevention_row.set_subtitle("Block access to infected files")
+        prevention_row.set_title(_("Prevention Mode"))
+        prevention_row.set_subtitle(_("Block access to infected files"))
         widgets_dict["OnAccessPrevention"] = prevention_row
         group.add(prevention_row)
 
         # OnAccessExtraScanning switch
         extra_scanning_row = create_switch_row("emblem-system-symbolic")
-        extra_scanning_row.set_title("Extra Scanning")
-        extra_scanning_row.set_subtitle("Monitor file creation/moves via inotify")
+        extra_scanning_row.set_title(_("Extra Scanning"))
+        extra_scanning_row.set_subtitle(_("Monitor file creation/moves via inotify"))
         widgets_dict["OnAccessExtraScanning"] = extra_scanning_row
         group.add(extra_scanning_row)
 
         # OnAccessDenyOnError switch
         deny_on_error_row = create_switch_row("action-unavailable-symbolic")
-        deny_on_error_row.set_title("Deny on Error")
-        deny_on_error_row.set_subtitle("Deny access when scan fails (requires Prevention)")
+        deny_on_error_row.set_title(_("Deny on Error"))
+        deny_on_error_row.set_subtitle(_("Deny access when scan fails (requires Prevention)"))
         widgets_dict["OnAccessDenyOnError"] = deny_on_error_row
         group.add(deny_on_error_row)
 
         # OnAccessDisableDDD switch
         disable_ddd_row = create_switch_row("folder-symbolic")
-        disable_ddd_row.set_title("Disable DDD")
-        disable_ddd_row.set_subtitle("Disable Directory Descent Detection")
+        disable_ddd_row.set_title(_("Disable DDD"))
+        disable_ddd_row.set_subtitle(_("Disable Directory Descent Detection"))
         widgets_dict["OnAccessDisableDDD"] = disable_ddd_row
         group.add(disable_ddd_row)
 
@@ -209,14 +210,14 @@ class OnAccessPage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Performance Settings")
-        group.set_description("Scanning limits and performance")
+        group.set_title(_("Performance Settings"))
+        group.set_description(_("Scanning limits and performance"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # OnAccessMaxThreads spin row (1-64)
         max_threads_row, max_threads_spin = create_spin_row(
-            title="Max Threads",
-            subtitle="Maximum number of scanning threads",
+            title=_("Max Threads"),
+            subtitle=_("Maximum number of scanning threads"),
             min_val=1,
             max_val=64,
             step=1,
@@ -227,8 +228,8 @@ class OnAccessPage(PreferencesPageMixin):
 
         # OnAccessMaxFileSize spin row (in MB, 0-4000)
         max_file_size_row, max_file_size_spin = create_spin_row(
-            title="Max File Size (MB)",
-            subtitle="Maximum file size to scan (0 = unlimited)",
+            title=_("Max File Size (MB)"),
+            subtitle=_("Maximum file size to scan (0 = unlimited)"),
             min_val=0,
             max_val=4000,
             step=1,
@@ -239,8 +240,8 @@ class OnAccessPage(PreferencesPageMixin):
 
         # OnAccessCurlTimeout spin row (in seconds, 0-3600)
         curl_timeout_row, curl_timeout_spin = create_spin_row(
-            title="Curl Timeout (seconds)",
-            subtitle="Timeout for remote scanning operations (0 = disabled)",
+            title=_("Curl Timeout (seconds)"),
+            subtitle=_("Timeout for remote scanning operations (0 = disabled)"),
             min_val=0,
             max_val=3600,
             step=1,
@@ -251,8 +252,8 @@ class OnAccessPage(PreferencesPageMixin):
 
         # OnAccessRetryAttempts spin row (0-10)
         retry_attempts_row, retry_attempts_spin = create_spin_row(
-            title="Retry Attempts",
-            subtitle="Number of retry attempts when scan fails",
+            title=_("Retry Attempts"),
+            subtitle=_("Number of retry attempts when scan fails"),
             min_val=0,
             max_val=10,
             step=1,
@@ -282,14 +283,14 @@ class OnAccessPage(PreferencesPageMixin):
             helper: Helper instance with _create_permission_indicator method
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Scan Loop Prevention")
-        group.set_description("CRITICAL: Set at least one to prevent infinite loops")
+        group.set_title(_("Scan Loop Prevention"))
+        group.set_description(_("CRITICAL: Set at least one to prevent infinite loops"))
         group.set_header_suffix(helper._create_permission_indicator())
 
         # Warning banner row
         warning_row = Adw.ActionRow()
-        warning_row.set_title("Required Configuration")
-        warning_row.set_subtitle("Exclude clamav user or UID to prevent scan loops")
+        warning_row.set_title(_("Required Configuration"))
+        warning_row.set_subtitle(_("Exclude clamav user or UID to prevent scan loops"))
         warning_row.add_css_class("warning")
         # Add warning icon as prefix (not dim for emphasis)
         warning_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
@@ -300,7 +301,7 @@ class OnAccessPage(PreferencesPageMixin):
 
         # OnAccessExcludeUname entry row
         exclude_uname_row = create_entry_row()
-        exclude_uname_row.set_title("Exclude Username")
+        exclude_uname_row.set_title(_("Exclude Username"))
         exclude_uname_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
         exclude_uname_row.set_show_apply_button(False)
         # Add user icon as prefix
@@ -310,8 +311,8 @@ class OnAccessPage(PreferencesPageMixin):
 
         # OnAccessExcludeUID spin row (0-65534)
         exclude_uid_row, exclude_uid_spin = create_spin_row(
-            title="Exclude User ID",
-            subtitle="User ID to exclude from On-Access scanning",
+            title=_("Exclude User ID"),
+            subtitle=_("User ID to exclude from On-Access scanning"),
             min_val=0,
             max_val=65534,
             step=1,
@@ -322,8 +323,8 @@ class OnAccessPage(PreferencesPageMixin):
 
         # OnAccessExcludeRootUID switch
         exclude_root_row = create_switch_row("avatar-default-symbolic")
-        exclude_root_row.set_title("Exclude Root User")
-        exclude_root_row.set_subtitle("Exclude root (UID 0) from On-Access scanning")
+        exclude_root_row.set_title(_("Exclude Root User"))
+        exclude_root_row.set_subtitle(_("Exclude root (UID 0) from On-Access scanning"))
         widgets_dict["OnAccessExcludeRootUID"] = exclude_root_row
         group.add(exclude_root_row)
 

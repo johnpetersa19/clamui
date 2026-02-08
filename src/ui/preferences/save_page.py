@@ -22,6 +22,7 @@ from ...core.clamav_config import (
     validate_config,
     write_config_with_elevation,
 )
+from ...core.i18n import _
 from ..compat import create_toolbar_view, safe_set_subtitle_lines, safe_set_title_lines
 from ..utils import resolve_icon_name
 from .base import PreferencesPageMixin
@@ -174,7 +175,7 @@ class SavePage(PreferencesPageMixin):
         button_box.set_halign(Gtk.Align.END)
         button_box.set_margin_top(12)
 
-        ok_button = Gtk.Button(label="OK")
+        ok_button = Gtk.Button(label=_("OK"))
         ok_button.add_css_class("suggested-action")
         ok_button.connect("clicked", lambda btn: dialog.close())
         button_box.append(ok_button)
@@ -196,18 +197,18 @@ class SavePage(PreferencesPageMixin):
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="Save & Apply",
+            title=_("Save & Apply"),
             icon_name=resolve_icon_name("document-save-symbolic"),
         )
 
         # Information banner explaining what needs to be saved
         info_group = Adw.PreferencesGroup()
-        info_group.set_title("Save Behavior")
+        info_group.set_title(_("Save Behavior"))
 
         # Auto-save settings info row
         auto_save_row = Adw.ActionRow()
-        auto_save_row.set_title("Auto-Saved")
-        auto_save_row.set_subtitle("Scan Backend, Exclusions")
+        auto_save_row.set_title(_("Auto-Saved"))
+        auto_save_row.set_subtitle(_("Scan Backend, Exclusions"))
         auto_save_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("emblem-default-symbolic"))
         auto_save_icon.add_css_class("success")
         auto_save_row.add_prefix(auto_save_icon)
@@ -215,9 +216,9 @@ class SavePage(PreferencesPageMixin):
 
         # Manual save settings info row
         manual_save_row = Adw.ActionRow()
-        manual_save_row.set_title("Manual Save Required")
+        manual_save_row.set_title(_("Manual Save Required"))
         safe_set_title_lines(manual_save_row, 1)
-        manual_save_row.set_subtitle("Database Updates, Scanner, On-Access, Scheduled Scans")
+        manual_save_row.set_subtitle(_("Database Updates, Scanner, On-Access, Scheduled Scans"))
         safe_set_subtitle_lines(manual_save_row, 1)
         lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-lock-screen-symbolic"))
         lock_icon.add_css_class("warning")
@@ -228,15 +229,15 @@ class SavePage(PreferencesPageMixin):
 
         # Save & apply button group
         button_group = Adw.PreferencesGroup()
-        button_group.set_title("Apply Configuration")
+        button_group.set_title(_("Apply Configuration"))
 
         # Save button row - using ActionRow to properly contain the button
         save_action_row = Adw.ActionRow()
-        save_action_row.set_title("Save Configuration")
+        save_action_row.set_title(_("Save Configuration"))
 
         # Create the save button
         self._save_button = Gtk.Button()
-        self._save_button.set_label("Save & Apply")
+        self._save_button.set_label(_("Save & Apply"))
         self._save_button.add_css_class("suggested-action")
         self._save_button.set_valign(Gtk.Align.CENTER)
         self._save_button.connect("clicked", self._on_save_clicked)
@@ -276,13 +277,15 @@ class SavePage(PreferencesPageMixin):
         if freshclam_updates:
             if not self._window._freshclam_config:
                 self._show_error_dialog(
-                    "Configuration Error",
-                    "Cannot save freshclam settings: Configuration failed to load.\n\n"
-                    "This may be due to:\n"
-                    "• Missing configuration file\n"
-                    "• Insufficient permissions\n"
-                    "• Disk space issues (Flatpak)\n\n"
-                    "Check the application logs for details.",
+                    _("Configuration Error"),
+                    _(
+                        "Cannot save freshclam settings: Configuration failed to load.\n\n"
+                        "This may be due to:\n"
+                        "- Missing configuration file\n"
+                        "- Insufficient permissions\n"
+                        "- Disk space issues (Flatpak)\n\n"
+                        "Check the application logs for details."
+                    ),
                 )
                 self._is_saving = False
                 button.set_sensitive(True)
@@ -290,7 +293,7 @@ class SavePage(PreferencesPageMixin):
 
             is_valid, errors = validate_config(self._window._freshclam_config)
             if not is_valid:
-                self._show_error_dialog("Validation Error", "\n".join(errors))
+                self._show_error_dialog(_("Validation Error"), "\n".join(errors))
                 self._is_saving = False
                 button.set_sensitive(True)
                 return
@@ -298,9 +301,11 @@ class SavePage(PreferencesPageMixin):
         if clamd_updates and self._clamd_available:
             if not self._window._clamd_config:
                 self._show_error_dialog(
-                    "Configuration Error",
-                    "Cannot save clamd settings: Configuration failed to load.\n\n"
-                    "Check that /etc/clamav/clamd.conf exists and is readable.",
+                    _("Configuration Error"),
+                    _(
+                        "Cannot save clamd settings: Configuration failed to load.\n\n"
+                        "Check that /etc/clamav/clamd.conf exists and is readable."
+                    ),
                 )
                 self._is_saving = False
                 button.set_sensitive(True)
@@ -308,7 +313,7 @@ class SavePage(PreferencesPageMixin):
 
             is_valid, errors = validate_config(self._window._clamd_config)
             if not is_valid:
-                self._show_error_dialog("Validation Error", "\n".join(errors))
+                self._show_error_dialog(_("Validation Error"), "\n".join(errors))
                 self._is_saving = False
                 button.set_sensitive(True)
                 return
@@ -421,13 +426,13 @@ class SavePage(PreferencesPageMixin):
             # Show success message
             GLib.idle_add(
                 self._show_success_dialog,
-                "Configuration Saved",
-                "Configuration changes have been applied successfully.",
+                _("Configuration Saved"),
+                _("Configuration changes have been applied successfully."),
             )
         except Exception as e:
             # Store error for thread-safe handling
             self._scheduler_error = str(e)
-            GLib.idle_add(self._show_error_dialog, "Save Failed", str(e))
+            GLib.idle_add(self._show_error_dialog, _("Save Failed"), str(e))
         finally:
             self._is_saving = False
             GLib.idle_add(button.set_sensitive, True)

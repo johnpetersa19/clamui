@@ -17,6 +17,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from ...core.i18n import N_, _
 from ..compat import create_entry_row, create_switch_row
 from ..utils import resolve_icon_name
 from .base import PreferencesPageMixin, create_spin_row, styled_prefix_icon
@@ -57,7 +58,7 @@ class ScheduledPage(PreferencesPageMixin):
             Configured Adw.PreferencesPage ready to be added to preferences window
         """
         page = Adw.PreferencesPage(
-            title="Scheduled Scans",
+            title=_("Scheduled Scans"),
             icon_name=resolve_icon_name("alarm-symbolic"),
         )
 
@@ -86,13 +87,13 @@ class ScheduledPage(PreferencesPageMixin):
             widgets_dict: Dictionary to store widget references
         """
         group = Adw.PreferencesGroup()
-        group.set_title("Scheduled Scans Configuration")
-        group.set_description("Configure automatic scanning. Save with 'Save &amp; Apply'.")
+        group.set_title(_("Scheduled Scans Configuration"))
+        group.set_description(_("Configure automatic scanning. Save with 'Save &amp; Apply'."))
 
         # Enable scheduled scans switch
         enable_scheduled_row = create_switch_row("emblem-system-symbolic")
-        enable_scheduled_row.set_title("Enable Scheduled Scans")
-        enable_scheduled_row.set_subtitle("Run automatic scans at specified intervals")
+        enable_scheduled_row.set_title(_("Enable Scheduled Scans"))
+        enable_scheduled_row.set_subtitle(_("Run automatic scans at specified intervals"))
         widgets_dict["enabled"] = enable_scheduled_row
         group.add(enable_scheduled_row)
 
@@ -100,20 +101,20 @@ class ScheduledPage(PreferencesPageMixin):
         frequency_row = Adw.ComboRow()
         frequency_row.add_prefix(styled_prefix_icon("view-refresh-symbolic"))
         frequency_model = Gtk.StringList()
-        frequency_model.append("Hourly")
-        frequency_model.append("Daily")
-        frequency_model.append("Weekly")
-        frequency_model.append("Monthly")
+        frequency_model.append(_("Hourly"))
+        frequency_model.append(_("Daily"))
+        frequency_model.append(_("Weekly"))
+        frequency_model.append(_("Monthly"))
         frequency_row.set_model(frequency_model)
         frequency_row.set_selected(1)  # Default to Daily
-        frequency_row.set_title("Scan Frequency")
+        frequency_row.set_title(_("Scan Frequency"))
         widgets_dict["frequency"] = frequency_row
         group.add(frequency_row)
 
         # Time picker (schedule_time)
         time_row = create_entry_row("alarm-symbolic")
-        time_row.set_title("Scan Time (24-hour format, e.g. 02:00)")
-        time_row.set_text("02:00")
+        time_row.set_title(_("Scan Time (24-hour format, e.g. 02:00)"))
+        time_row.set_text("02:00")  # i18n: no-translate
         widgets_dict["time"] = time_row
         group.add(time_row)
 
@@ -122,26 +123,26 @@ class ScheduledPage(PreferencesPageMixin):
         day_of_week_row.add_prefix(styled_prefix_icon("x-office-calendar-symbolic"))
         day_of_week_model = Gtk.StringList()
         for day in [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
+            N_("Monday"),
+            N_("Tuesday"),
+            N_("Wednesday"),
+            N_("Thursday"),
+            N_("Friday"),
+            N_("Saturday"),
+            N_("Sunday"),
         ]:
-            day_of_week_model.append(day)
+            day_of_week_model.append(_(day))
         day_of_week_row.set_model(day_of_week_model)
         day_of_week_row.set_selected(0)  # Default to Monday
-        day_of_week_row.set_title("Day of Week")
-        day_of_week_row.set_subtitle("For weekly scans")
+        day_of_week_row.set_title(_("Day of Week"))
+        day_of_week_row.set_subtitle(_("For weekly scans"))
         widgets_dict["day_of_week"] = day_of_week_row
         group.add(day_of_week_row)
 
         # Day of month spinner (for monthly scans)
         day_of_month_row, day_of_month_spin = create_spin_row(
-            title="Day of Month",
-            subtitle="For monthly scans (1-28)",
+            title=_("Day of Month"),
+            subtitle=_("For monthly scans (1-28)"),
             min_val=1,
             max_val=28,
             step=1,
@@ -153,23 +154,23 @@ class ScheduledPage(PreferencesPageMixin):
 
         # Scan targets entry (schedule_targets)
         targets_row = create_entry_row("folder-symbolic")
-        targets_row.set_title("Scan Targets (comma-separated paths)")
+        targets_row.set_title(_("Scan Targets (comma-separated paths)"))
         targets_row.set_text(str(Path.home()))
         widgets_dict["targets"] = targets_row
         group.add(targets_row)
 
         # Skip on battery switch
         skip_battery_row = create_switch_row("battery-symbolic")
-        skip_battery_row.set_title("Skip on Battery")
-        skip_battery_row.set_subtitle("Don't run scheduled scans when on battery power")
+        skip_battery_row.set_title(_("Skip on Battery"))
+        skip_battery_row.set_subtitle(_("Don't run scheduled scans when on battery power"))
         skip_battery_row.set_active(True)
         widgets_dict["skip_on_battery"] = skip_battery_row
         group.add(skip_battery_row)
 
         # Auto-quarantine switch
         auto_quarantine_row = create_switch_row("security-high-symbolic")
-        auto_quarantine_row.set_title("Auto-Quarantine")
-        auto_quarantine_row.set_subtitle("Automatically quarantine detected threats")
+        auto_quarantine_row.set_title(_("Auto-Quarantine"))
+        auto_quarantine_row.set_subtitle(_("Automatically quarantine detected threats"))
         auto_quarantine_row.set_active(False)
         widgets_dict["auto_quarantine"] = auto_quarantine_row
         group.add(auto_quarantine_row)

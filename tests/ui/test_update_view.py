@@ -251,7 +251,7 @@ class TestUpdateViewStatusBanner:
             # Verify success class was set
             view._status_banner.set_title.assert_called_once()
             title_arg = view._status_banner.set_title.call_args[0][0]
-            assert "2 database(s) updated" in title_arg
+            assert "2 databases updated" in title_arg
             # Check that set_status_class was called with SUCCESS
 
             # We can't easily verify the exact call without importing,

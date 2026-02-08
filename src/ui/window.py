@@ -14,6 +14,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
+from ..core.i18n import _
 from .close_behavior_dialog import CloseBehaviorDialog
 from .compat import create_toolbar_view
 from .sidebar import NavigationSidebar
@@ -47,7 +48,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._application = application
 
         # Set window properties
-        self.set_title("ClamUI")
+        self.set_title("ClamUI")  # i18n: no-translate
         self.set_default_size(900, 700)
         self.set_size_request(400, 400)
 
@@ -479,7 +480,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Back button (hidden when not folded)
         self._back_button = Gtk.Button.new_from_icon_name(resolve_icon_name("go-previous-symbolic"))
-        self._back_button.set_tooltip_text("Back to navigation")
+        self._back_button.set_tooltip_text(_("Back to navigation"))
         self._back_button.connect("clicked", self._on_back_clicked)
         self._back_button.set_visible(False)  # Hidden initially
         header_bar.pack_start(self._back_button)
@@ -496,7 +497,7 @@ class MainWindow(Adw.ApplicationWindow):
         # Scan System button (primary action)
         self._scan_system_button = Gtk.Button()
         self._scan_system_button.set_icon_name(resolve_icon_name("drive-harddisk-symbolic"))
-        self._scan_system_button.set_tooltip_text("Scan System (Quick Scan)")
+        self._scan_system_button.set_tooltip_text(_("Scan System (Quick Scan)"))
         self._scan_system_button.add_css_class("suggested-action")
         self._scan_system_button.set_action_name("app.scan-system")
         header_bar.pack_end(self._scan_system_button)
@@ -504,7 +505,7 @@ class MainWindow(Adw.ApplicationWindow):
         # Scan File button
         self._scan_file_button = Gtk.Button()
         self._scan_file_button.set_icon_name(resolve_icon_name("document-open-symbolic"))
-        self._scan_file_button.set_tooltip_text("Scan File or Folder")
+        self._scan_file_button.set_tooltip_text(_("Scan File or Folder"))
         self._scan_file_button.set_action_name("app.scan-file")
         header_bar.pack_end(self._scan_file_button)
 
@@ -567,7 +568,7 @@ class MainWindow(Adw.ApplicationWindow):
             self._title_label.set_label(label)
         else:
             # Show app name when sidebar is visible
-            self._title_label.set_label("ClamUI")
+            self._title_label.set_label("ClamUI")  # i18n: no-translate
 
     def set_active_view(self, view_name: str):
         """
@@ -589,13 +590,13 @@ class MainWindow(Adw.ApplicationWindow):
         """
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name(resolve_icon_name("open-menu-symbolic"))
-        menu_button.set_tooltip_text("Menu (F10)")
+        menu_button.set_tooltip_text(_("Menu (F10)"))
 
         # Create menu model
         menu = Gio.Menu()
-        menu.append("Preferences", "app.preferences")
-        menu.append("About ClamUI", "app.about")
-        menu.append("Quit", "app.quit")
+        menu.append(_("Preferences"), "app.preferences")
+        menu.append(_("About ClamUI"), "app.about")
+        menu.append(_("Quit"), "app.quit")
 
         menu_button.set_menu_model(menu)
 
@@ -604,8 +605,8 @@ class MainWindow(Adw.ApplicationWindow):
     def _show_placeholder(self):
         """Show placeholder content in the content area."""
         placeholder = Adw.StatusPage()
-        placeholder.set_title("ClamUI")
-        placeholder.set_description("ClamAV Desktop Scanner")
+        placeholder.set_title("ClamUI")  # i18n: no-translate
+        placeholder.set_description(_("ClamAV Desktop Scanner"))
         placeholder.set_icon_name(resolve_icon_name("security-high-symbolic"))
         placeholder.set_vexpand(True)
 

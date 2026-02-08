@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from gi.repository import Adw, Gtk
 
+from ..core.i18n import _
 from .compat import create_toolbar_view
 
 
@@ -61,7 +62,7 @@ class ScanInProgressDialog(Adw.Window):
 
     def _setup_dialog(self):
         """Configure the dialog properties."""
-        self.set_title("Scan in Progress")
+        self.set_title(_("Scan in Progress"))
         self.set_default_size(400, -1)  # Natural height
 
         # Configure as modal dialog
@@ -97,7 +98,7 @@ class ScanInProgressDialog(Adw.Window):
         icon_title_box.append(warning_icon)
 
         title_label = Gtk.Label()
-        title_label.set_markup("<b><big>Scan in Progress</big></b>")
+        title_label.set_markup(_("<b><big>Scan in Progress</big></b>"))
         title_label.set_halign(Gtk.Align.START)
         icon_title_box.append(title_label)
 
@@ -106,8 +107,10 @@ class ScanInProgressDialog(Adw.Window):
         # Description text
         description_label = Gtk.Label()
         description_label.set_text(
-            "A virus scan is currently running. If you close now, "
-            "the scan will be cancelled and any partial results will be lost."
+            _(
+                "A virus scan is currently running. If you close now, "
+                "the scan will be cancelled and any partial results will be lost."
+            )
         )
         description_label.set_wrap(True)
         description_label.set_xalign(0)
@@ -116,7 +119,7 @@ class ScanInProgressDialog(Adw.Window):
 
         # Question text
         question_label = Gtk.Label()
-        question_label.set_text("Do you want to cancel the scan and close?")
+        question_label.set_text(_("Do you want to cancel the scan and close?"))
         question_label.set_wrap(True)
         question_label.set_xalign(0)
         question_label.add_css_class("dim-label")
@@ -128,12 +131,12 @@ class ScanInProgressDialog(Adw.Window):
         button_box.set_margin_top(12)
 
         # Keep Scanning button (secondary action)
-        keep_scanning_button = Gtk.Button(label="Keep Scanning")
+        keep_scanning_button = Gtk.Button(label=_("Keep Scanning"))
         keep_scanning_button.connect("clicked", self._on_keep_scanning_clicked)
         button_box.append(keep_scanning_button)
 
         # Cancel and Close button (destructive action)
-        cancel_close_button = Gtk.Button(label="Cancel Scan and Close")
+        cancel_close_button = Gtk.Button(label=_("Cancel Scan and Close"))
         cancel_close_button.add_css_class("destructive-action")
         cancel_close_button.connect("clicked", self._on_cancel_and_close_clicked)
         button_box.append(cancel_close_button)

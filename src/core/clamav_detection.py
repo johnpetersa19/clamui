@@ -18,6 +18,7 @@ from .flatpak import (
     which_host_command,
     wrap_host_command,
 )
+from .i18n import _
 
 # Database file extensions that ClamAV uses
 _DATABASE_EXTENSIONS = {".cvd", ".cld", ".cud"}
@@ -38,7 +39,7 @@ def check_clamav_installed() -> tuple[bool, str | None]:
     if clamscan_path is None:
         return (
             False,
-            "ClamAV is not installed. Please install it with: sudo apt install clamav",
+            _("ClamAV is not installed. Please install it with: sudo apt install clamav"),
         )
 
     # Try to get version to verify it's working
@@ -54,16 +55,19 @@ def check_clamav_installed() -> tuple[bool, str | None]:
             version = result.stdout.strip()
             return (True, version)
         else:
-            return (False, f"ClamAV found but returned error: {result.stderr.strip()}")
+            return (
+                False,
+                _("ClamAV found but returned error: {error}").format(error=result.stderr.strip()),
+            )
 
     except subprocess.TimeoutExpired:
-        return (False, "ClamAV check timed out")
+        return (False, _("ClamAV check timed out"))
     except FileNotFoundError:
-        return (False, "ClamAV executable not found")
+        return (False, _("ClamAV executable not found"))
     except PermissionError:
-        return (False, "Permission denied when accessing ClamAV")
+        return (False, _("Permission denied when accessing ClamAV"))
     except Exception as e:
-        return (False, f"Error checking ClamAV: {str(e)}")
+        return (False, _("Error checking ClamAV: {error}").format(error=str(e)))
 
 
 def check_freshclam_installed() -> tuple[bool, str | None]:
@@ -81,7 +85,9 @@ def check_freshclam_installed() -> tuple[bool, str | None]:
     if freshclam_path is None:
         return (
             False,
-            "freshclam is not installed. Please install it with: sudo apt install clamav-freshclam",
+            _(
+                "freshclam is not installed. Please install it with: sudo apt install clamav-freshclam"
+            ),
         )
 
     # Flatpak freshclam.conf Generation Logic:
@@ -114,17 +120,19 @@ def check_freshclam_installed() -> tuple[bool, str | None]:
         else:
             return (
                 False,
-                f"freshclam found but returned error: {result.stderr.strip()}",
+                _("freshclam found but returned error: {error}").format(
+                    error=result.stderr.strip()
+                ),
             )
 
     except subprocess.TimeoutExpired:
-        return (False, "freshclam check timed out")
+        return (False, _("freshclam check timed out"))
     except FileNotFoundError:
-        return (False, "freshclam executable not found")
+        return (False, _("freshclam executable not found"))
     except PermissionError:
-        return (False, "Permission denied when accessing freshclam")
+        return (False, _("Permission denied when accessing freshclam"))
     except Exception as e:
-        return (False, f"Error checking freshclam: {str(e)}")
+        return (False, _("Error checking freshclam: {error}").format(error=str(e)))
 
 
 def check_clamdscan_installed() -> tuple[bool, str | None]:
@@ -142,7 +150,7 @@ def check_clamdscan_installed() -> tuple[bool, str | None]:
     if clamdscan_path is None:
         return (
             False,
-            "clamdscan is not installed. Please install it with: sudo apt install clamav-daemon",
+            _("clamdscan is not installed. Please install it with: sudo apt install clamav-daemon"),
         )
 
     # Try to get version to verify it's working
@@ -163,20 +171,20 @@ def check_clamdscan_installed() -> tuple[bool, str | None]:
             error = result.stderr.strip() or result.stdout.strip()
             return (
                 False,
-                f"clamdscan returned error: {error}",
+                _("clamdscan returned error: {error}").format(error=error),
             )
 
     except subprocess.TimeoutExpired:
-        return (False, "clamdscan check timed out")
+        return (False, _("clamdscan check timed out"))
     except FileNotFoundError:
         return (
             False,
-            "clamdscan is not installed. Please install it with: sudo apt install clamav-daemon",
+            _("clamdscan is not installed. Please install it with: sudo apt install clamav-daemon"),
         )
     except PermissionError:
-        return (False, "Permission denied when accessing clamdscan")
+        return (False, _("Permission denied when accessing clamdscan"))
     except Exception as e:
-        return (False, f"Error checking clamdscan: {str(e)}")
+        return (False, _("Error checking clamdscan: {error}").format(error=str(e)))
 
 
 def get_clamd_socket_path() -> str | None:
@@ -227,7 +235,7 @@ def check_clamd_connection(socket_path: str | None = None) -> tuple[bool, str | 
     if not is_flatpak():
         detected_socket = socket_path or get_clamd_socket_path()
         if detected_socket is None:
-            return (False, "Could not find clamd socket. Is clamav-daemon installed?")
+            return (False, _("Could not find clamd socket. Is clamav-daemon installed?"))
 
     # Try to ping the daemon (--ping requires a timeout argument in seconds)
     # Use force_host=True because the clamd daemon runs on the HOST, not in the
@@ -241,14 +249,14 @@ def check_clamd_connection(socket_path: str | None = None) -> tuple[bool, str | 
         else:
             # Check stderr and stdout for error messages
             error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-            return (False, f"Daemon not responding: {error_msg}")
+            return (False, _("Daemon not responding: {error}").format(error=error_msg))
 
     except subprocess.TimeoutExpired:
-        return (False, "Connection to clamd timed out")
+        return (False, _("Connection to clamd timed out"))
     except FileNotFoundError:
-        return (False, "clamdscan executable not found")
+        return (False, _("clamdscan executable not found"))
     except Exception as e:
-        return (False, f"Error connecting to clamd: {str(e)}")
+        return (False, _("Error connecting to clamd: {error}").format(error=str(e)))
 
 
 def get_clamav_path() -> str | None:
@@ -291,14 +299,14 @@ def check_database_available() -> tuple[bool, str | None]:
     if is_flatpak():
         db_dir_path = get_clamav_database_dir()
         if db_dir_path is None:
-            return (False, "Could not determine Flatpak database directory")
+            return (False, _("Could not determine Flatpak database directory"))
         db_dir = db_dir_path
     else:
         db_dir = Path("/var/lib/clamav")
 
     # Check if directory exists
     if not db_dir.exists():
-        return (False, f"Database directory does not exist: {db_dir}")
+        return (False, _("Database directory does not exist: {path}").format(path=db_dir))
 
     # Check for database files with valid extensions
     try:
@@ -306,8 +314,8 @@ def check_database_available() -> tuple[bool, str | None]:
             if file.suffix.lower() in _DATABASE_EXTENSIONS:
                 return (True, None)
     except PermissionError:
-        return (False, f"Permission denied accessing: {db_dir}")
+        return (False, _("Permission denied accessing: {path}").format(path=db_dir))
     except OSError as e:
-        return (False, f"Error accessing database: {e}")
+        return (False, _("Error accessing database: {error}").format(error=e))
 
-    return (False, "No virus database files found. Please download the database first.")
+    return (False, _("No virus database files found. Please download the database first."))
