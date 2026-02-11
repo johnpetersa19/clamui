@@ -90,4 +90,4 @@ build-appimage-tools/
 squashfs-root/
 .opencodeignore
 clamui.zip
-.AppImage
+*.AppImage
