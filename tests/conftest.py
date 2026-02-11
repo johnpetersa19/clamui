@@ -6,14 +6,30 @@ This file provides:
 - Centralized GTK/GI mocking for all UI tests
 - Common test utilities and fixtures
 - Module cache management for test isolation
+- Locale forcing (LANGUAGE=C) to ensure English gettext output
 """
 
+import gettext
+import os
 import sys
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+# =============================================================================
+# Force English locale for tests (must run before any src.* imports)
+# =============================================================================
+# On non-English systems, gettext returns translated strings which break test
+# assertions that check for English text. Setting LANGUAGE=C disables
+# translation lookup, causing gettext to return the original source strings.
+
+os.environ["LANGUAGE"] = "C"
+os.environ["LC_ALL"] = "C"
+# Reinitialize gettext so the C locale takes effect for any already-imported
+# modules (e.g. i18n.py initializes on import).
+gettext.textdomain("clamui")
 
 # =============================================================================
 # GTK Mock Base Classes
