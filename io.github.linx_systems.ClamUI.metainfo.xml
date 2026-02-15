@@ -31,19 +31,19 @@
   <screenshots>
     <screenshot type="default">
       <caption>Main application window</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/main_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.4/screenshots/main_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Scan results display</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/main_view_with_scan_result.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.4/screenshots/main_view_with_scan_result.png</image>
     </screenshot>
     <screenshot>
       <caption>Analysis view</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/analysis_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.4/screenshots/analysis_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Components view</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/components_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.4/screenshots/components_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Configuration settings</caption>
@@ -51,15 +51,15 @@
     </screenshot>
     <screenshot>
       <caption>Scan history</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/history_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.4/screenshots/history_view.png</image>
     </screenshot>
     <screenshot>
       <caption>Profile management</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/profile_management.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.4/screenshots/profile_management.png</image>
     </screenshot>
     <screenshot>
       <caption>Quarantine management</caption>
-      <image>https://github.com/linx-systems/clamui/raw/v0.1.1/screenshots/quarantine_view.png</image>
+      <image>https://github.com/linx-systems/clamui/raw/v0.1.4/screenshots/quarantine_view.png</image>
     </screenshot>
   </screenshots>
 

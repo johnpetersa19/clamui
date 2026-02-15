@@ -2635,7 +2635,7 @@ msgstr "Konfiguration geplanter Scans"
 #: src/ui/preferences/scheduled_page.py:91
 msgid "Configure automatic scanning. Save with 'Save &amp; Apply'."
 msgstr ""
-"Automatisches Scannen konfigurieren. Mit 'Speichern & Anwenden' speichern."
+"Automatisches Scannen konfigurieren. Mit 'Speichern &amp; Anwenden' speichern."
 
 #: src/ui/preferences/scheduled_page.py:95
 msgid "Enable Scheduled Scans"

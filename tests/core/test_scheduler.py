@@ -819,7 +819,7 @@ class TestGetCliCommandPath:
         with mock.patch("src.core.scheduler.is_flatpak", return_value=False):
             with mock.patch("src.core.scheduler.which_host_command") as mock_which:
                 # Nothing in PATH
-                mock_which.side_effect = lambda x: ("/usr/bin/python3" if x == "python3" else None)
+                mock_which.side_effect = lambda x: "/usr/bin/python3" if x == "python3" else None
 
                 # No venvs exist
                 with mock.patch.object(scheduler, "_get_venv_paths", return_value=[]):
