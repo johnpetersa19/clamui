@@ -461,6 +461,242 @@ class TestUpdateViewFreshclamStatus:
 
 
 # =============================================================================
+# Async Freshclam Status Tests
+# =============================================================================
+
+
+class TestUpdateViewAsyncFreshclamStatus:
+    """Tests for async freshclam status checking launched from __init__."""
+
+    def test_init_launches_background_thread(self, update_view_module):
+        """Test that __init__ launches a background thread for freshclam status check."""
+        UpdateView = update_view_module.UpdateView
+
+        with mock.patch("threading.Thread") as mock_thread_cls:
+            mock_thread_instance = mock.MagicMock()
+            mock_thread_cls.return_value = mock_thread_instance
+
+            with mock.patch.object(UpdateView, "_setup_ui"):
+                UpdateView()
+
+            # Verify Thread was created with correct target and daemon=True
+            mock_thread_cls.assert_called_once()
+            call_kwargs = mock_thread_cls.call_args
+            assert call_kwargs[1].get("daemon") is True or (
+                len(call_kwargs[0]) > 0 and call_kwargs[1].get("daemon") is True
+            )
+            mock_thread_instance.start.assert_called_once()
+
+    def test_init_does_not_call_check_freshclam_status_synchronously(self, update_view_module):
+        """Test that __init__ does NOT call _check_freshclam_status synchronously."""
+        UpdateView = update_view_module.UpdateView
+
+        with mock.patch("threading.Thread"):
+            with mock.patch.object(UpdateView, "_setup_ui"):
+                with mock.patch.object(UpdateView, "_check_freshclam_status") as mock_check:
+                    view = UpdateView()  # noqa: F841
+
+                    # _check_freshclam_status should NOT be called directly in __init__
+                    mock_check.assert_not_called()
+
+    def test_init_shows_loading_state(self, update_view_module):
+        """Test that __init__ sets loading state text on the status label."""
+        UpdateView = update_view_module.UpdateView
+
+        with mock.patch("threading.Thread"):
+            with mock.patch.object(UpdateView, "_setup_ui"):
+                view = UpdateView()
+
+                # After _setup_ui, the _freshclam_status_label should show
+                # "Checking freshclam..." (set in _create_status_bar) and buttons
+                # should be insensitive (set in _create_update_section).
+                # The key thing is that __init__ does NOT block.
+                assert view._freshclam_available is False
+
+    def test_check_freshclam_status_async_gathers_results(self, update_view_module):
+        """Test _check_freshclam_status_async gathers install and service results."""
+        UpdateView = update_view_module.UpdateView
+        FreshclamServiceStatus = update_view_module.FreshclamServiceStatus
+
+        with mock.patch.object(
+            update_view_module,
+            "check_freshclam_installed",
+            return_value=(True, "freshclam 1.0.0"),
+        ):
+            with mock.patch.object(UpdateView, "_setup_ui"):
+                view = UpdateView()
+                view._updater = mock.MagicMock()
+                view._updater.check_freshclam_service.return_value = (
+                    FreshclamServiceStatus.RUNNING,
+                    "1234",
+                )
+
+                # Mock GLib.idle_add to capture the callback and args
+                captured = {}
+
+                def fake_idle_add(callback, *args):
+                    captured["callback"] = callback
+                    captured["args"] = args
+                    return 0
+
+                with mock.patch.object(update_view_module, "GLib") as mock_glib_module:
+                    mock_glib_module.idle_add = fake_idle_add
+
+                    view._check_freshclam_status_async()
+
+                # Verify GLib.idle_add was called with the UI update callback
+                assert "callback" in captured
+                assert captured["callback"].__name__ == "_apply_freshclam_status"
+
+    def test_apply_freshclam_status_installed(self, update_view_module):
+        """Test _apply_freshclam_status updates UI correctly when freshclam is installed."""
+        UpdateView = update_view_module.UpdateView
+        FreshclamServiceStatus = update_view_module.FreshclamServiceStatus
+
+        with mock.patch.object(UpdateView, "_setup_ui"):
+            view = UpdateView()
+            view._update_button = mock.MagicMock()
+            view._force_update_button = mock.MagicMock()
+            view._freshclam_status_icon = mock.MagicMock()
+            view._freshclam_status_label = mock.MagicMock()
+            view._service_status_icon = mock.MagicMock()
+            view._service_status_label = mock.MagicMock()
+            view._status_banner = mock.MagicMock()
+
+            # Simulate the result that the async thread would produce
+            result = {
+                "is_installed": True,
+                "version_or_error": "freshclam 1.0.0",
+                "service_status": FreshclamServiceStatus.RUNNING,
+                "service_pid": "1234",
+            }
+
+            ret = view._apply_freshclam_status(result)
+
+            # Verify buttons were enabled
+            view._update_button.set_sensitive.assert_called_with(True)
+            view._force_update_button.set_sensitive.assert_called_with(True)
+            assert view._freshclam_available is True
+
+            # GLib.idle_add callback should return False
+            assert ret is False
+
+    def test_apply_freshclam_status_not_installed(self, update_view_module):
+        """Test _apply_freshclam_status updates UI correctly when freshclam is not found."""
+        UpdateView = update_view_module.UpdateView
+        FreshclamServiceStatus = update_view_module.FreshclamServiceStatus
+
+        with mock.patch.object(UpdateView, "_setup_ui"):
+            view = UpdateView()
+            view._update_button = mock.MagicMock()
+            view._force_update_button = mock.MagicMock()
+            view._freshclam_status_icon = mock.MagicMock()
+            view._freshclam_status_label = mock.MagicMock()
+            view._service_status_icon = mock.MagicMock()
+            view._service_status_label = mock.MagicMock()
+            view._status_banner = mock.MagicMock()
+
+            result = {
+                "is_installed": False,
+                "version_or_error": "freshclam not found",
+                "service_status": FreshclamServiceStatus.NOT_FOUND,
+                "service_pid": None,
+            }
+
+            ret = view._apply_freshclam_status(result)
+
+            # Verify buttons were disabled
+            view._update_button.set_sensitive.assert_called_with(False)
+            view._force_update_button.set_sensitive.assert_called_with(False)
+            assert view._freshclam_available is False
+
+            # GLib.idle_add callback should return False
+            assert ret is False
+
+    def test_apply_freshclam_status_guards_destroyed_widget(self, update_view_module):
+        """Test _apply_freshclam_status safely handles destroyed widgets."""
+        UpdateView = update_view_module.UpdateView
+        FreshclamServiceStatus = update_view_module.FreshclamServiceStatus
+
+        with mock.patch.object(UpdateView, "_setup_ui"):
+            view = UpdateView()
+            # Simulate widget being destroyed: get_mapped() returns False
+            view.get_mapped = mock.MagicMock(return_value=False)
+
+            result = {
+                "is_installed": True,
+                "version_or_error": "freshclam 1.0.0",
+                "service_status": FreshclamServiceStatus.RUNNING,
+                "service_pid": "1234",
+            }
+
+            # Should return False without crashing
+            ret = view._apply_freshclam_status(result)
+            assert ret is False
+
+    def test_apply_freshclam_status_service_running(self, update_view_module):
+        """Test _apply_freshclam_status shows correct service status when running."""
+        UpdateView = update_view_module.UpdateView
+        FreshclamServiceStatus = update_view_module.FreshclamServiceStatus
+
+        with mock.patch.object(UpdateView, "_setup_ui"):
+            view = UpdateView()
+            view._update_button = mock.MagicMock()
+            view._force_update_button = mock.MagicMock()
+            view._freshclam_status_icon = mock.MagicMock()
+            view._freshclam_status_label = mock.MagicMock()
+            view._service_status_icon = mock.MagicMock()
+            view._service_status_label = mock.MagicMock()
+            view._status_banner = mock.MagicMock()
+
+            result = {
+                "is_installed": True,
+                "version_or_error": "freshclam 1.0.0",
+                "service_status": FreshclamServiceStatus.RUNNING,
+                "service_pid": "1234",
+            }
+
+            view._apply_freshclam_status(result)
+
+            # Verify service status was set
+            assert view._service_status == FreshclamServiceStatus.RUNNING
+            # The service label should mention "Active"
+            view._service_status_label.set_text.assert_called_once()
+            label_text = view._service_status_label.set_text.call_args[0][0]
+            assert "Active" in label_text
+            assert "1234" in label_text
+
+    def test_apply_freshclam_status_service_stopped(self, update_view_module):
+        """Test _apply_freshclam_status shows correct service status when stopped."""
+        UpdateView = update_view_module.UpdateView
+        FreshclamServiceStatus = update_view_module.FreshclamServiceStatus
+
+        with mock.patch.object(UpdateView, "_setup_ui"):
+            view = UpdateView()
+            view._update_button = mock.MagicMock()
+            view._force_update_button = mock.MagicMock()
+            view._freshclam_status_icon = mock.MagicMock()
+            view._freshclam_status_label = mock.MagicMock()
+            view._service_status_icon = mock.MagicMock()
+            view._service_status_label = mock.MagicMock()
+            view._status_banner = mock.MagicMock()
+
+            result = {
+                "is_installed": True,
+                "version_or_error": "freshclam 1.0.0",
+                "service_status": FreshclamServiceStatus.STOPPED,
+                "service_pid": None,
+            }
+
+            view._apply_freshclam_status(result)
+
+            assert view._service_status == FreshclamServiceStatus.STOPPED
+            view._service_status_label.set_text.assert_called_once()
+            label_text = view._service_status_label.set_text.call_args[0][0]
+            assert "Stopped" in label_text
+
+
+# =============================================================================
 # Button Handler Tests
 # =============================================================================
 

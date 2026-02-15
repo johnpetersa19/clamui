@@ -3,11 +3,13 @@
 Database update interface component for ClamUI with update button, progress display, and results.
 """
 
+import threading
+
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from ..core.i18n import _, ngettext
 from ..core.updater import (
@@ -57,8 +59,9 @@ class UpdateView(Gtk.Box):
         # Set up the UI
         self._setup_ui()
 
-        # Check freshclam availability on load (synchronous to avoid race conditions)
-        self._check_freshclam_status()
+        # Check freshclam availability in background thread to avoid blocking the UI
+        thread = threading.Thread(target=self._check_freshclam_status_async, daemon=True)
+        thread.start()
 
     def _setup_ui(self):
         """Set up the update view UI layout."""
@@ -284,30 +287,136 @@ class UpdateView(Gtk.Box):
 
         return False  # Don't repeat
 
-    def _check_service_status(self):
-        """Check freshclam service status and update UI."""
-        self._service_status, pid = self._updater.check_freshclam_service()
+    def _check_freshclam_status_async(self):
+        """
+        Run freshclam installation and service checks in a background thread.
+
+        Gathers results from subprocess calls without blocking the GTK main thread,
+        then schedules UI update on the main thread via GLib.idle_add.
+        """
+        try:
+            is_installed, version_or_error = check_freshclam_installed()
+
+            # Only check service status if freshclam is installed
+            if is_installed:
+                service_status, service_pid = self._updater.check_freshclam_service()
+            else:
+                service_status = FreshclamServiceStatus.NOT_FOUND
+                service_pid = None
+
+            result = {
+                "is_installed": is_installed,
+                "version_or_error": version_or_error,
+                "service_status": service_status,
+                "service_pid": service_pid,
+            }
+
+            GLib.idle_add(self._apply_freshclam_status, result)
+        except Exception:
+            # If subprocess calls fail, schedule a fallback UI update
+            result = {
+                "is_installed": False,
+                "version_or_error": _("Error checking freshclam status"),
+                "service_status": FreshclamServiceStatus.UNKNOWN,
+                "service_pid": None,
+            }
+            try:
+                GLib.idle_add(self._apply_freshclam_status, result)
+            except Exception:
+                pass  # Widget may be destroyed; nothing to do
+
+    def _apply_freshclam_status(self, result):
+        """
+        Update UI with freshclam status results (called on main thread via GLib.idle_add).
+
+        Args:
+            result: Dict with keys is_installed, version_or_error, service_status, service_pid
+
+        Returns:
+            False to remove from idle (GLib.SOURCE_REMOVE)
+        """
+        # Guard against widget being destroyed before callback fires
+        try:
+            if not self.get_mapped():
+                return False
+        except Exception:
+            return False
+
+        is_installed = result["is_installed"]
+        version_or_error = result["version_or_error"]
+        service_status = result["service_status"]
+        service_pid = result["service_pid"]
+
+        if is_installed:
+            self._freshclam_available = True
+            self._freshclam_status_icon.set_from_icon_name(
+                resolve_icon_name("object-select-symbolic")
+            )
+            self._freshclam_status_icon.add_css_class("success")
+            self._freshclam_status_label.set_text(
+                _("freshclam: {version}").format(version=version_or_error)
+            )
+
+            # Enable update buttons
+            self._update_button.set_sensitive(True)
+            self._force_update_button.set_sensitive(True)
+        else:
+            self._freshclam_available = False
+            self._freshclam_status_icon.set_from_icon_name(
+                resolve_icon_name("dialog-warning-symbolic")
+            )
+            self._freshclam_status_icon.add_css_class("warning")
+            self._freshclam_status_label.set_text(version_or_error or _("freshclam not found"))
+
+            # Disable update buttons and show error banner
+            self._update_button.set_sensitive(False)
+            self._force_update_button.set_sensitive(False)
+            self._status_banner.set_title(version_or_error or _("freshclam not installed"))
+            self._status_banner.set_revealed(True)
+
+        # Apply service status
+        self._apply_service_status(service_status, service_pid)
+
+        return False  # Remove from idle
+
+    def _apply_service_status(self, service_status, pid):
+        """
+        Update service status UI elements.
+
+        Args:
+            service_status: FreshclamServiceStatus enum value
+            pid: Process ID string or None
+        """
+        self._service_status = service_status
 
         # Remove any existing CSS classes
         for css_class in ["success", "warning", "error"]:
             self._service_status_icon.remove_css_class(css_class)
 
-        if self._service_status == FreshclamServiceStatus.RUNNING:
+        if service_status == FreshclamServiceStatus.RUNNING:
             self._service_status_icon.set_from_icon_name(
                 resolve_icon_name("media-playback-start-symbolic")
             )
             self._service_status_icon.add_css_class("success")
             pid_info = f" (PID {pid})" if pid else ""
             self._service_status_label.set_text(_("Service: Active") + pid_info)
-        elif self._service_status == FreshclamServiceStatus.STOPPED:
+        elif service_status == FreshclamServiceStatus.STOPPED:
             self._service_status_icon.set_from_icon_name(
                 resolve_icon_name("media-playback-stop-symbolic")
             )
             self._service_status_icon.add_css_class("warning")
             self._service_status_label.set_text(_("Service: Stopped"))
+        elif not self._freshclam_available:
+            # Hide service status when freshclam not available
+            self._service_status_label.set_text(_("Service: N/A"))
         else:  # NOT_FOUND or UNKNOWN
             self._service_status_icon.set_from_icon_name(resolve_icon_name("system-run-symbolic"))
             self._service_status_label.set_text(_("Service: Manual Mode"))
+
+    def _check_service_status(self):
+        """Check freshclam service status and update UI."""
+        self._service_status, pid = self._updater.check_freshclam_service()
+        self._apply_service_status(self._service_status, pid)
 
     def _on_status_banner_dismissed(self, banner):
         """

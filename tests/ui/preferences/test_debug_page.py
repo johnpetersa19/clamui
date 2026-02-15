@@ -440,12 +440,144 @@ class TestDebugPageSystemInfo:
         from src.ui.preferences.debug_page import DebugPage
 
         page = DebugPage()
-        page._create_system_info_group()
+        with patch("src.ui.preferences.debug_page.threading"):
+            page._create_system_info_group()
 
         # Should set title
         mock_group.set_title.assert_called_with("System Information")
         # Should add multiple rows
         assert mock_group.add.call_count >= 5
+
+        _clear_src_modules()
+
+
+class TestDebugPageAsyncInstallationType:
+    """Tests for asynchronous installation type detection."""
+
+    def test_create_system_info_group_does_not_call_get_installation_type_sync(
+        self, mock_gi_modules
+    ):
+        """Test that _create_system_info_group does NOT call _get_installation_type synchronously."""
+        adw = mock_gi_modules["adw"]
+        mock_group = MagicMock()
+        adw.PreferencesGroup.return_value = mock_group
+
+        from src.ui.preferences.debug_page import DebugPage
+
+        page = DebugPage()
+        with patch.object(page, "_get_installation_type") as mock_get_install:
+            with patch("src.ui.preferences.debug_page.threading"):
+                page._create_system_info_group()
+
+            # Should NOT be called synchronously during group creation
+            mock_get_install.assert_not_called()
+
+        _clear_src_modules()
+
+    def test_create_system_info_group_starts_background_thread(self, mock_gi_modules):
+        """Test that _create_system_info_group starts a background thread."""
+        adw = mock_gi_modules["adw"]
+        mock_group = MagicMock()
+        adw.PreferencesGroup.return_value = mock_group
+
+        from src.ui.preferences.debug_page import DebugPage
+
+        page = DebugPage()
+        with patch("src.ui.preferences.debug_page.threading") as mock_threading:
+            mock_thread = MagicMock()
+            mock_threading.Thread.return_value = mock_thread
+
+            page._create_system_info_group()
+
+            # Should have created and started a daemon thread
+            mock_threading.Thread.assert_called_once()
+            call_kwargs = mock_threading.Thread.call_args[1]
+            assert call_kwargs.get("daemon") is True
+            mock_thread.start.assert_called_once()
+
+        _clear_src_modules()
+
+    def test_create_system_info_group_shows_loading_initially(self, mock_gi_modules):
+        """Test that install row shows a loading message initially."""
+        adw = mock_gi_modules["adw"]
+        mock_group = MagicMock()
+        adw.PreferencesGroup.return_value = mock_group
+
+        # Track ActionRow instances to find the install row
+        action_rows = []
+
+        def make_action_row():
+            row = MagicMock()
+            action_rows.append(row)
+            return row
+
+        adw.ActionRow.side_effect = make_action_row
+
+        from src.ui.preferences.debug_page import DebugPage
+
+        page = DebugPage()
+        with patch("src.ui.preferences.debug_page.threading"):
+            page._create_system_info_group()
+
+        # The first ActionRow created should be the install row
+        # Find the row that had set_title called with "Installation Type"
+        install_row = None
+        for row in action_rows:
+            for call in row.set_title.call_args_list:
+                if call[0][0] == "Installation Type":
+                    install_row = row
+                    break
+
+        assert install_row is not None, "Installation Type row not found"
+        install_row.set_subtitle.assert_called()
+        initial_subtitle = install_row.set_subtitle.call_args_list[0][0][0]
+        assert "Detecting" in initial_subtitle or "detecting" in initial_subtitle
+
+        _clear_src_modules()
+
+    def test_installation_type_background_updates_via_idle_add(self, mock_gi_modules):
+        """Test that background installation type check updates via GLib.idle_add."""
+        from src.ui.preferences.debug_page import DebugPage
+
+        page = DebugPage()
+        mock_install_row = MagicMock()
+        page._install_type_row = mock_install_row
+
+        with patch.object(page, "_get_installation_type", return_value="Debian/Ubuntu Package"):
+            with patch("src.ui.preferences.debug_page.GLib.idle_add") as mock_idle_add:
+                page._detect_installation_type_background()
+
+                # Should schedule UI update via GLib.idle_add
+                mock_idle_add.assert_called_once()
+
+        _clear_src_modules()
+
+    def test_installation_type_ui_update_sets_subtitle(self, mock_gi_modules):
+        """Test that the UI update callback sets the correct subtitle."""
+        from src.ui.preferences.debug_page import DebugPage
+
+        page = DebugPage()
+        mock_install_row = MagicMock()
+        page._install_type_row = mock_install_row
+
+        # Call the UI update method directly
+        result = page._update_installation_type_ui("Flatpak")
+
+        mock_install_row.set_subtitle.assert_called_with("Flatpak")
+        assert result is False  # GLib.idle_add callback must return False
+
+        _clear_src_modules()
+
+    def test_installation_type_ui_update_handles_destroyed_widget(self, mock_gi_modules):
+        """Test that UI update handles destroyed widget gracefully."""
+        from src.ui.preferences.debug_page import DebugPage
+
+        page = DebugPage()
+        page._install_type_row = None  # Simulate destroyed widget
+
+        # Should not raise
+        result = page._update_installation_type_ui("Flatpak")
+        assert result is False
 
         _clear_src_modules()
 

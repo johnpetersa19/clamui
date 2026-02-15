@@ -10,6 +10,7 @@ import logging
 import os
 import platform
 import subprocess
+import threading
 
 import gi
 
@@ -69,6 +70,7 @@ class DebugPage(PreferencesPageMixin):
         self._log_size_row = None
         self._export_button = None
         self._clear_button = None
+        self._install_type_row = None
 
     def create_page(self) -> Adw.PreferencesPage:
         """
@@ -240,10 +242,18 @@ class DebugPage(PreferencesPageMixin):
         group.set_title(_("System Information"))
         group.set_description(_("Useful information for troubleshooting and bug reports."))
 
-        # Installation type row
+        # Installation type row - show loading state initially
         install_row = Adw.ActionRow()
         install_row.set_title(_("Installation Type"))
-        install_row.set_subtitle(self._get_installation_type())
+        install_row.set_subtitle(_("Detecting..."))
+        self._install_type_row = install_row
+
+        # Start background thread to detect installation type
+        thread = threading.Thread(
+            target=self._detect_installation_type_background,
+            daemon=True,
+        )
+        thread.start()
 
         # Add package icon as prefix
         install_row.add_prefix(styled_prefix_icon("package-x-generic-symbolic"))
@@ -362,6 +372,32 @@ class DebugPage(PreferencesPageMixin):
             pass
 
         return "Native (pip/system)"
+
+    def _detect_installation_type_background(self):
+        """
+        Detect installation type in a background thread.
+
+        Calls _get_installation_type() and schedules UI update via GLib.idle_add.
+        """
+        install_type = self._get_installation_type()
+        GLib.idle_add(self._update_installation_type_ui, install_type)
+
+    def _update_installation_type_ui(self, install_type: str) -> bool:
+        """
+        Update the installation type row on the main thread.
+
+        Args:
+            install_type: The detected installation type string
+
+        Returns:
+            False to remove from GLib.idle_add
+        """
+        if self._install_type_row is not None:
+            try:
+                self._install_type_row.set_subtitle(install_type)
+            except Exception:
+                logger.debug("Installation type widget no longer available")
+        return False
 
     def _get_distro_info(self) -> str:
         """

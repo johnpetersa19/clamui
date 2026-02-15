@@ -7,6 +7,7 @@ for configuring ClamAV scanner settings and scan backend selection.
 """
 
 import logging
+import threading
 from pathlib import Path
 
 import gi
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from ...core.flatpak import is_flatpak
 from ...core.i18n import _
@@ -139,8 +140,6 @@ class ScannerPage(PreferencesPageMixin):
         group = Adw.PreferencesGroup()
         group.set_title(_("Scan Backend"))
 
-        from ...core.utils import check_clamd_connection
-
         # Set description based on installation type
         if is_flatpak():
             group.set_description(
@@ -177,17 +176,25 @@ class ScannerPage(PreferencesPageMixin):
         widgets_dict["backend_row"] = backend_row
         group.add(backend_row)
 
-        # Daemon status indicator
-        is_connected, message = check_clamd_connection()
+        # Daemon status indicator - show loading state initially
         status_row, status_icon = create_status_row(
             title=_("Daemon Status"),
-            status_ok=is_connected,
-            ok_message=_("Daemon available"),
-            error_message=_("Not available: {message}").format(message=message),
+            status_ok=True,
+            ok_message=_("Checking daemon connection..."),
+            error_message="",
         )
+        status_row.set_subtitle(_("Checking daemon connection..."))
         widgets_dict["daemon_status_row"] = status_row
         widgets_dict["daemon_status_icon"] = status_icon
         group.add(status_row)
+
+        # Start background thread to check daemon status
+        thread = threading.Thread(
+            target=ScannerPage._check_daemon_status_background,
+            args=(status_row, status_icon),
+            daemon=True,
+        )
+        thread.start()
 
         # Refresh button
         refresh_button = Gtk.Button()
@@ -258,9 +265,11 @@ class ScannerPage(PreferencesPageMixin):
         ScannerPage._update_backend_subtitle(row, selected)
 
     @staticmethod
-    def _on_refresh_daemon_status(status_row: Adw.ActionRow, status_icon: Gtk.Image):
+    def _check_daemon_status_background(status_row: Adw.ActionRow, status_icon: Gtk.Image):
         """
-        Refresh the daemon connection status.
+        Check daemon connection status in background thread.
+
+        Runs check_clamd_connection() and schedules UI update via GLib.idle_add.
 
         Args:
             status_row: The ActionRow displaying daemon status
@@ -270,14 +279,63 @@ class ScannerPage(PreferencesPageMixin):
 
         is_connected, message = check_clamd_connection()
 
-        # Update status row using helper
-        update_status_row(
-            row=status_row,
-            status_icon=status_icon,
-            status_ok=is_connected,
-            ok_message=_("Daemon available"),
-            error_message=_("Not available: {message}").format(message=message),
+        GLib.idle_add(
+            ScannerPage._update_daemon_status_ui,
+            status_row,
+            status_icon,
+            is_connected,
+            message,
         )
+
+    @staticmethod
+    def _update_daemon_status_ui(
+        status_row: Adw.ActionRow,
+        status_icon: Gtk.Image,
+        is_connected: bool,
+        message: str,
+    ) -> bool:
+        """
+        Update daemon status UI on the main thread.
+
+        Args:
+            status_row: The ActionRow displaying daemon status
+            status_icon: The status icon widget to update
+            is_connected: Whether the daemon is connected
+            message: Status message from the connection check
+
+        Returns:
+            False to remove from GLib.idle_add
+        """
+        try:
+            update_status_row(
+                row=status_row,
+                status_icon=status_icon,
+                status_ok=is_connected,
+                ok_message=_("Daemon available"),
+                error_message=_("Not available: {message}").format(message=message),
+            )
+        except Exception:
+            logger.debug("Daemon status widget no longer available")
+        return False
+
+    @staticmethod
+    def _on_refresh_daemon_status(status_row: Adw.ActionRow, status_icon: Gtk.Image):
+        """
+        Refresh the daemon connection status asynchronously.
+
+        Starts a background thread to check the daemon connection
+        and updates the UI via GLib.idle_add when complete.
+
+        Args:
+            status_row: The ActionRow displaying daemon status
+            status_icon: The status icon widget to update
+        """
+        thread = threading.Thread(
+            target=ScannerPage._check_daemon_status_background,
+            args=(status_row, status_icon),
+            daemon=True,
+        )
+        thread.start()
 
     @staticmethod
     def _on_learn_more_clicked(parent_window):

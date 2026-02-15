@@ -9,13 +9,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-# Import matplotlib with GTK4 backend for chart visualization
-import matplotlib
 from gi.repository import Adw, GLib, Gtk
-
-matplotlib.use("GTK4Agg")
-from matplotlib.backends.backend_gtk4agg import FigureCanvasGTK4Agg as FigureCanvas
-from matplotlib.figure import Figure
 
 from ..core.i18n import _, ngettext
 from ..core.statistics_calculator import (
@@ -33,6 +27,36 @@ from .view_helpers import (
     create_empty_state,
     set_status_class,
 )
+
+# Lazy-loaded matplotlib references (populated on first chart use)
+_matplotlib_loaded = False
+
+
+def _ensure_matplotlib():
+    """Lazy-load matplotlib with GTK4 backend on first use."""
+    global _matplotlib_loaded
+    if _matplotlib_loaded:
+        return
+    import matplotlib
+
+    matplotlib.use("GTK4Agg")
+    _matplotlib_loaded = True
+
+
+def _create_figure(*args, **kwargs):
+    """Create a matplotlib Figure (lazy imports matplotlib on first call)."""
+    _ensure_matplotlib()
+    from matplotlib.figure import Figure
+
+    return Figure(*args, **kwargs)
+
+
+def _create_canvas(figure):
+    """Create a matplotlib FigureCanvasGTK4Agg (lazy imports matplotlib on first call)."""
+    _ensure_matplotlib()
+    from matplotlib.backends.backend_gtk4agg import FigureCanvasGTK4Agg as FigureCanvas
+
+    return FigureCanvas(figure)
 
 
 class StatisticsView(Gtk.Box):
@@ -316,13 +340,13 @@ class StatisticsView(Gtk.Box):
         chart_group.set_description(_("Scan trends over the selected timeframe"))
         self._chart_group = chart_group
 
-        # Create matplotlib figure and canvas
+        # Create matplotlib figure and canvas (lazy-loaded on first use)
         # Use appropriate figure size for the container
-        self._figure = Figure(figsize=(8, 3), dpi=72)
+        self._figure = _create_figure(figsize=(8, 3), dpi=72)
         self._figure.set_facecolor("none")  # Transparent background
 
         # Create canvas for GTK4 embedding
-        self._canvas = FigureCanvas(self._figure)
+        self._canvas = _create_canvas(self._figure)
         self._canvas.set_size_request(-1, 200)  # Set minimum height
 
         # Create scroll controller to propagate events to parent ScrolledWindow

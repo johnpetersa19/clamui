@@ -521,7 +521,11 @@ class TestScannerPageDaemonStatus:
         with mock.patch("src.core.utils.check_clamd_connection") as mock_check_clamd:
             mock_check_clamd.return_value = (True, "Connected")
 
-            ScannerPage._on_refresh_daemon_status(mock_status_row, mock_status_icon)
+            with mock.patch(
+                "src.ui.preferences.scanner_page.GLib.idle_add",
+                side_effect=lambda fn, *a: fn(*a),
+            ):
+                ScannerPage._on_refresh_daemon_status(mock_status_row, mock_status_icon)
 
             # Should update subtitle to show connected
             mock_status_row.set_subtitle.assert_called()
@@ -538,12 +542,133 @@ class TestScannerPageDaemonStatus:
         with mock.patch("src.core.utils.check_clamd_connection") as mock_check_clamd:
             mock_check_clamd.return_value = (False, "Connection refused")
 
-            ScannerPage._on_refresh_daemon_status(mock_status_row, mock_status_icon)
+            with mock.patch(
+                "src.ui.preferences.scanner_page.GLib.idle_add",
+                side_effect=lambda fn, *a: fn(*a),
+            ):
+                ScannerPage._on_refresh_daemon_status(mock_status_row, mock_status_icon)
 
             # Should update subtitle to show not connected
             mock_status_row.set_subtitle.assert_called()
             args = mock_status_row.set_subtitle.call_args[0]
             assert "Not available" in args[0] or "Connection refused" in args[0]
+
+
+class TestScannerPageAsyncDaemonCheck:
+    """Tests for asynchronous daemon status checking during page creation."""
+
+    @pytest.fixture
+    def mock_settings_manager(self):
+        """Provide a mock settings manager."""
+        manager = mock.MagicMock()
+        manager.get.return_value = "auto"
+        return manager
+
+    def test_create_page_does_not_call_check_clamd_synchronously(
+        self, mock_gi_modules, mock_settings_manager
+    ):
+        """Test that create_page does NOT call check_clamd_connection synchronously."""
+        from src.ui.preferences.scanner_page import ScannerPage
+
+        with mock.patch("src.core.utils.check_clamd_connection") as mock_check:
+            mock_check.return_value = (True, "Connected")
+
+            with mock.patch("src.ui.preferences.scanner_page.threading"):
+                ScannerPage.create_page(
+                    "/etc/clamav/clamd.conf",
+                    {},
+                    mock_settings_manager,
+                    True,
+                    None,
+                )
+
+            # check_clamd_connection should NOT have been called during create_page
+            # (it should be deferred to a background thread)
+            mock_check.assert_not_called()
+
+    def test_create_page_starts_background_thread_for_daemon_check(
+        self, mock_gi_modules, mock_settings_manager
+    ):
+        """Test that create_page starts a background thread for daemon status check."""
+        from src.ui.preferences.scanner_page import ScannerPage
+
+        with mock.patch("src.ui.preferences.scanner_page.threading") as mock_threading:
+            mock_thread = mock.MagicMock()
+            mock_threading.Thread.return_value = mock_thread
+
+            ScannerPage.create_page(
+                "/etc/clamav/clamd.conf",
+                {},
+                mock_settings_manager,
+                True,
+                None,
+            )
+
+            # Should have created and started a daemon thread
+            mock_threading.Thread.assert_called_once()
+            call_kwargs = mock_threading.Thread.call_args[1]
+            assert call_kwargs.get("daemon") is True
+            mock_thread.start.assert_called_once()
+
+    def test_create_page_shows_checking_status_initially(
+        self, mock_gi_modules, mock_settings_manager
+    ):
+        """Test that create_page shows a 'Checking...' status initially."""
+        from src.ui.preferences.scanner_page import ScannerPage
+
+        widgets_dict = {}
+        with mock.patch("src.ui.preferences.scanner_page.threading"):
+            ScannerPage.create_page(
+                "/etc/clamav/clamd.conf",
+                widgets_dict,
+                mock_settings_manager,
+                True,
+                None,
+            )
+
+        # The status row should exist and show a checking/loading message
+        assert "daemon_status_row" in widgets_dict
+        status_row = widgets_dict["daemon_status_row"]
+        # Should have been set with a "checking" initial message
+        status_row.set_subtitle.assert_called()
+        initial_subtitle = status_row.set_subtitle.call_args_list[0][0][0]
+        assert "Checking" in initial_subtitle or "checking" in initial_subtitle
+
+    def test_daemon_check_background_updates_ui_via_idle_add(self, mock_gi_modules):
+        """Test that the background daemon check updates UI via GLib.idle_add."""
+        from src.ui.preferences.scanner_page import ScannerPage
+
+        mock_status_row = mock.MagicMock()
+        mock_status_icon = mock.MagicMock()
+
+        with mock.patch("src.core.utils.check_clamd_connection") as mock_check:
+            mock_check.return_value = (True, "Connected")
+
+            with mock.patch("src.ui.preferences.scanner_page.GLib.idle_add") as mock_idle_add:
+                # Call the background check method directly
+                ScannerPage._check_daemon_status_background(mock_status_row, mock_status_icon)
+
+                # Should have called GLib.idle_add to schedule UI update
+                mock_idle_add.assert_called_once()
+
+    def test_refresh_daemon_status_uses_background_thread(self, mock_gi_modules):
+        """Test that _on_refresh_daemon_status uses a background thread."""
+        from src.ui.preferences.scanner_page import ScannerPage
+
+        mock_status_row = mock.MagicMock()
+        mock_status_icon = mock.MagicMock()
+
+        with mock.patch("src.ui.preferences.scanner_page.threading") as mock_threading:
+            mock_thread = mock.MagicMock()
+            mock_threading.Thread.return_value = mock_thread
+
+            ScannerPage._on_refresh_daemon_status(mock_status_row, mock_status_icon)
+
+            # Should create a daemon thread for the check
+            mock_threading.Thread.assert_called_once()
+            call_kwargs = mock_threading.Thread.call_args[1]
+            assert call_kwargs.get("daemon") is True
+            mock_thread.start.assert_called_once()
 
 
 class TestScannerPageLearnMore:

@@ -3,6 +3,8 @@
 Components status view for ClamUI displaying ClamAV component availability and setup guides.
 """
 
+import threading
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -109,6 +111,9 @@ class ComponentsView(Gtk.Box):
         # Is checking state
         self._is_checking = False
 
+        # Widget destruction flag for safe background thread callbacks
+        self._destroyed = False
+
         # Component status widgets storage
         self._component_rows = {}
         self._status_icons = {}
@@ -118,7 +123,7 @@ class ComponentsView(Gtk.Box):
         # Set up the UI
         self._setup_ui()
 
-        # Check component status on load
+        # Check component status on load (deferred to after widget is mapped)
         GLib.idle_add(self._check_all_components)
 
     def _setup_ui(self):
@@ -443,8 +448,7 @@ class ComponentsView(Gtk.Box):
         if self._is_checking:
             return
 
-        self._set_checking_state(True)
-        GLib.idle_add(self._check_all_components)
+        self._check_all_components()
 
     def _set_checking_state(self, is_checking: bool):
         """
@@ -465,22 +469,61 @@ class ComponentsView(Gtk.Box):
             self._refresh_spinner.set_visible(False)
 
     def _check_all_components(self):
-        """Check status of all ClamAV components."""
+        """Start background component status check."""
+        self._set_checking_state(True)
+        thread = threading.Thread(target=self._check_components_background, daemon=True)
+        thread.start()
+        return False  # Don't repeat (for GLib.idle_add)
+
+    def _check_components_background(self):
+        """Run all subprocess checks in a background thread.
+
+        Collects results from all ClamAV component checks, then
+        schedules a UI update on the main thread via GLib.idle_add.
+        """
+        if self._destroyed:
+            return
+
+        results = {}
+
         # Check clamscan
-        is_installed, version_or_error = check_clamav_installed()
-        self._update_component_status("clamscan", is_installed, version_or_error)
+        results["clamscan"] = check_clamav_installed()
 
         # Check freshclam
-        is_installed, version_or_error = check_freshclam_installed()
-        self._update_component_status("freshclam", is_installed, version_or_error)
+        results["freshclam"] = check_freshclam_installed()
 
         # Check clamdscan (runs on host via flatpak-spawn in Flatpak mode)
-        is_installed, version_or_error = check_clamdscan_installed()
-        self._update_component_status("clamdscan", is_installed, version_or_error)
+        results["clamdscan"] = check_clamdscan_installed()
 
         # Check clamd daemon (runs on host via flatpak-spawn in Flatpak mode)
         daemon_status, daemon_message = self._log_manager.get_daemon_status()
-        self._update_daemon_status("clamd", daemon_status, daemon_message)
+        results["clamd"] = (daemon_status.value, daemon_message)
+
+        if not self._destroyed:
+            GLib.idle_add(self._update_components_ui, results)
+
+    def _update_components_ui(self, results):
+        """Update component status UI on the main thread.
+
+        Called via GLib.idle_add from the background thread.
+
+        Args:
+            results: Dict mapping component_id to check results
+        """
+        if self._destroyed:
+            return False
+
+        # Update clamscan, freshclam, clamdscan
+        for component_id in ("clamscan", "freshclam", "clamdscan"):
+            if component_id in results:
+                is_installed, version_or_error = results[component_id]
+                self._update_component_status(component_id, is_installed, version_or_error)
+
+        # Update clamd daemon status
+        if "clamd" in results:
+            status_value, daemon_message = results["clamd"]
+            daemon_status = DaemonStatus(status_value)
+            self._update_daemon_status("clamd", daemon_status, daemon_message)
 
         # Reset checking state
         self._set_checking_state(False)
