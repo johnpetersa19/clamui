@@ -185,8 +185,8 @@ class TestNavigationItems:
 
         assert isinstance(NAVIGATION_ITEMS, (list, tuple))
         assert (
-            len(NAVIGATION_ITEMS) == 9
-        )  # behavior, exclusions, database, scanner, scheduled, onaccess, virustotal, debug, save
+            len(NAVIGATION_ITEMS) == 10
+        )  # behavior, exclusions, database, scanner, scheduled, device_scan, onaccess, virustotal, debug, save
 
         # Check structure of each item
         for item in NAVIGATION_ITEMS:
@@ -725,3 +725,370 @@ class TestClamdAvailability:
                         with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
                             window = PreferencesWindow()
                             assert window._clamd_available is False
+
+
+class TestLazyPageCreation:
+    """Tests for lazy preference page creation.
+
+    Pages should be created on-demand when navigated to, not all at once
+    during window initialization. Only the default page (behavior) should
+    be created eagerly.
+    """
+
+    @pytest.fixture
+    def mock_parse_config(self):
+        """Mock parse_config function."""
+        with mock.patch("src.ui.preferences.window.parse_config") as mock_func:
+            mock_func.return_value = ({}, None)
+            yield mock_func
+
+    @pytest.fixture
+    def mock_path_exists(self):
+        """Mock Path.exists to control clamd availability."""
+        with mock.patch("src.ui.preferences.window.Path.exists") as mock_exists:
+            mock_exists.return_value = True
+            yield mock_exists
+
+    @pytest.fixture
+    def mock_scheduler(self):
+        """Mock Scheduler class."""
+        with mock.patch("src.ui.preferences.window.Scheduler") as mock_sched:
+            yield mock_sched
+
+    @pytest.fixture
+    def mock_page_modules(self):
+        """Mock all page modules and track instantiation."""
+        with (
+            mock.patch("src.ui.preferences.window.DatabasePage") as mock_db,
+            mock.patch("src.ui.preferences.window.ScannerPage") as mock_scanner,
+            mock.patch("src.ui.preferences.window.OnAccessPage") as mock_onaccess,
+            mock.patch("src.ui.preferences.window.ScheduledPage") as mock_scheduled,
+            mock.patch("src.ui.preferences.window.ExclusionsPage") as mock_exclusions,
+            mock.patch("src.ui.preferences.window.SavePage") as mock_save,
+            mock.patch("src.ui.preferences.window.VirusTotalPage") as mock_vt,
+            mock.patch("src.ui.preferences.window.BehaviorPage") as mock_behavior,
+            mock.patch("src.ui.preferences.window.DebugPage") as mock_debug,
+        ):
+            # Configure static page mocks to return page objects
+            mock_db.create_page.return_value = mock.MagicMock()
+            mock_scanner.create_page.return_value = mock.MagicMock()
+            mock_onaccess.create_page.return_value = mock.MagicMock()
+            mock_scheduled.create_page.return_value = mock.MagicMock()
+            mock_vt.create_page.return_value = mock.MagicMock()
+
+            # Configure instance-based page mocks
+            mock_exclusions_instance = mock.MagicMock()
+            mock_exclusions_instance.create_page.return_value = mock.MagicMock()
+            mock_exclusions.return_value = mock_exclusions_instance
+
+            mock_save_instance = mock.MagicMock()
+            mock_save_instance.create_page.return_value = mock.MagicMock()
+            mock_save.return_value = mock_save_instance
+
+            mock_behavior_instance = mock.MagicMock()
+            mock_behavior_instance.create_page.return_value = mock.MagicMock()
+            mock_behavior.return_value = mock_behavior_instance
+
+            mock_debug_instance = mock.MagicMock()
+            mock_debug_instance.create_page.return_value = mock.MagicMock()
+            mock_debug.return_value = mock_debug_instance
+
+            # Configure populate_fields as no-op
+            mock_db.populate_fields = mock.MagicMock()
+            mock_scanner.populate_fields = mock.MagicMock()
+            mock_onaccess.populate_fields = mock.MagicMock()
+            mock_scheduled.populate_fields = mock.MagicMock()
+
+            yield {
+                "database": mock_db,
+                "scanner": mock_scanner,
+                "onaccess": mock_onaccess,
+                "scheduled": mock_scheduled,
+                "exclusions": mock_exclusions,
+                "save": mock_save,
+                "virustotal": mock_vt,
+                "behavior": mock_behavior,
+                "debug": mock_debug,
+            }
+
+    @pytest.fixture
+    def window_instance(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Create a PreferencesWindow instance with mocked dependencies."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        with mock.patch.object(PreferencesWindow, "_setup_ui"):
+            with mock.patch.object(PreferencesWindow, "_load_configs"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow()
+        return window, mock_page_modules
+
+    def test_page_factories_registered(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that _page_factories dict is initialized with factory callables."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        with mock.patch.object(PreferencesWindow, "_setup_ui"):
+            with mock.patch.object(PreferencesWindow, "_load_configs"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow()
+
+        assert hasattr(window, "_page_factories")
+        assert isinstance(window._page_factories, dict)
+        # All non-default pages should have factories
+        expected_lazy_pages = {
+            "exclusions",
+            "database",
+            "device_scan",
+            "scanner",
+            "scheduled",
+            "onaccess",
+            "virustotal",
+            "debug",
+            "save",
+        }
+        assert set(window._page_factories.keys()) == expected_lazy_pages
+
+    def test_created_pages_cache_initialized_empty(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that _created_pages set is initialized as an empty set."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        with mock.patch.object(PreferencesWindow, "_setup_ui"):
+            with mock.patch.object(PreferencesWindow, "_load_configs"):
+                with mock.patch.object(PreferencesWindow, "_populate_scheduled_fields"):
+                    window = PreferencesWindow()
+
+        assert hasattr(window, "_created_pages")
+        assert isinstance(window._created_pages, set)
+
+    def test_behavior_page_marked_created_after_full_init(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that behavior page is in _created_pages after full initialization."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        window = PreferencesWindow()
+
+        # After full init, behavior should be the only page created
+        assert "behavior" in window._created_pages
+        # Lazy pages should NOT be in _created_pages
+        for page_id in [
+            "exclusions",
+            "database",
+            "scanner",
+            "scheduled",
+            "onaccess",
+            "virustotal",
+            "debug",
+            "save",
+        ]:
+            assert page_id not in window._created_pages
+
+    def test_only_behavior_page_created_at_init(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that only the behavior page is created during initialization."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        PreferencesWindow()
+
+        # BehaviorPage should have been instantiated
+        mock_page_modules["behavior"].assert_called_once()
+
+        # Other pages should NOT have been created yet
+        mock_page_modules["database"].create_page.assert_not_called()
+        mock_page_modules["scanner"].create_page.assert_not_called()
+        mock_page_modules["scheduled"].create_page.assert_not_called()
+        mock_page_modules["onaccess"].create_page.assert_not_called()
+        mock_page_modules["virustotal"].create_page.assert_not_called()
+        mock_page_modules["exclusions"].assert_not_called()
+        mock_page_modules["debug"].assert_not_called()
+        mock_page_modules["save"].assert_not_called()
+
+    def test_page_created_on_navigation(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that navigating to a page creates it on demand."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        window = PreferencesWindow()
+
+        # Database page should not exist yet
+        mock_page_modules["database"].create_page.assert_not_called()
+
+        # Simulate navigating to database page
+        window._ensure_page_created("database")
+
+        # Now the database page should be created
+        mock_page_modules["database"].create_page.assert_called_once()
+        assert "database" in window._created_pages
+
+    def test_page_created_only_once(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that a page is only created once even if navigated to multiple times."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        window = PreferencesWindow()
+
+        # Create database page twice
+        window._ensure_page_created("database")
+        window._ensure_page_created("database")
+
+        # Should only be created once
+        mock_page_modules["database"].create_page.assert_called_once()
+
+    def test_sidebar_selection_triggers_lazy_creation(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that _on_sidebar_row_selected creates the page if needed."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        window = PreferencesWindow()
+
+        # Verify database page not created yet
+        mock_page_modules["database"].create_page.assert_not_called()
+
+        # Create a mock sidebar row for the database page
+        mock_row = mock.MagicMock()
+        mock_row.page_id = "database"
+
+        # Simulate sidebar selection
+        window._on_sidebar_row_selected(mock.MagicMock(), mock_row)
+
+        # Database page should now be created
+        mock_page_modules["database"].create_page.assert_called_once()
+
+    def test_ensure_page_created_for_behavior_is_noop(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that _ensure_page_created is a no-op for already-created pages."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        window = PreferencesWindow()
+
+        # Behavior was already created at init
+        behavior_call_count = mock_page_modules["behavior"].call_count
+
+        # Ensure should not create it again
+        window._ensure_page_created("behavior")
+        assert mock_page_modules["behavior"].call_count == behavior_call_count
+
+    def test_config_population_deferred_for_lazy_pages(
+        self,
+        mock_gi_modules,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that config fields are populated when lazy page is created."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        mock_config = mock.MagicMock()
+        mock_config.values = {"key": "value"}
+
+        with mock.patch(
+            "src.ui.preferences.window.parse_config",
+            return_value=(mock_config, None),
+        ):
+            window = PreferencesWindow()
+
+        # Database page populate_fields should not have been called yet
+        # (page not created, so nothing to populate)
+        # After creating the page, it should populate
+        window._ensure_page_created("database")
+        mock_page_modules["database"].populate_fields.assert_called()
+
+    def test_all_pages_can_be_lazily_created(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that all lazy pages can be created through _ensure_page_created."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        window = PreferencesWindow()
+
+        lazy_pages = [
+            "exclusions",
+            "database",
+            "scanner",
+            "scheduled",
+            "onaccess",
+            "virustotal",
+            "debug",
+            "save",
+        ]
+
+        for page_id in lazy_pages:
+            window._ensure_page_created(page_id)
+            assert page_id in window._created_pages
+
+    def test_unknown_page_id_handled_gracefully(
+        self,
+        mock_gi_modules,
+        mock_parse_config,
+        mock_path_exists,
+        mock_scheduler,
+        mock_page_modules,
+    ):
+        """Test that an unknown page_id does not crash."""
+        from src.ui.preferences.window import PreferencesWindow
+
+        window = PreferencesWindow()
+
+        # Should not raise
+        window._ensure_page_created("nonexistent_page")
+        assert "nonexistent_page" not in window._created_pages

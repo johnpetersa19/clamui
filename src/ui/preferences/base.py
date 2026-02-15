@@ -394,7 +394,14 @@ class PreferencesPageMixin:
         dialog.set_default_size(350, -1)
         dialog.set_modal(True)
         dialog.set_deletable(True)
-        dialog.set_transient_for(self)
+        # Resolve the transient parent window.
+        # 'self' may be a Gtk.Window (e.g. PreferencesWindow) or a plain mixin
+        # helper (e.g. _ScannerPageHelper) that stores the window reference.
+        parent = getattr(self, "_parent_window", None) or self
+        try:
+            dialog.set_transient_for(parent)
+        except TypeError:
+            pass  # self is not a Gtk.Window and _parent_window is not set
 
         # Create content
         toolbar_view = create_toolbar_view()

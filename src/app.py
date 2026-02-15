@@ -41,18 +41,17 @@ from .core.notification_manager import NotificationManager
 from .core.settings_manager import SettingsManager
 from .profiles.models import ScanProfile
 from .profiles.profile_manager import ProfileManager
-from .ui.components_view import ComponentsView
-from .ui.logs_view import LogsView
-from .ui.preferences import PreferencesWindow
-from .ui.quarantine_view import QuarantineView
-from .ui.scan_view import ScanView
-from .ui.statistics_view import StatisticsView
 
 # Tray manager - uses subprocess to avoid GTK3/GTK4 version conflict
 from .ui.tray_manager import TrayManager
-from .ui.update_view import UpdateView
 from .ui.utils import resolve_icon_name
 from .ui.window import MainWindow
+
+# NOTE: View module imports (ScanView, UpdateView, LogsView, ComponentsView,
+# StatisticsView, QuarantineView, PreferencesWindow) are intentionally deferred
+# into their respective @property methods / handler methods. This avoids loading
+# heavy modules (e.g. matplotlib via statistics_view) at application startup,
+# completing the lazy-loading strategy that the @property pattern began.
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +104,14 @@ class ClamUIApp(Adw.Application):
         self._initial_scan_paths: list[str] = []
         self._initial_use_virustotal: bool = False
 
+        # Shared quarantine manager (lazy-initialized)
+        self._quarantine_manager = None
+
         # VirusTotal client (lazy-initialized)
         self._vt_client = None
+
+        # Device monitor (initialized in do_startup)
+        self._device_monitor = None
 
         # Scan state tracking (for close confirmation)
         self._is_scan_active = False
@@ -146,6 +151,23 @@ class ClamUIApp(Adw.Application):
         """Check if a scan is currently in progress."""
         return self._is_scan_active
 
+    @property
+    def quarantine_manager(self):
+        """
+        Get the shared QuarantineManager instance, creating it lazily if needed.
+
+        A single QuarantineManager is shared between ScanView and QuarantineView
+        to avoid creating duplicate SQLite connection pools for the same database.
+
+        Returns:
+            The shared QuarantineManager instance.
+        """
+        if self._quarantine_manager is None:
+            from .core.quarantine import QuarantineManager
+
+            self._quarantine_manager = QuarantineManager()
+        return self._quarantine_manager
+
     # Lazy View Loading Strategy:
     # Why: Views are expensive to create (GTK widget trees, signal connections, layouts)
     # How: @property methods return cached instances, creating only on first access
@@ -163,7 +185,7 @@ class ClamUIApp(Adw.Application):
     # and memory usage for unused views.
 
     @property
-    def scan_view(self) -> ScanView:
+    def scan_view(self):
         """
         Get the scan view instance, creating it lazily if needed.
 
@@ -174,13 +196,18 @@ class ClamUIApp(Adw.Application):
             The ScanView instance.
         """
         if self._scan_view is None:
-            self._scan_view = ScanView(settings_manager=self._settings_manager)
+            from .ui.scan_view import ScanView
+
+            self._scan_view = ScanView(
+                settings_manager=self._settings_manager,
+                quarantine_manager=self.quarantine_manager,
+            )
             # Connect scan state callback for tray integration
             self._scan_view.set_scan_state_changed_callback(self._on_scan_state_changed)
         return self._scan_view
 
     @property
-    def update_view(self) -> UpdateView:
+    def update_view(self):
         """
         Get the update view instance, creating it lazily if needed.
 
@@ -190,11 +217,13 @@ class ClamUIApp(Adw.Application):
             The UpdateView instance.
         """
         if self._update_view is None:
+            from .ui.update_view import UpdateView
+
             self._update_view = UpdateView()
         return self._update_view
 
     @property
-    def logs_view(self) -> LogsView:
+    def logs_view(self):
         """
         Get the logs view instance, creating it lazily if needed.
 
@@ -204,11 +233,13 @@ class ClamUIApp(Adw.Application):
             The LogsView instance.
         """
         if self._logs_view is None:
+            from .ui.logs_view import LogsView
+
             self._logs_view = LogsView()
         return self._logs_view
 
     @property
-    def components_view(self) -> ComponentsView:
+    def components_view(self):
         """
         Get the components view instance, creating it lazily if needed.
 
@@ -218,11 +249,13 @@ class ClamUIApp(Adw.Application):
             The ComponentsView instance.
         """
         if self._components_view is None:
+            from .ui.components_view import ComponentsView
+
             self._components_view = ComponentsView()
         return self._components_view
 
     @property
-    def statistics_view(self) -> StatisticsView:
+    def statistics_view(self):
         """
         Get the statistics view instance, creating it lazily if needed.
 
@@ -232,13 +265,15 @@ class ClamUIApp(Adw.Application):
             The StatisticsView instance.
         """
         if self._statistics_view is None:
+            from .ui.statistics_view import StatisticsView
+
             self._statistics_view = StatisticsView()
             # Connect statistics view quick scan callback
             self._statistics_view.set_quick_scan_callback(self._on_statistics_quick_scan)
         return self._statistics_view
 
     @property
-    def quarantine_view(self) -> QuarantineView:
+    def quarantine_view(self):
         """
         Get the quarantine view instance, creating it lazily if needed.
 
@@ -248,7 +283,11 @@ class ClamUIApp(Adw.Application):
             The QuarantineView instance.
         """
         if self._quarantine_view is None:
-            self._quarantine_view = QuarantineView()
+            from .ui.quarantine_view import QuarantineView
+
+            self._quarantine_view = QuarantineView(
+                quarantine_manager=self.quarantine_manager,
+            )
         return self._quarantine_view
 
     def do_activate(self):
@@ -364,6 +403,9 @@ class ClamUIApp(Adw.Application):
         # Initialize tray indicator if available
         self._setup_tray_indicator()
 
+        # Start device monitor for auto-scanning connected devices
+        self._setup_device_monitor()
+
         # Ensure ClamAV database directory exists in Flatpak
         self._ensure_clamav_database_dir()
 
@@ -384,6 +426,62 @@ class ClamUIApp(Adw.Application):
         db_dir = ensure_clamav_database_dir()
         if db_dir is not None:
             logger.info(f"ClamAV database directory: {db_dir}")
+
+    def _setup_device_monitor(self):
+        """
+        Initialize the device monitor for auto-scanning connected devices.
+
+        Uses lazy imports to avoid loading device_monitor at app startup
+        when the feature is disabled.
+        """
+        if not self._settings_manager.get("device_auto_scan_enabled", False):
+            logger.debug("Device auto-scan disabled, skipping monitor setup")
+            return
+
+        try:
+            from .core.device_monitor import DeviceMonitor
+            from .core.scanner import Scanner
+
+            scanner = Scanner(settings_manager=self._settings_manager)
+
+            # Get quarantine manager if auto-quarantine is enabled
+            quarantine_mgr = None
+            if self._settings_manager.get("device_auto_scan_auto_quarantine", False):
+                quarantine_mgr = self.quarantine_manager
+
+            self._device_monitor = DeviceMonitor(
+                settings_manager=self._settings_manager,
+                scanner=scanner,
+                notification_callback=self._on_device_scan_event,
+                quarantine_manager=quarantine_mgr,
+            )
+            self._device_monitor.start()
+        except Exception as e:
+            logger.warning("Failed to start device monitor: %s", e)
+
+    def _on_device_scan_event(self, event_type: str, info: dict):
+        """
+        Handle device scan events from the DeviceMonitor.
+
+        Routes events to the notification manager.
+
+        Args:
+            event_type: "scan_started" or "scan_complete"
+            info: Event details dict
+        """
+        if event_type == "scan_started":
+            self._notification_manager.notify_device_scan_started(
+                device_name=info["device_name"],
+                mount_point=info["mount_point"],
+            )
+        elif event_type == "scan_complete":
+            self._notification_manager.notify_device_scan_complete(
+                device_name=info["device_name"],
+                is_clean=info["is_clean"],
+                infected_count=info.get("infected_count", 0),
+                scanned_count=info.get("scanned_count", 0),
+                quarantined_count=info.get("quarantined_count", 0),
+            )
 
     def _maybe_show_file_manager_integration_dialog(self, win: "MainWindow"):
         """
@@ -579,6 +677,8 @@ class ClamUIApp(Adw.Application):
 
     def _on_preferences(self, action, param):
         """Handle preferences action - show preferences window."""
+        from .ui.preferences import PreferencesWindow
+
         win = self.props.active_window
         if win:
             preferences = PreferencesWindow(
@@ -1032,6 +1132,15 @@ class ClamUIApp(Adw.Application):
         - Database connections
         """
         logger.info("Application shutdown initiated")
+
+        # Stop device monitor
+        if self._device_monitor is not None:
+            try:
+                self._device_monitor.stop()
+                self._device_monitor = None
+                logger.debug("Device monitor stopped during shutdown")
+            except Exception as e:
+                logger.warning("Error stopping device monitor: %s", e)
 
         # Cancel any active scans
         if self._scan_view is not None:

@@ -30,6 +30,8 @@ class NotificationManager:
     NOTIFICATION_ID_VT_SCAN = "virustotal-scan-complete"
     NOTIFICATION_ID_VT_RATE_LIMIT = "virustotal-rate-limit"
     NOTIFICATION_ID_VT_NO_KEY = "virustotal-no-key"
+    NOTIFICATION_ID_DEVICE_SCAN_STARTED = "device-scan-started"
+    NOTIFICATION_ID_DEVICE_SCAN_COMPLETE = "device-scan-complete"
 
     def __init__(self, settings_manager: SettingsManager | None = None):
         """
@@ -280,6 +282,93 @@ class NotificationManager:
             body=_("Add your API key in Preferences to scan with VirusTotal."),
             priority=Gio.NotificationPriority.NORMAL,
             default_action="app.show-preferences",
+        )
+
+    def notify_device_scan_started(self, device_name: str, mount_point: str) -> bool:
+        """
+        Send notification when a device scan starts.
+
+        Args:
+            device_name: Human-readable device name
+            mount_point: Filesystem path where device is mounted
+
+        Returns:
+            True if notification was sent, False otherwise
+        """
+        if not self._can_notify():
+            return False
+
+        if not self._settings.get("device_auto_scan_notify", True):
+            return False
+
+        return self._send(
+            notification_id=self.NOTIFICATION_ID_DEVICE_SCAN_STARTED,
+            title=_("Scanning Device"),
+            body=_("Scanning {device} ({path})").format(device=device_name, path=mount_point),
+            priority=Gio.NotificationPriority.NORMAL,
+            default_action="app.show-scan",
+        )
+
+    def notify_device_scan_complete(
+        self,
+        device_name: str,
+        is_clean: bool,
+        infected_count: int = 0,
+        scanned_count: int = 0,
+        quarantined_count: int = 0,
+    ) -> bool:
+        """
+        Send notification when a device scan completes.
+
+        Args:
+            device_name: Human-readable device name
+            is_clean: True if no threats were found
+            infected_count: Number of infected files found
+            scanned_count: Number of files scanned
+            quarantined_count: Number of files auto-quarantined
+
+        Returns:
+            True if notification was sent, False otherwise
+        """
+        if not self._can_notify():
+            return False
+
+        if not self._settings.get("device_auto_scan_notify", True):
+            return False
+
+        if is_clean:
+            title = _("Device Scan Complete")
+            if scanned_count > 0:
+                body = ngettext(
+                    "{device}: No threats ({count} file scanned)",
+                    "{device}: No threats ({count} files scanned)",
+                    scanned_count,
+                ).format(device=device_name, count=scanned_count)
+            else:
+                body = _("{device}: No threats found").format(device=device_name)
+            priority = Gio.NotificationPriority.NORMAL
+        else:
+            title = _("Device Scan: Threats Detected!")
+            if quarantined_count > 0:
+                body = _("{device}: {infected} threat(s) found, {quarantined} quarantined").format(
+                    device=device_name,
+                    infected=infected_count,
+                    quarantined=quarantined_count,
+                )
+            else:
+                body = ngettext(
+                    "{device}: {count} infected file found",
+                    "{device}: {count} infected files found",
+                    infected_count,
+                ).format(device=device_name, count=infected_count)
+            priority = Gio.NotificationPriority.URGENT
+
+        return self._send(
+            notification_id=self.NOTIFICATION_ID_DEVICE_SCAN_COMPLETE,
+            title=title,
+            body=body,
+            priority=priority,
+            default_action="app.show-scan",
         )
 
     def _can_notify(self) -> bool:

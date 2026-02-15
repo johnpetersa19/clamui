@@ -51,6 +51,14 @@ class SettingsManager:
         "debug_log_max_files": 3,  # Number of backup files to keep
         # Live progress settings
         "show_live_progress": True,  # Show real-time file scanning progress
+        # Device auto-scan settings
+        "device_auto_scan_enabled": False,
+        "device_auto_scan_types": ["removable", "external"],
+        "device_auto_scan_notify": True,
+        "device_auto_scan_max_size_gb": 32,
+        "device_auto_scan_delay_seconds": 3,
+        "device_auto_scan_auto_quarantine": False,
+        "device_auto_scan_skip_on_battery": True,
     }
 
     def __init__(self, config_dir: Path | None = None):

@@ -6,6 +6,7 @@ src/cli/scheduled_scan.py
 src/core/clamav_detection.py
 src/core/file_manager_integration.py
 src/core/keyring_manager.py
+src/core/device_monitor.py
 src/core/notification_manager.py
 src/core/quarantine/manager.py
 src/core/result_formatters.py
@@ -25,6 +26,7 @@ src/ui/preferences/base.py
 src/ui/preferences/behavior_page.py
 src/ui/preferences/database_page.py
 src/ui/preferences/debug_page.py
+src/ui/preferences/device_scan_page.py
 src/ui/preferences/exclusions_page.py
 src/ui/preferences/onaccess_page.py
 src/ui/preferences/save_page.py

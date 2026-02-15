@@ -33,6 +33,7 @@ from .base import PreferencesPageMixin
 from .behavior_page import BehaviorPage
 from .database_page import DatabasePage
 from .debug_page import DebugPage
+from .device_scan_page import DeviceScanPage
 from .exclusions_page import ExclusionsPage
 from .onaccess_page import OnAccessPage
 from .save_page import SavePage
@@ -47,6 +48,7 @@ NAVIGATION_ITEMS = [
     ("database", "software-update-available-symbolic", N_("Database")),
     ("scanner", "document-properties-symbolic", N_("Scanner")),
     ("scheduled", "alarm-symbolic", N_("Scheduled")),
+    ("device_scan", "drive-removable-media-symbolic", N_("Device Scan")),
     ("onaccess", "security-high-symbolic", N_("On-Access")),
     ("virustotal", "network-server-symbolic", N_("VirusTotal")),
     ("debug", "applications-system-symbolic", N_("Debug")),
@@ -214,6 +216,20 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
         self._stack = None
         self._sidebar_list = None
 
+        # Lazy page creation: factories for deferred page construction
+        self._page_factories: dict[str, callable] = {
+            "exclusions": self._create_exclusions_page,
+            "database": self._create_database_page,
+            "scanner": self._create_scanner_page,
+            "scheduled": self._create_scheduled_page,
+            "device_scan": self._create_device_scan_page,
+            "onaccess": self._create_onaccess_page,
+            "virustotal": self._create_virustotal_page,
+            "debug": self._create_debug_page,
+            "save": self._create_save_page,
+        }
+        self._created_pages: set[str] = set()
+
         # Set up the UI
         self._setup_ui()
 
@@ -356,53 +372,86 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
         return content_box
 
     def _create_pages(self):
-        """Create and add all preference pages to the stack."""
-        # Create Behavior page (window behavior settings) - instance-based
+        """Create default page eagerly; other pages are created on-demand.
+
+        Only the first visible page (Behavior) is created immediately.
+        All other pages are created lazily via _ensure_page_created() when
+        the user navigates to them, saving 300-900ms of startup time.
+        Factories are registered in __init__ via _page_factories dict.
+        """
+        # Create Behavior page eagerly (default/first visible page)
         behavior_page_instance = BehaviorPage(
             self._settings_manager, self._tray_available, parent_window=self
         )
         behavior_page = behavior_page_instance.create_page()
         self._add_page_to_stack("behavior", behavior_page)
+        self._created_pages.add("behavior")
 
-        # Create Exclusions page (scan exclusion patterns) - instance-based
+    def _create_exclusions_page(self):
+        """Create the Exclusions page (scan exclusion patterns)."""
         exclusions_page_instance = ExclusionsPage(self._settings_manager)
-        exclusions_page = exclusions_page_instance.create_page()
-        self._add_page_to_stack("exclusions", exclusions_page)
+        page = exclusions_page_instance.create_page()
+        self._add_page_to_stack("exclusions", page)
 
-        # Create Database Updates page (freshclam.conf)
-        database_page = DatabasePage.create_page(self._freshclam_conf_path, self._freshclam_widgets)
-        self._add_page_to_stack("database", database_page)
+    def _create_database_page(self):
+        """Create the Database Updates page (freshclam.conf)."""
+        page = DatabasePage.create_page(self._freshclam_conf_path, self._freshclam_widgets)
+        self._add_page_to_stack("database", page)
+        # Populate fields if config was already loaded
+        if self._freshclam_config:
+            DatabasePage.populate_fields(self._freshclam_config, self._freshclam_widgets)
 
-        # Create Scanner Settings page (clamd.conf)
-        scanner_page = ScannerPage.create_page(
+    def _create_scanner_page(self):
+        """Create the Scanner Settings page (clamd.conf)."""
+        page = ScannerPage.create_page(
             self._clamd_conf_path,
             self._clamd_widgets,
             self._settings_manager,
             self._clamd_available,
             self,
         )
-        self._add_page_to_stack("scanner", scanner_page)
+        self._add_page_to_stack("scanner", page)
+        # Populate fields if config was already loaded
+        if self._clamd_config:
+            ScannerPage.populate_fields(self._clamd_config, self._clamd_widgets)
 
-        # Create Scheduled Scans page
-        scheduled_page = ScheduledPage.create_page(self._scheduled_widgets)
-        self._add_page_to_stack("scheduled", scheduled_page)
+    def _create_scheduled_page(self):
+        """Create the Scheduled Scans page."""
+        page = ScheduledPage.create_page(self._scheduled_widgets)
+        self._add_page_to_stack("scheduled", page)
+        # Populate fields from saved settings
+        if self._settings_manager:
+            ScheduledPage.populate_fields(self._settings_manager, self._scheduled_widgets)
 
-        # Create On-Access Scanning page (clamd.conf on-access settings)
-        onaccess_page = OnAccessPage.create_page(
+    def _create_device_scan_page(self):
+        """Create the Device Scan page (auto-scan connected devices)."""
+        device_scan_instance = DeviceScanPage(self._settings_manager)
+        page = device_scan_instance.create_page()
+        self._add_page_to_stack("device_scan", page)
+
+    def _create_onaccess_page(self):
+        """Create the On-Access Scanning page (clamd.conf on-access settings)."""
+        page = OnAccessPage.create_page(
             self._clamd_conf_path, self._onaccess_widgets, self._clamd_available, self
         )
-        self._add_page_to_stack("onaccess", onaccess_page)
+        self._add_page_to_stack("onaccess", page)
+        # Populate fields if config was already loaded
+        if self._clamd_config:
+            OnAccessPage.populate_fields(self._clamd_config, self._onaccess_widgets)
 
-        # Create VirusTotal page (API key and settings)
-        virustotal_page = VirusTotalPage.create_page(self._settings_manager, self)
-        self._add_page_to_stack("virustotal", virustotal_page)
+    def _create_virustotal_page(self):
+        """Create the VirusTotal page (API key and settings)."""
+        page = VirusTotalPage.create_page(self._settings_manager, self)
+        self._add_page_to_stack("virustotal", page)
 
-        # Create Debug page (logging and diagnostics) - instance-based
+    def _create_debug_page(self):
+        """Create the Debug page (logging and diagnostics)."""
         debug_page_instance = DebugPage(self._settings_manager, parent_window=self)
-        debug_page = debug_page_instance.create_page()
-        self._add_page_to_stack("debug", debug_page)
+        page = debug_page_instance.create_page()
+        self._add_page_to_stack("debug", page)
 
-        # Create Save & Apply page - instance-based
+    def _create_save_page(self):
+        """Create the Save & Apply page."""
         save_page_instance = SavePage(
             self,
             self._freshclam_config,
@@ -417,8 +466,29 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
             self._onaccess_widgets,
             self._scheduled_widgets,
         )
-        save_page = save_page_instance.create_page()
-        self._add_page_to_stack("save", save_page)
+        page = save_page_instance.create_page()
+        self._add_page_to_stack("save", page)
+
+    def _ensure_page_created(self, page_id: str):
+        """Create a page on-demand if it hasn't been created yet.
+
+        This is called when navigating to a page. If the page was already
+        created (either eagerly or from a previous navigation), this is a no-op.
+
+        Args:
+            page_id: Identifier of the page to create
+        """
+        if page_id in self._created_pages:
+            return
+
+        factory = self._page_factories.get(page_id)
+        if factory is None:
+            logger.warning("No page factory registered for page_id: %s", page_id)
+            return
+
+        logger.debug("Lazy-creating preference page: %s", page_id)
+        factory()
+        self._created_pages.add(page_id)
 
     def _add_page_to_stack(self, page_id: str, page: Adw.PreferencesPage):
         """
@@ -449,6 +519,9 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
 
         page_id = row.page_id
         logger.debug("Preferences sidebar: selected page '%s'", page_id)
+
+        # Create the page on-demand if it hasn't been created yet
+        self._ensure_page_created(page_id)
 
         # Switch to the selected page
         self._stack.set_visible_child_name(page_id)
@@ -542,44 +615,56 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
         Populate freshclam configuration fields from loaded config.
 
         Updates UI widgets with values from the parsed freshclam.conf file.
+        Only populates if the database page has been created (lazy loading).
         """
         if not self._freshclam_config:
             return
 
-        DatabasePage.populate_fields(self._freshclam_config, self._freshclam_widgets)
+        # Only populate if the page has been created already
+        if "database" in self._created_pages:
+            DatabasePage.populate_fields(self._freshclam_config, self._freshclam_widgets)
 
     def _populate_clamd_fields(self):
         """
         Populate clamd configuration fields from loaded config.
 
         Updates UI widgets with values from the parsed clamd.conf file.
+        Only populates if the scanner page has been created (lazy loading).
         """
         if not self._clamd_config:
             return
 
-        ScannerPage.populate_fields(self._clamd_config, self._clamd_widgets)
+        # Only populate if the page has been created already
+        if "scanner" in self._created_pages:
+            ScannerPage.populate_fields(self._clamd_config, self._clamd_widgets)
 
     def _populate_onaccess_fields(self):
         """
         Populate on-access configuration fields from loaded config.
 
         Updates UI widgets with values from the parsed clamd.conf file.
+        Only populates if the on-access page has been created (lazy loading).
         """
         if not self._clamd_config:
             return
 
-        OnAccessPage.populate_fields(self._clamd_config, self._onaccess_widgets)
+        # Only populate if the page has been created already
+        if "onaccess" in self._created_pages:
+            OnAccessPage.populate_fields(self._clamd_config, self._onaccess_widgets)
 
     def _populate_scheduled_fields(self):
         """
         Populate scheduled scan widgets from saved settings.
 
         Loads settings from the settings manager and updates the UI widgets.
+        Only populates if the scheduled page has been created (lazy loading).
         """
         if not self._settings_manager:
             return
 
-        ScheduledPage.populate_fields(self._settings_manager, self._scheduled_widgets)
+        # Only populate if the page has been created already
+        if "scheduled" in self._created_pages:
+            ScheduledPage.populate_fields(self._settings_manager, self._scheduled_widgets)
 
     def add_toast(self, toast: Adw.Toast):
         """
@@ -594,9 +679,12 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
         """
         Programmatically select a page in the sidebar.
 
+        Ensures the page is created (if lazy) before selecting it.
+
         Args:
             page_id: The page identifier to select
         """
         if page_id in self._sidebar_rows:
+            self._ensure_page_created(page_id)
             row = self._sidebar_rows[page_id]
             self._sidebar_list.select_row(row)
