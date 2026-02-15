@@ -70,17 +70,19 @@ class QuarantineView(Gtk.Box):
     - Clear old items functionality (removes files older than 30 days)
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, quarantine_manager: "QuarantineManager | None" = None, **kwargs):
         """
         Initialize the quarantine view.
 
         Args:
+            quarantine_manager: Optional shared QuarantineManager instance.
+                If not provided, a new one is created.
             **kwargs: Additional arguments passed to parent
         """
         super().__init__(orientation=Gtk.Orientation.VERTICAL, **kwargs)
 
-        # Initialize quarantine manager
-        self._manager = QuarantineManager()
+        # Use shared quarantine manager if provided, otherwise create own
+        self._manager = quarantine_manager or QuarantineManager()
 
         # Loading state
         self._is_loading = False

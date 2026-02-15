@@ -62,12 +62,19 @@ class ScanView(Gtk.Box):
     - Results display area
     """
 
-    def __init__(self, settings_manager: "SettingsManager | None" = None, **kwargs):
+    def __init__(
+        self,
+        settings_manager: "SettingsManager | None" = None,
+        quarantine_manager: "QuarantineManager | None" = None,
+        **kwargs,
+    ):
         """
         Initialize the scan view.
 
         Args:
             settings_manager: Optional SettingsManager for exclusion patterns
+            quarantine_manager: Optional shared QuarantineManager instance.
+                If not provided, a new one is created.
             **kwargs: Additional arguments passed to parent
         """
         super().__init__(orientation=Gtk.Orientation.VERTICAL, **kwargs)
@@ -78,8 +85,8 @@ class ScanView(Gtk.Box):
         # Initialize scanner with settings manager for exclusion patterns
         self._scanner = Scanner(settings_manager=settings_manager)
 
-        # Initialize quarantine manager
-        self._quarantine_manager = QuarantineManager()
+        # Use shared quarantine manager if provided, otherwise create own
+        self._quarantine_manager = quarantine_manager or QuarantineManager()
 
         # Current selected paths (supports multiple targets)
         self._selected_paths: list[str] = []

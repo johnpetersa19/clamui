@@ -1018,3 +1018,42 @@ def test_quarantine_view_basic(mock_gi_modules):
         view._count_label.set_text.assert_called_with("5 items")
 
         # All tests passed
+
+
+class TestQuarantineViewSharedQuarantineManager:
+    """Tests for shared QuarantineManager injection in QuarantineView."""
+
+    def test_quarantine_view_uses_provided_manager(self, quarantine_view_class):
+        """When quarantine_manager is passed, QuarantineView should use it."""
+        import src.ui.quarantine_view as qv_module
+
+        original_qm = getattr(qv_module, "QuarantineManager", mock.MagicMock)
+        mock_qm_class = mock.MagicMock()
+        qv_module.QuarantineManager = mock_qm_class
+
+        try:
+            external_manager = mock.MagicMock(name="shared_qm")
+            view = quarantine_view_class(quarantine_manager=external_manager)
+            # The external manager should be used
+            assert view._manager is external_manager
+            # QuarantineManager() should NOT have been called
+            mock_qm_class.assert_not_called()
+        finally:
+            qv_module.QuarantineManager = original_qm
+
+    def test_quarantine_view_creates_own_manager_when_not_provided(self, quarantine_view_class):
+        """When quarantine_manager is not passed, QuarantineView creates its own."""
+        import src.ui.quarantine_view as qv_module
+
+        mock_qm_instance = mock.MagicMock(name="auto_created_qm")
+        mock_qm_class = mock.MagicMock(return_value=mock_qm_instance)
+        original_qm = getattr(qv_module, "QuarantineManager", mock.MagicMock)
+        qv_module.QuarantineManager = mock_qm_class
+
+        try:
+            view = quarantine_view_class()
+            # QuarantineManager() should have been called
+            mock_qm_class.assert_called_once()
+            assert view._manager is mock_qm_instance
+        finally:
+            qv_module.QuarantineManager = original_qm

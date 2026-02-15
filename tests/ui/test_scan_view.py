@@ -2469,3 +2469,45 @@ class TestScanErrorNotifiesCallback:
             mock_scan_view._on_scan_error("Error")
 
         callback.assert_called_once_with(False)
+
+
+class TestScanViewSharedQuarantineManager:
+    """Tests for shared QuarantineManager injection in ScanView."""
+
+    def test_scan_view_uses_provided_quarantine_manager(self, scan_view_class):
+        """When quarantine_manager is passed, ScanView should use it instead of creating one."""
+        import src.ui.scan_view as sv_module
+
+        original_qm = getattr(sv_module, "QuarantineManager", mock.MagicMock)
+        mock_qm_class = mock.MagicMock()
+        sv_module.QuarantineManager = mock_qm_class
+
+        try:
+            external_manager = mock.MagicMock(name="shared_qm")
+            view = scan_view_class(
+                settings_manager=mock.MagicMock(),
+                quarantine_manager=external_manager,
+            )
+            # The external manager should be used
+            assert view._quarantine_manager is external_manager
+            # QuarantineManager() should NOT have been called
+            mock_qm_class.assert_not_called()
+        finally:
+            sv_module.QuarantineManager = original_qm
+
+    def test_scan_view_creates_own_manager_when_not_provided(self, scan_view_class):
+        """When quarantine_manager is not passed, ScanView should create its own."""
+        import src.ui.scan_view as sv_module
+
+        mock_qm_instance = mock.MagicMock(name="auto_created_qm")
+        mock_qm_class = mock.MagicMock(return_value=mock_qm_instance)
+        original_qm = getattr(sv_module, "QuarantineManager", mock.MagicMock)
+        sv_module.QuarantineManager = mock_qm_class
+
+        try:
+            view = scan_view_class(settings_manager=mock.MagicMock())
+            # QuarantineManager() should have been called once
+            mock_qm_class.assert_called_once()
+            assert view._quarantine_manager is mock_qm_instance
+        finally:
+            sv_module.QuarantineManager = original_qm
