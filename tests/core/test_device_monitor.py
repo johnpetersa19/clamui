@@ -26,6 +26,9 @@ def ensure_fresh_imports():
     """Ensure fresh imports for each test."""
     global DeviceType, MountInfo, DeviceMonitor
 
+    # Save existing src.* modules so other test files' references stay valid
+    saved_modules = {k: v for k, v in sys.modules.items() if k.startswith("src.")}
+
     _clear_src_modules()
 
     from src.core.device_monitor import DeviceMonitor as _DeviceMonitor
@@ -38,7 +41,10 @@ def ensure_fresh_imports():
 
     yield
 
+    # Restore original modules so other test files' module-level imports
+    # (e.g. test_keyring_manager.py) still reference the correct objects
     _clear_src_modules()
+    sys.modules.update(saved_modules)
 
 
 class TestDeviceType:

@@ -40,6 +40,9 @@ def ensure_fresh_scheduler_import():
     global ScheduleConfig, ScheduleFrequency, Scheduler, SchedulerBackend
     global _check_cron_available, _check_systemd_available
 
+    # Save existing src.* modules so other test files' references stay valid
+    saved_modules = {k: v for k, v in sys.modules.items() if k.startswith("src.")}
+
     _clear_src_modules()
 
     # Import fresh after clearing
@@ -63,6 +66,11 @@ def ensure_fresh_scheduler_import():
     _check_systemd_available = _check_systemd
 
     yield
+
+    # Restore original modules so other test files' module-level imports
+    # (e.g. test_keyring_manager.py) still reference the correct objects
+    _clear_src_modules()
+    sys.modules.update(saved_modules)
 
 
 class TestScheduleConfig:

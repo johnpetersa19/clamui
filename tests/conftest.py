@@ -163,8 +163,17 @@ def reset_flatpak_cache():
     The original value is restored after the test to avoid affecting other tests.
     """
     import os
+    import sys as _sys
 
-    import src.core.flatpak as flatpak_module
+    # Always use the CURRENT module from sys.modules, not a cached import.
+    # Test files with _clear_src_modules() (test_scanner, test_scheduler,
+    # test_device_monitor) replace sys.modules['src.core.flatpak'] with a
+    # fresh module. A plain `import` caches the first module object, which
+    # becomes stale after the swap - resetting _flatpak_detected on the
+    # stale module leaves the active module's cache poisoned.
+    flatpak_module = _sys.modules.get("src.core.flatpak")
+    if flatpak_module is None:
+        import src.core.flatpak as flatpak_module
 
     original_value = flatpak_module._flatpak_detected
     flatpak_module._flatpak_detected = None
@@ -183,9 +192,11 @@ def reset_flatpak_cache():
 
     yield
 
-    # Restore original values
+    # Restore on the CURRENT module (may differ from setup if modules were swapped)
+    current_flatpak = _sys.modules.get("src.core.flatpak")
+    if current_flatpak is not None:
+        current_flatpak._flatpak_detected = original_value
     os.path.exists = original_exists
-    flatpak_module._flatpak_detected = original_value
 
 
 # =============================================================================

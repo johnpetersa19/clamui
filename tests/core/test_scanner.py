@@ -28,6 +28,9 @@ def ensure_fresh_scanner_import():
     global Scanner, ScanResult, ScanStatus, ThreatDetail, glob_to_regex, validate_pattern
     global classify_threat_severity_str, categorize_threat
 
+    # Save existing src.* modules so other test files' references stay valid
+    saved_modules = {k: v for k, v in sys.modules.items() if k.startswith("src.")}
+
     # Clear any cached src modules before test
     _clear_src_modules()
 
@@ -72,10 +75,10 @@ def ensure_fresh_scanner_import():
 
     yield
 
-    # Note: We intentionally do NOT clear modules after the test.
-    # Clearing after tests would orphan module references that other test files
-    # (like test_scanner_integration.py) have imported at module level.
-    # The pre-test clearing is sufficient for test isolation.
+    # Restore original modules so other test files' module-level imports
+    # (e.g. test_keyring_manager.py) still reference the correct objects
+    _clear_src_modules()
+    sys.modules.update(saved_modules)
 
 
 # Declare globals for type checkers

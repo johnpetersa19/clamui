@@ -296,6 +296,11 @@ class ConnectionPool:
                 "is_closed": self._closed,
             }
 
+    def __del__(self) -> None:
+        """Safety-net destructor to close leaked connections on GC."""
+        if getattr(self, "_closed", True) is False:
+            self.close_all()
+
     def close_all(self) -> None:
         """
         Close all connections in the pool and prevent new connections.
