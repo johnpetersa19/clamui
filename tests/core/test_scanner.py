@@ -356,6 +356,69 @@ class TestScannerBuildCommand:
         assert "pycache" not in all_exclusion_args
         assert ".git" not in all_exclusion_args
 
+    def _settings_with_clamd_conf(self, conf_path: str):
+        """Build a mock settings manager that exposes a clamd.conf path."""
+        values = {"clamd_conf_path": conf_path, "exclusion_patterns": []}
+        mock_settings = mock.MagicMock()
+        mock_settings.get.side_effect = lambda key, default=None: values.get(key, default)
+        return mock_settings
+
+    def test_build_command_forwards_clamd_limits(self, tmp_path):
+        """clamscan must inherit MaxFileSize/MaxScanSize/MaxRecursion/MaxFiles from clamd.conf."""
+        conf = tmp_path / "clamd.conf"
+        conf.write_text(
+            "MaxFileSize 50M\nMaxScanSize 400M\nMaxRecursion 20\nMaxFiles 50000\n"
+        )
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("data")
+
+        scanner = Scanner(settings_manager=self._settings_with_clamd_conf(str(conf)))
+
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+                with mock.patch(
+                    "src.core.scanner.resolve_clamd_conf_path", return_value=str(conf)
+                ):
+                    cmd = scanner._build_command(str(test_file), recursive=False)
+
+        assert "--max-filesize=50M" in cmd
+        assert "--max-scansize=400M" in cmd
+        assert "--max-recursion=20" in cmd
+        assert "--max-files=50000" in cmd
+
+    def test_build_command_forwards_only_present_limits(self, tmp_path):
+        """Only the limit keys present in clamd.conf are forwarded."""
+        conf = tmp_path / "clamd.conf"
+        conf.write_text("MaxScanSize 200M\n")
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("data")
+
+        scanner = Scanner(settings_manager=self._settings_with_clamd_conf(str(conf)))
+
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+                with mock.patch(
+                    "src.core.scanner.resolve_clamd_conf_path", return_value=str(conf)
+                ):
+                    cmd = scanner._build_command(str(test_file), recursive=False)
+
+        assert "--max-scansize=200M" in cmd
+        assert not any(arg.startswith("--max-filesize") for arg in cmd)
+        assert not any(arg.startswith("--max-recursion") for arg in cmd)
+
+    def test_build_command_no_limits_without_settings_manager(self, tmp_path):
+        """No clamd.conf source → clamscan uses its own defaults (no limit flags)."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("data")
+
+        scanner = Scanner()  # no settings manager
+
+        with mock.patch("src.core.scanner.get_clamav_path", return_value="/usr/bin/clamscan"):
+            with mock.patch("src.core.scanner.wrap_host_command", side_effect=lambda x: x):
+                cmd = scanner._build_command(str(test_file), recursive=False)
+
+        assert not any(arg.startswith("--max-") for arg in cmd)
+
 
 class TestScannerFlatpakIntegration:
     """Tests for Flatpak integration in Scanner."""
@@ -541,6 +604,44 @@ Time: 0.100 sec (0 m 0 s)
         scanner = Scanner()
 
         result = scanner._parse_results("/nonexistent", "", "Can't access path", 2)
+
+        assert result.status == ScanStatus.ERROR
+        assert result.error_message is not None
+
+    def test_parse_results_large_file_warnings_are_clean(self):
+        """Exit code 2 caused only by scan-limit warnings should be CLEAN, not ERROR.
+
+        Regression for a full scan reporting an error after hitting a large
+        compressed file (cli_scanxz decompress-size-limit warning).
+        """
+        scanner = Scanner()
+        stdout = """
+----------- SCAN SUMMARY -----------
+Scanned files: 50000
+Infected files: 0
+"""
+        stderr = (
+            "LibClamAV Warning: cli_tnef: file truncated, returning CLEAN\n"
+            "LibClamAV Warning: cli_scanxz: decompress file size exceeds limits - "
+            "only scanning 105906176 bytes\n"
+        )
+
+        result = scanner._parse_results("/", stdout, stderr, 2)
+
+        assert result.status == ScanStatus.CLEAN
+        assert result.infected_count == 0
+        assert result.error_message is None
+
+    def test_parse_results_real_error_with_limit_warnings_still_error(self):
+        """A genuine error on exit code 2 must remain ERROR despite benign warnings."""
+        scanner = Scanner()
+        stderr = (
+            "LibClamAV Warning: cli_scanxz: decompress file size exceeds limits - "
+            "only scanning 105906176 bytes\n"
+            "ERROR: Can't open file or directory\n"
+        )
+
+        result = scanner._parse_results("/", "", stderr, 2)
 
         assert result.status == ScanStatus.ERROR
         assert result.error_message is not None

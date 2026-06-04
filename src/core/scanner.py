@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from gi.repository import GLib
 
+from .clamav_config import parse_config
 from .log_manager import LogManager
 from .scanner_base import (
     cleanup_process,
@@ -197,6 +198,44 @@ class Scanner:
         except Exception:
             logger.debug("Failed to resolve clamd config path", exc_info=True)
             return None
+
+    # clamd.conf scan-limit keys mapped to their clamscan command-line flags.
+    # Both backends share libclamav, so the clamd.conf values (including "0" for
+    # unlimited and "25M"-style size suffixes) are accepted verbatim by clamscan.
+    _CLAMSCAN_LIMIT_FLAGS = (
+        ("MaxFileSize", "--max-filesize"),
+        ("MaxScanSize", "--max-scansize"),
+        ("MaxRecursion", "--max-recursion"),
+        ("MaxFiles", "--max-files"),
+    )
+
+    def _get_clamscan_limit_args(self) -> list[str]:
+        """Forward clamd.conf scan limits to the standalone clamscan backend.
+
+        clamd.conf is the single source of truth for MaxFileSize/MaxScanSize/
+        MaxRecursion/MaxFiles (edited via the Scanner preferences page). The daemon
+        backend reads them directly; standalone clamscan does not, so without this
+        the preferences silently have no effect on clamscan scans. Best-effort: if
+        clamd.conf is unavailable or unparseable we return no args and clamscan
+        falls back to its own defaults (preserving prior behavior).
+        """
+        config_path = self._get_clamd_config_path()
+        if not config_path:
+            return []
+
+        config, error = parse_config(config_path)
+        if config is None or error:
+            return []
+
+        args: list[str] = []
+        for conf_key, flag in self._CLAMSCAN_LIMIT_FLAGS:
+            if not config.has_key(conf_key):
+                continue
+            value = config.get_value(conf_key)
+            if value is None or not value.strip():
+                continue
+            args.append(f"{flag}={value.strip()}")
+        return args
 
     def _is_daemon_available_cached(self) -> bool:
         """Check daemon availability with caching (60s TTL)."""
@@ -758,6 +797,11 @@ class Scanner:
             # Show infected files only (reduces output noise)
             cmd.append("-i")
 
+        # Forward clamd.conf scan limits (MaxFileSize/MaxScanSize/etc.) so the
+        # standalone clamscan backend honors the same Scanner preferences as the
+        # daemon backend instead of silently using clamscan's built-in defaults.
+        cmd.extend(self._get_clamscan_limit_args())
+
         # Inject exclusion patterns from settings
         if self._settings_manager is not None:
             exclusions = self._settings_manager.get("exclusion_patterns", [])
@@ -825,7 +869,7 @@ class Scanner:
         """
         infected_files = []
         threat_details = []
-        skipped_files, hard_error_lines = collect_clamav_warnings(stdout, stderr)
+        skipped_files, nonfatal_warnings, hard_error_lines = collect_clamav_warnings(stdout, stderr)
         scanned_files = 0
         scanned_dirs = 0
         infected_count = 0
@@ -883,11 +927,15 @@ class Scanner:
         elif exit_code == 1:
             status = ScanStatus.INFECTED
         elif exit_code == 2:
-            # Exit code 2 = warnings/errors
-            # If no infections and all issues are skipped-file warnings, treat as CLEAN
-            if infected_count == 0 and len(skipped_files) > 0 and not hard_error_lines:
+            # Exit code 2 = warnings/errors. clamscan reports 2 even for benign,
+            # by-design situations (unreadable files, files exceeding scan limits,
+            # truncated archives). Treat as CLEAN only when we positively identified
+            # the cause as non-fatal (a skipped file or a limit/truncation warning)
+            # and nothing looked like a hard error. Unrecognized stderr stays ERROR.
+            if infected_count == 0 and not hard_error_lines and (skipped_files or nonfatal_warnings):
                 status = ScanStatus.CLEAN
-                warning_message = f"{len(skipped_files)} file(s) could not be accessed"
+                if skipped_files:
+                    warning_message = f"{len(skipped_files)} file(s) could not be accessed"
             else:
                 status = ScanStatus.ERROR
         else:

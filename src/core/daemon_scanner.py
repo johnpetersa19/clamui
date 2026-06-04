@@ -804,7 +804,7 @@ class DaemonScanner:
         """
         infected_files = []
         threat_details = []
-        skipped_files, hard_error_lines = collect_clamav_warnings(stdout, stderr)
+        skipped_files, nonfatal_warnings, hard_error_lines = collect_clamav_warnings(stdout, stderr)
         scanned_files = file_count
         scanned_dirs = dir_count
         infected_count = 0
@@ -844,11 +844,16 @@ class DaemonScanner:
         elif exit_code == 1:
             status = ScanStatus.INFECTED
         elif exit_code == 2:
-            # Exit code 2 = warnings/errors
-            # If no infections and all issues are skipped-file warnings, treat as CLEAN
-            if infected_count == 0 and len(skipped_files) > 0 and not hard_error_lines:
+            # Exit code 2 = warnings/errors. clamscan/clamdscan report 2 even for
+            # benign, by-design situations (unreadable files, files exceeding scan
+            # limits, truncated archives). Treat as CLEAN only when we positively
+            # identified the cause as non-fatal (a skipped file or a limit/truncation
+            # warning) and nothing looked like a hard error. Unrecognized stderr
+            # stays ERROR.
+            if infected_count == 0 and not hard_error_lines and (skipped_files or nonfatal_warnings):
                 status = ScanStatus.CLEAN
-                warning_message = f"{len(skipped_files)} file(s) could not be accessed"
+                if skipped_files:
+                    warning_message = f"{len(skipped_files)} file(s) could not be accessed"
             else:
                 status = ScanStatus.ERROR
         else:
