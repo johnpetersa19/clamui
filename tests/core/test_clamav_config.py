@@ -1128,6 +1128,27 @@ class TestFlatpakElevationRouting:
 
         assert clamav_config_module._path_needs_elevation(f) is True
 
+    def test_root_skips_elevation_for_system_path(self, monkeypatch):
+        """Launched as root, a /etc path writes directly without pkexec."""
+        monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: False)
+        monkeypatch.setattr(clamav_config_module, "is_running_as_root", lambda: True)
+
+        assert (
+            clamav_config_module._path_needs_elevation(Path("/etc/freshclam.conf"))
+            is False
+        )
+
+    def test_root_still_elevates_system_path_in_flatpak(self, monkeypatch):
+        """Even as root, Flatpak system paths route through the host helper
+        because the sandbox copy is ephemeral (#136), not a permission issue."""
+        monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: True)
+        monkeypatch.setattr(clamav_config_module, "is_running_as_root", lambda: True)
+
+        assert (
+            clamav_config_module._path_needs_elevation(Path("/etc/freshclam.conf"))
+            is True
+        )
+
     def test_writer_path_resolved_on_host_in_flatpak(self, monkeypatch):
         """In Flatpak, the helper is resolved via the host, not /app/bin."""
         monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: True)

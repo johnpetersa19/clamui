@@ -211,19 +211,33 @@ class SavePage(PreferencesPageMixin):
         auto_save_row.add_prefix(auto_save_icon)
         info_group.add(auto_save_row)
 
-        # Manual save settings info row
+        # Manual save settings info row.  Running as root, every config path is
+        # directly writable and the save flow skips pkexec, so drop the
+        # "you will be asked for administrator permission" wording and the
+        # warning lock icon that would otherwise mislead an already-privileged user.
+        from ...core.privileged_paths import is_running_as_root
+
         manual_save_row = Adw.ActionRow()
         manual_save_row.set_title(_("Manual Save Required"))
         safe_set_title_lines(manual_save_row, 1)
-        manual_save_row.set_subtitle(
-            _(
-                "Database Updates, Scanner, On-Access, Scheduled Scans. "
-                "When needed, you will be asked for administrator permission once."
+        if is_running_as_root():
+            manual_save_row.set_subtitle(
+                _("Database Updates, Scanner, On-Access, Scheduled Scans.")
             )
-        )
+            manual_icon_name = "emblem-default-symbolic"
+            manual_icon_css = "success"
+        else:
+            manual_save_row.set_subtitle(
+                _(
+                    "Database Updates, Scanner, On-Access, Scheduled Scans. "
+                    "When needed, you will be asked for administrator permission once."
+                )
+            )
+            manual_icon_name = "system-lock-screen-symbolic"
+            manual_icon_css = "warning"
         safe_set_subtitle_lines(manual_save_row, 2)
-        lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("system-lock-screen-symbolic"))
-        lock_icon.add_css_class("warning")
+        lock_icon = Gtk.Image.new_from_icon_name(resolve_icon_name(manual_icon_name))
+        lock_icon.add_css_class(manual_icon_css)
         manual_save_row.add_prefix(lock_icon)
         info_group.add(manual_save_row)
 

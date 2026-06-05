@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .i18n import _
-from .privileged_paths import staging_root_for_uid
+from .privileged_paths import is_running_as_root, staging_root_for_uid
 
 logger = logging.getLogger(__name__)
 
@@ -873,6 +873,14 @@ def _path_needs_elevation(file_path: Path) -> bool:
         str(file_path.resolve()).startswith(prefix) for prefix in _SYSTEM_PATH_PREFIXES
     ):
         return True
+
+    # Already root: every path is directly writable, so never spawn pkexec.
+    # This check sits *after* the Flatpak system-path guard above because being
+    # root inside the sandbox does not fix the ephemeral-copy redirection that
+    # forces those writes through the host helper (issue #136); it only covers
+    # the native case where the app was launched with elevated privileges.
+    if is_running_as_root():
+        return False
 
     # If the target file already exists, decide on the file's own writability
     # rather than its parent directory.  A user-owned /etc/freshclam.conf (e.g.

@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: ClamUI 0.1.7\n"
+"Project-Id-Version: ClamUI 0.2.0\n"
 "Report-Msgid-Bugs-To: https://github.com/linx-systems/clamui/issues\n"
-"POT-Creation-Date: 2026-05-12 13:01+0200\n"
+"POT-Creation-Date: 2026-06-05 20:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -390,8 +390,8 @@ msgid ""
 msgstr ""
 
 #: src/cli/quarantine_cmd.py:114 src/cli/quarantine_cmd.py:140
-#: src/core/quarantine/manager.py:268 src/core/quarantine/manager.py:373
-#: src/core/quarantine/manager.py:545
+#: src/core/quarantine/manager.py:273 src/core/quarantine/manager.py:378
+#: src/core/quarantine/manager.py:550
 #, python-brace-format
 msgid "Quarantine entry not found: {id}"
 msgstr ""
@@ -416,17 +416,17 @@ msgstr ""
 msgid "Delete failed: {error}"
 msgstr ""
 
-#: src/cli/router.py:38
+#: src/cli/router.py:48
 msgid "ClamUI — ClamAV antivirus management"
 msgstr ""
 
-#: src/cli/router.py:40
+#: src/cli/router.py:50
 msgid ""
 "Run 'clamui <command> --help' for details on a specific command.\n"
 "Run 'clamui' without arguments to launch the graphical interface."
 msgstr ""
 
-#: src/cli/router.py:48
+#: src/cli/router.py:58
 msgid "commands"
 msgstr ""
 
@@ -1034,7 +1034,7 @@ msgstr ""
 msgid "Timed out checking host database directory: {path}"
 msgstr ""
 
-#: src/core/clamav_detection.py:388
+#: src/core/clamav_detection.py:388 src/core/system_audit.py:260
 msgid "flatpak-spawn not available"
 msgstr ""
 
@@ -1064,595 +1064,599 @@ msgid ""
 "freshclam. Details: {detail}"
 msgstr ""
 
-#: src/core/system_audit.py:252
-msgid "Database file not found"
+#: src/core/system_audit.py:258
+msgid "Timed out reading database"
 msgstr ""
 
-#: src/core/system_audit.py:254
+#: src/core/system_audit.py:264 src/core/system_audit.py:273
 msgid "Permission denied reading database"
 msgstr ""
 
-#: src/core/system_audit.py:260
+#: src/core/system_audit.py:271
+msgid "Database file not found"
+msgstr ""
+
+#: src/core/system_audit.py:293
 msgid "Invalid database file format"
 msgstr ""
 
-#: src/core/system_audit.py:270
+#: src/core/system_audit.py:303
 msgid "Could not parse database timestamp"
 msgstr ""
 
-#: src/core/system_audit.py:296 src/ui/audit_view.py:194
+#: src/core/system_audit.py:410 src/ui/audit_view.py:194
 msgid "ClamAV Health"
 msgstr ""
 
-#: src/core/system_audit.py:305 src/core/system_audit.py:314
+#: src/core/system_audit.py:419 src/core/system_audit.py:428
 msgid "ClamAV Installation"
 msgstr ""
 
-#: src/core/system_audit.py:307
+#: src/core/system_audit.py:421
 #, python-brace-format
 msgid "Installed: {version}"
 msgstr ""
 
-#: src/core/system_audit.py:316
+#: src/core/system_audit.py:430
 msgid "ClamAV is not installed"
 msgstr ""
 
-#: src/core/system_audit.py:317
+#: src/core/system_audit.py:431
 msgid "Install ClamAV to enable virus scanning"
 msgstr ""
 
-#: src/core/system_audit.py:332 src/core/system_audit.py:343
-#: src/core/system_audit.py:356 src/core/system_audit.py:369
-#: src/core/system_audit.py:380 src/core/system_audit.py:391
+#: src/core/system_audit.py:447 src/core/system_audit.py:458
+#: src/core/system_audit.py:471 src/core/system_audit.py:486
+#: src/core/system_audit.py:499 src/core/system_audit.py:510
 msgid "Virus Database"
 msgstr ""
 
-#: src/core/system_audit.py:334
+#: src/core/system_audit.py:449
 #, python-brace-format
 msgid "Up to date ({days} days old, built {date})"
 msgstr ""
 
-#: src/core/system_audit.py:345 src/core/system_audit.py:358
+#: src/core/system_audit.py:460 src/core/system_audit.py:473
 #, python-brace-format
 msgid "Database is {days} days old (built {date})"
 msgstr ""
 
-#: src/core/system_audit.py:348
+#: src/core/system_audit.py:463
 msgid "Update virus database to ensure protection"
 msgstr ""
 
-#: src/core/system_audit.py:361
+#: src/core/system_audit.py:476
 msgid "Database is critically outdated. Update immediately."
 msgstr ""
 
-#: src/core/system_audit.py:371
+#: src/core/system_audit.py:488
 #, python-brace-format
-msgid "Could not determine database age: {error}"
+msgid "Database built {date} (age could not be determined)"
 msgstr ""
 
-#: src/core/system_audit.py:382
+#: src/core/system_audit.py:501
 msgid "No virus database found"
 msgstr ""
 
-#: src/core/system_audit.py:383
+#: src/core/system_audit.py:502
 msgid "Download virus database"
 msgstr ""
 
-#: src/core/system_audit.py:393
+#: src/core/system_audit.py:512
 msgid "Database files exist but age could not be determined"
 msgstr ""
 
-#: src/core/system_audit.py:404 src/core/system_audit.py:417
-#: src/core/system_audit.py:426 src/ui/logs_view.py:266
+#: src/core/system_audit.py:523 src/core/system_audit.py:536
+#: src/core/system_audit.py:545 src/ui/logs_view.py:266
 msgid "ClamAV Daemon"
 msgstr ""
 
-#: src/core/system_audit.py:406
+#: src/core/system_audit.py:525
 #, python-brace-format
 msgid "Service {name} is running"
 msgstr ""
 
-#: src/core/system_audit.py:419
+#: src/core/system_audit.py:538
 msgid "Daemon is responding"
 msgstr ""
 
-#: src/core/system_audit.py:428
+#: src/core/system_audit.py:547
 msgid "ClamAV daemon is not running"
 msgstr ""
 
-#: src/core/system_audit.py:429
+#: src/core/system_audit.py:548
 msgid "Start the daemon for faster scanning"
 msgstr ""
 
-#: src/core/system_audit.py:441 src/core/system_audit.py:451
-#: src/core/system_audit.py:814 src/core/system_audit.py:884
+#: src/core/system_audit.py:560 src/core/system_audit.py:570
+#: src/core/system_audit.py:933 src/core/system_audit.py:1003
 #: src/ui/audit_view.py:203
 msgid "Automatic Updates"
 msgstr ""
 
-#: src/core/system_audit.py:443
+#: src/core/system_audit.py:562
 msgid "Freshclam service is active"
 msgstr ""
 
-#: src/core/system_audit.py:453
+#: src/core/system_audit.py:572
 msgid "Freshclam automatic update service is not running"
 msgstr ""
 
-#: src/core/system_audit.py:454
+#: src/core/system_audit.py:573
 msgid "Enable automatic database updates"
 msgstr ""
 
-#: src/core/system_audit.py:467 src/core/system_audit.py:545
+#: src/core/system_audit.py:586 src/core/system_audit.py:664
 #: src/ui/audit_view.py:195
 msgid "Firewall"
 msgstr ""
 
-#: src/core/system_audit.py:482 src/core/system_audit.py:492
+#: src/core/system_audit.py:601 src/core/system_audit.py:611
 msgid "UFW Firewall"
 msgstr ""
 
-#: src/core/system_audit.py:484
+#: src/core/system_audit.py:603
 msgid "UFW is active and enabled"
 msgstr ""
 
-#: src/core/system_audit.py:494
+#: src/core/system_audit.py:613
 msgid "UFW service is running but firewall may be disabled"
 msgstr ""
 
-#: src/core/system_audit.py:495
+#: src/core/system_audit.py:614
 msgid "Enable the firewall"
 msgstr ""
 
-#: src/core/system_audit.py:508 src/core/system_audit.py:518
+#: src/core/system_audit.py:627 src/core/system_audit.py:637
 msgid "Firewalld"
 msgstr ""
 
-#: src/core/system_audit.py:510
+#: src/core/system_audit.py:629
 msgid "Firewalld is running"
 msgstr ""
 
-#: src/core/system_audit.py:520
+#: src/core/system_audit.py:639
 msgid "Firewalld is installed but not running"
 msgstr ""
 
-#: src/core/system_audit.py:521
+#: src/core/system_audit.py:640
 msgid "Start the firewall"
 msgstr ""
 
-#: src/core/system_audit.py:534
+#: src/core/system_audit.py:653
 msgid "nftables"
 msgstr ""
 
-#: src/core/system_audit.py:536
+#: src/core/system_audit.py:655
 msgid "nftables service is active"
 msgstr ""
 
-#: src/core/system_audit.py:547
+#: src/core/system_audit.py:666
 msgid "No active firewall detected"
 msgstr ""
 
-#: src/core/system_audit.py:548
+#: src/core/system_audit.py:667
 msgid "Install and enable a firewall for network protection"
 msgstr ""
 
-#: src/core/system_audit.py:576 src/core/system_audit.py:588
+#: src/core/system_audit.py:695 src/core/system_audit.py:707
 msgid "Firewall Manager"
 msgstr ""
 
-#: src/core/system_audit.py:578
+#: src/core/system_audit.py:697
 #, python-brace-format
 msgid "{name} is available"
 msgstr ""
 
-#: src/core/system_audit.py:580
+#: src/core/system_audit.py:699
 #, python-brace-format
 msgid "Open {name}"
 msgstr ""
 
-#: src/core/system_audit.py:590
+#: src/core/system_audit.py:709
 msgid "No graphical firewall manager detected"
 msgstr ""
 
-#: src/core/system_audit.py:591
+#: src/core/system_audit.py:710
 msgid "Install a GUI for easier firewall management"
 msgstr ""
 
-#: src/core/system_audit.py:678 src/core/system_audit.py:690
-#: src/core/system_audit.py:700
+#: src/core/system_audit.py:797 src/core/system_audit.py:809
+#: src/core/system_audit.py:819
 msgid "Open Ports"
 msgstr ""
 
-#: src/core/system_audit.py:680
+#: src/core/system_audit.py:799
 #, python-brace-format
 msgid "{count} ports listening, risky ports: {ports}"
 msgstr ""
 
-#: src/core/system_audit.py:683
+#: src/core/system_audit.py:802
 msgid "Review if these services need to be exposed"
 msgstr ""
 
-#: src/core/system_audit.py:692
+#: src/core/system_audit.py:811
 #, python-brace-format
 msgid "{count} ports listening"
 msgstr ""
 
-#: src/core/system_audit.py:693
+#: src/core/system_audit.py:812
 msgid "Review open ports and close unnecessary services"
 msgstr ""
 
-#: src/core/system_audit.py:702
+#: src/core/system_audit.py:821
 msgid "No open ports detected"
 msgstr ""
 
-#: src/core/system_audit.py:712 src/ui/audit_view.py:198
+#: src/core/system_audit.py:831 src/ui/audit_view.py:198
 msgid "Access Control"
 msgstr ""
 
-#: src/core/system_audit.py:733
+#: src/core/system_audit.py:852
 msgid "MAC Framework"
 msgstr ""
 
-#: src/core/system_audit.py:735
+#: src/core/system_audit.py:854
 msgid "No mandatory access control framework detected"
 msgstr ""
 
-#: src/core/system_audit.py:736
+#: src/core/system_audit.py:855
 msgid "Consider enabling AppArmor or SELinux"
 msgstr ""
 
-#: src/core/system_audit.py:760 src/core/system_audit.py:767
+#: src/core/system_audit.py:879 src/core/system_audit.py:886
 msgid "AppArmor"
 msgstr ""
 
-#: src/core/system_audit.py:762
+#: src/core/system_audit.py:881
 msgid "AppArmor is enabled"
 msgstr ""
 
-#: src/core/system_audit.py:769
+#: src/core/system_audit.py:888
 msgid "AppArmor module is loaded but not enabled"
 msgstr ""
 
-#: src/core/system_audit.py:770
+#: src/core/system_audit.py:889
 msgid "Enable AppArmor for application sandboxing"
 msgstr ""
 
-#: src/core/system_audit.py:786 src/core/system_audit.py:793
-#: src/core/system_audit.py:801
+#: src/core/system_audit.py:905 src/core/system_audit.py:912
+#: src/core/system_audit.py:920
 msgid "SELinux"
 msgstr ""
 
-#: src/core/system_audit.py:788
+#: src/core/system_audit.py:907
 msgid "SELinux is enforcing"
 msgstr ""
 
-#: src/core/system_audit.py:795
+#: src/core/system_audit.py:914
 msgid "SELinux is in permissive mode"
 msgstr ""
 
-#: src/core/system_audit.py:796
+#: src/core/system_audit.py:915
 msgid "Consider switching to enforcing mode for stronger protection"
 msgstr ""
 
-#: src/core/system_audit.py:803
+#: src/core/system_audit.py:922
 msgid "SELinux is disabled"
 msgstr ""
 
-#: src/core/system_audit.py:804
+#: src/core/system_audit.py:923
 msgid "Enable SELinux for mandatory access control"
 msgstr ""
 
-#: src/core/system_audit.py:827 src/core/system_audit.py:837
+#: src/core/system_audit.py:946 src/core/system_audit.py:956
 msgid "Unattended Upgrades"
 msgstr ""
 
-#: src/core/system_audit.py:829
+#: src/core/system_audit.py:948
 msgid "Automatic security updates are enabled"
 msgstr ""
 
-#: src/core/system_audit.py:839
+#: src/core/system_audit.py:958
 msgid "Unattended upgrades is installed but disabled"
 msgstr ""
 
-#: src/core/system_audit.py:840
+#: src/core/system_audit.py:959
 msgid "Enable automatic security updates"
 msgstr ""
 
-#: src/core/system_audit.py:853 src/core/system_audit.py:864
+#: src/core/system_audit.py:972 src/core/system_audit.py:983
 msgid "DNF Automatic"
 msgstr ""
 
-#: src/core/system_audit.py:855
+#: src/core/system_audit.py:974
 msgid "DNF automatic updates are enabled"
 msgstr ""
 
-#: src/core/system_audit.py:866
+#: src/core/system_audit.py:985
 msgid "DNF automatic is installed but timer is not active"
 msgstr ""
 
-#: src/core/system_audit.py:867
+#: src/core/system_audit.py:986
 msgid "Enable automatic updates"
 msgstr ""
 
-#: src/core/system_audit.py:886
+#: src/core/system_audit.py:1005
 msgid "Could not determine automatic update status"
 msgstr ""
 
-#: src/core/system_audit.py:887
+#: src/core/system_audit.py:1006
 msgid "Configure automatic security updates"
 msgstr ""
 
-#: src/core/system_audit.py:910
+#: src/core/system_audit.py:1029
 msgid "Pending Reboot"
 msgstr ""
 
-#: src/core/system_audit.py:912
+#: src/core/system_audit.py:1031
 msgid "System reboot required to apply updates"
 msgstr ""
 
-#: src/core/system_audit.py:913
+#: src/core/system_audit.py:1032
 msgid "Reboot the system to apply pending security updates"
 msgstr ""
 
-#: src/core/system_audit.py:922 src/ui/audit_view.py:208
+#: src/core/system_audit.py:1041 src/ui/audit_view.py:208
 msgid "Intrusion Detection"
 msgstr ""
 
-#: src/core/system_audit.py:933 src/core/system_audit.py:944
+#: src/core/system_audit.py:1052 src/core/system_audit.py:1063
 msgid "fail2ban"
 msgstr ""
 
-#: src/core/system_audit.py:935
+#: src/core/system_audit.py:1054
 msgid "fail2ban is active and protecting services"
 msgstr ""
 
-#: src/core/system_audit.py:946
+#: src/core/system_audit.py:1065
 msgid "fail2ban is installed but not running"
 msgstr ""
 
-#: src/core/system_audit.py:947
+#: src/core/system_audit.py:1066
 msgid "Start fail2ban to protect against brute force attacks"
 msgstr ""
 
-#: src/core/system_audit.py:959 src/core/system_audit.py:970
+#: src/core/system_audit.py:1078 src/core/system_audit.py:1089
 msgid "CrowdSec"
 msgstr ""
 
-#: src/core/system_audit.py:961
+#: src/core/system_audit.py:1080
 msgid "CrowdSec is active with community threat intelligence"
 msgstr ""
 
-#: src/core/system_audit.py:972
+#: src/core/system_audit.py:1091
 msgid "CrowdSec is installed but not running"
 msgstr ""
 
-#: src/core/system_audit.py:973
+#: src/core/system_audit.py:1092
 msgid "Start CrowdSec for collaborative intrusion prevention"
 msgstr ""
 
-#: src/core/system_audit.py:989
+#: src/core/system_audit.py:1108
 msgid "Intrusion Prevention"
 msgstr ""
 
-#: src/core/system_audit.py:991
+#: src/core/system_audit.py:1110
 msgid "No intrusion detection system found"
 msgstr ""
 
-#: src/core/system_audit.py:992
+#: src/core/system_audit.py:1111
 msgid "Install fail2ban or CrowdSec to protect against attacks"
 msgstr ""
 
-#: src/core/system_audit.py:1005 src/ui/audit_view.py:211
+#: src/core/system_audit.py:1124 src/ui/audit_view.py:211
 msgid "SSH Security"
 msgstr ""
 
-#: src/core/system_audit.py:1020 src/core/system_audit.py:1030
+#: src/core/system_audit.py:1139 src/core/system_audit.py:1149
 msgid "SSH Server"
 msgstr ""
 
-#: src/core/system_audit.py:1022
+#: src/core/system_audit.py:1141
 msgid "SSH server is not running (no remote attack surface)"
 msgstr ""
 
-#: src/core/system_audit.py:1032
+#: src/core/system_audit.py:1151
 msgid "SSH server is running"
 msgstr ""
 
-#: src/core/system_audit.py:1042
+#: src/core/system_audit.py:1161
 msgid "SSH Configuration"
 msgstr ""
 
-#: src/core/system_audit.py:1044
+#: src/core/system_audit.py:1163
 msgid "Could not read SSH configuration"
 msgstr ""
 
-#: src/core/system_audit.py:1055 src/core/system_audit.py:1064
+#: src/core/system_audit.py:1174 src/core/system_audit.py:1183
 msgid "Root Login"
 msgstr ""
 
-#: src/core/system_audit.py:1057
+#: src/core/system_audit.py:1176
 #, python-brace-format
 msgid "Root login: {value}"
 msgstr ""
 
-#: src/core/system_audit.py:1066
+#: src/core/system_audit.py:1185
 #, python-brace-format
 msgid "Root login is allowed ({value})"
 msgstr ""
 
-#: src/core/system_audit.py:1067
+#: src/core/system_audit.py:1186
 msgid "Disable root SSH login for security"
 msgstr ""
 
-#: src/core/system_audit.py:1077 src/core/system_audit.py:1086
+#: src/core/system_audit.py:1196 src/core/system_audit.py:1205
 msgid "Password Auth"
 msgstr ""
 
-#: src/core/system_audit.py:1079
+#: src/core/system_audit.py:1198
 msgid "Password authentication is disabled (key-only)"
 msgstr ""
 
-#: src/core/system_audit.py:1088
+#: src/core/system_audit.py:1207
 msgid "Password authentication is enabled"
 msgstr ""
 
-#: src/core/system_audit.py:1089
+#: src/core/system_audit.py:1208
 msgid "Consider disabling password auth in favor of SSH keys"
 msgstr ""
 
-#: src/core/system_audit.py:1099 src/core/system_audit.py:1108
+#: src/core/system_audit.py:1218 src/core/system_audit.py:1227
 msgid "X11 Forwarding"
 msgstr ""
 
-#: src/core/system_audit.py:1101
+#: src/core/system_audit.py:1220
 msgid "X11 forwarding is disabled"
 msgstr ""
 
-#: src/core/system_audit.py:1110
+#: src/core/system_audit.py:1229
 msgid "X11 forwarding is enabled"
 msgstr ""
 
-#: src/core/system_audit.py:1111
+#: src/core/system_audit.py:1230
 msgid "Disable X11 forwarding to reduce attack surface"
 msgstr ""
 
-#: src/core/system_audit.py:1165 src/ui/audit_view.py:272
+#: src/core/system_audit.py:1284 src/ui/audit_view.py:272
 #: src/ui/audit_view.py:307
 msgid "Lynis Security Audit"
 msgstr ""
 
-#: src/core/system_audit.py:1174
+#: src/core/system_audit.py:1293
 msgid "Lynis"
 msgstr ""
 
-#: src/core/system_audit.py:1176
+#: src/core/system_audit.py:1295
 msgid "Lynis is not installed"
 msgstr ""
 
-#: src/core/system_audit.py:1177
+#: src/core/system_audit.py:1296
 msgid "Install Lynis for comprehensive security auditing"
 msgstr ""
 
-#: src/core/system_audit.py:1205 src/core/system_audit.py:1215
-#: src/core/system_audit.py:1227 src/core/system_audit.py:1259
+#: src/core/system_audit.py:1324 src/core/system_audit.py:1334
+#: src/core/system_audit.py:1346 src/core/system_audit.py:1378
 msgid "Lynis Audit"
 msgstr ""
 
-#: src/core/system_audit.py:1207
+#: src/core/system_audit.py:1326
 msgid "Lynis audit timed out after 5 minutes"
 msgstr ""
 
-#: src/core/system_audit.py:1217
+#: src/core/system_audit.py:1336
 #, python-brace-format
 msgid "Failed to run Lynis: {error}"
 msgstr ""
 
-#: src/core/system_audit.py:1229 src/core/system_audit.py:1357
+#: src/core/system_audit.py:1348 src/core/system_audit.py:1476
 msgid "Authentication was cancelled"
 msgstr ""
 
-#: src/core/system_audit.py:1247
+#: src/core/system_audit.py:1366
 msgid "Hardening Index"
 msgstr ""
 
-#: src/core/system_audit.py:1249
+#: src/core/system_audit.py:1368
 #, python-brace-format
 msgid "Score: {score}/100"
 msgstr ""
 
-#: src/core/system_audit.py:1250
+#: src/core/system_audit.py:1369
 msgid "Run 'sudo lynis audit system' for detailed recommendations"
 msgstr ""
 
-#: src/core/system_audit.py:1261
+#: src/core/system_audit.py:1380
 #, python-brace-format
 msgid "Audit completed (exit code {code})"
 msgstr ""
 
-#: src/core/system_audit.py:1302 src/ui/audit_view.py:278
+#: src/core/system_audit.py:1421 src/ui/audit_view.py:278
 #: src/ui/audit_view.py:310
 msgid "Rootkit Detection"
 msgstr ""
 
-#: src/core/system_audit.py:1311
+#: src/core/system_audit.py:1430
 msgid "chkrootkit"
 msgstr ""
 
-#: src/core/system_audit.py:1313
+#: src/core/system_audit.py:1432
 msgid "chkrootkit is not installed"
 msgstr ""
 
-#: src/core/system_audit.py:1314
+#: src/core/system_audit.py:1433
 msgid "Install chkrootkit for rootkit detection"
 msgstr ""
 
-#: src/core/system_audit.py:1333 src/core/system_audit.py:1343
-#: src/core/system_audit.py:1355 src/core/system_audit.py:1370
-#: src/core/system_audit.py:1390
+#: src/core/system_audit.py:1452 src/core/system_audit.py:1462
+#: src/core/system_audit.py:1474 src/core/system_audit.py:1489
+#: src/core/system_audit.py:1509
 msgid "Rootkit Scan"
 msgstr ""
 
-#: src/core/system_audit.py:1335
+#: src/core/system_audit.py:1454
 msgid "Rootkit scan timed out after 5 minutes"
 msgstr ""
 
-#: src/core/system_audit.py:1345
+#: src/core/system_audit.py:1464
 #, python-brace-format
 msgid "Failed to run chkrootkit: {error}"
 msgstr ""
 
-#: src/core/system_audit.py:1372
+#: src/core/system_audit.py:1491
 #, python-brace-format
 msgid "{count} potential rootkit(s) detected"
 msgstr ""
 
-#: src/core/system_audit.py:1373
+#: src/core/system_audit.py:1492
 msgid "Investigate the detected threats immediately"
 msgstr ""
 
-#: src/core/system_audit.py:1381
+#: src/core/system_audit.py:1500
 msgid "Finding"
 msgstr ""
 
-#: src/core/system_audit.py:1392
+#: src/core/system_audit.py:1511
 msgid "No rootkits detected"
 msgstr ""
 
-#: src/core/system_audit.py:1427 src/core/system_audit.py:1444
-#: src/core/system_audit.py:1479 src/core/system_audit.py:1490
-#: src/core/system_audit.py:1499 src/ui/audit_view.py:212
+#: src/core/system_audit.py:1546 src/core/system_audit.py:1563
+#: src/core/system_audit.py:1598 src/core/system_audit.py:1609
+#: src/core/system_audit.py:1618 src/ui/audit_view.py:212
 #: src/ui/audit_view.py:561
 msgid "Portmaster"
 msgstr ""
 
-#: src/core/system_audit.py:1446
+#: src/core/system_audit.py:1565
 msgid "Portmaster is running and protecting connections"
 msgstr ""
 
-#: src/core/system_audit.py:1468
+#: src/core/system_audit.py:1587
 msgid "Module Status"
 msgstr ""
 
-#: src/core/system_audit.py:1470
+#: src/core/system_audit.py:1589
 msgid "Authorize ClamUI in Portmaster for per-module health"
 msgstr ""
 
-#: src/core/system_audit.py:1472
+#: src/core/system_audit.py:1591
 msgid "Authorize"
 msgstr ""
 
-#: src/core/system_audit.py:1481
+#: src/core/system_audit.py:1600
 msgid "Portmaster is installed but not running"
 msgstr ""
 
-#: src/core/system_audit.py:1482
+#: src/core/system_audit.py:1601
 msgid "Start the Portmaster service to enable network protection"
 msgstr ""
 
-#: src/core/system_audit.py:1492
+#: src/core/system_audit.py:1611
 msgid "Not detected — optional network monitor and application firewall"
 msgstr ""
 
-#: src/core/system_audit.py:1501
+#: src/core/system_audit.py:1620
 #, python-brace-format
 msgid "Could not probe Portmaster: {error}"
 msgstr ""
@@ -1927,20 +1931,20 @@ msgstr[1] ""
 msgid "Found {details}"
 msgstr ""
 
-#: src/core/quarantine/manager.py:192
+#: src/core/quarantine/manager.py:197
 msgid ""
 "Failed to record quarantine entry in database. File has been restored to "
 "original location."
 msgstr ""
 
-#: src/core/quarantine/manager.py:196
+#: src/core/quarantine/manager.py:201
 #, python-brace-format
 msgid ""
 "Failed to record quarantine entry in database. Rollback also failed: "
 "{error}. File may be orphaned at: {path}"
 msgstr ""
 
-#: src/core/quarantine/manager.py:280
+#: src/core/quarantine/manager.py:285
 #, python-brace-format
 msgid "File integrity verification failed: {error}"
 msgstr ""
@@ -2025,7 +2029,7 @@ msgstr ""
 msgid "Timestamp"
 msgstr ""
 
-#: src/core/scanner_base.py:548
+#: src/core/scanner_base.py:617
 msgid "Scan cancelled by user"
 msgstr ""
 
@@ -2963,66 +2967,66 @@ msgstr ""
 msgid "Hide password"
 msgstr ""
 
-#: src/ui/preferences/base.py:515
+#: src/ui/preferences/base.py:524
 msgid "Requires administrator privileges to modify"
 msgstr ""
 
-#: src/ui/preferences/base.py:534
+#: src/ui/preferences/base.py:543
 msgid "Invalid Path"
 msgstr ""
 
-#: src/ui/preferences/base.py:535
+#: src/ui/preferences/base.py:544
 msgid "The path is not valid."
 msgstr ""
 
-#: src/ui/preferences/base.py:551 src/ui/preferences/base.py:570
+#: src/ui/preferences/base.py:560 src/ui/preferences/base.py:579
 msgid "Folder Not Found"
 msgstr ""
 
-#: src/ui/preferences/base.py:552 src/ui/preferences/base.py:571
+#: src/ui/preferences/base.py:561 src/ui/preferences/base.py:580
 #, python-brace-format
 msgid "The folder '{path}' does not exist."
 msgstr ""
 
-#: src/ui/preferences/base.py:564 src/ui/preferences/base.py:583
+#: src/ui/preferences/base.py:573 src/ui/preferences/base.py:592
 msgid "Error Opening Folder"
 msgstr ""
 
-#: src/ui/preferences/base.py:565 src/ui/preferences/base.py:584
+#: src/ui/preferences/base.py:574 src/ui/preferences/base.py:593
 #, python-brace-format
 msgid "Could not open folder: {error}"
 msgstr ""
 
-#: src/ui/preferences/base.py:634 src/ui/preferences/save_page.py:175
+#: src/ui/preferences/base.py:643 src/ui/preferences/save_page.py:175
 #: src/ui/preferences/scanner_page.py:578
 msgid "OK"
 msgstr ""
 
-#: src/ui/preferences/base.py:698
+#: src/ui/preferences/base.py:707
 msgid "File Location"
 msgstr ""
 
-#: src/ui/preferences/base.py:709
+#: src/ui/preferences/base.py:718
 msgid "Open Folder"
 msgstr ""
 
-#: src/ui/preferences/base.py:712
+#: src/ui/preferences/base.py:721
 msgid "Open containing folder in file manager"
 msgstr ""
 
-#: src/ui/preferences/base.py:733
+#: src/ui/preferences/base.py:742
 msgid "Detect"
 msgstr ""
 
-#: src/ui/preferences/base.py:736
+#: src/ui/preferences/base.py:745
 msgid "Auto-detect configuration file location"
 msgstr ""
 
-#: src/ui/preferences/base.py:743
+#: src/ui/preferences/base.py:752
 msgid "Browse"
 msgstr ""
 
-#: src/ui/preferences/base.py:746
+#: src/ui/preferences/base.py:755
 msgid "Browse for configuration file"
 msgstr ""
 
@@ -3848,7 +3852,7 @@ msgstr ""
 msgid "Exclude root (UID 0) from On-Access scanning"
 msgstr ""
 
-#: src/ui/preferences/save_page.py:197 src/ui/preferences/save_page.py:244
+#: src/ui/preferences/save_page.py:197 src/ui/preferences/save_page.py:258
 msgid "Save & Apply"
 msgstr ""
 
@@ -3864,33 +3868,37 @@ msgstr ""
 msgid "Scan Backend, Exclusions"
 msgstr ""
 
-#: src/ui/preferences/save_page.py:216
+#: src/ui/preferences/save_page.py:221
 msgid "Manual Save Required"
 msgstr ""
 
-#: src/ui/preferences/save_page.py:220
+#: src/ui/preferences/save_page.py:225
+msgid "Database Updates, Scanner, On-Access, Scheduled Scans."
+msgstr ""
+
+#: src/ui/preferences/save_page.py:232
 msgid ""
 "Database Updates, Scanner, On-Access, Scheduled Scans. When needed, you will "
 "be asked for administrator permission once."
 msgstr ""
 
-#: src/ui/preferences/save_page.py:234
+#: src/ui/preferences/save_page.py:248
 msgid "Apply Configuration"
 msgstr ""
 
-#: src/ui/preferences/save_page.py:238
+#: src/ui/preferences/save_page.py:252
 msgid "Save Configuration"
 msgstr ""
 
-#: src/ui/preferences/save_page.py:239
+#: src/ui/preferences/save_page.py:253
 msgid "Apply all pending changes at once."
 msgstr ""
 
-#: src/ui/preferences/save_page.py:284 src/ui/preferences/save_page.py:308
+#: src/ui/preferences/save_page.py:298 src/ui/preferences/save_page.py:322
 msgid "Configuration Error"
 msgstr ""
 
-#: src/ui/preferences/save_page.py:286
+#: src/ui/preferences/save_page.py:300
 msgid ""
 "Cannot save freshclam settings: Configuration failed to load.\n"
 "\n"
@@ -3902,11 +3910,11 @@ msgid ""
 "Check the application logs for details."
 msgstr ""
 
-#: src/ui/preferences/save_page.py:300 src/ui/preferences/save_page.py:320
+#: src/ui/preferences/save_page.py:314 src/ui/preferences/save_page.py:334
 msgid "Validation Error"
 msgstr ""
 
-#: src/ui/preferences/save_page.py:310
+#: src/ui/preferences/save_page.py:324
 #, python-brace-format
 msgid ""
 "Cannot save clamd settings: Configuration failed to load.\n"
@@ -3914,16 +3922,26 @@ msgid ""
 "Check that {path} exists and is readable."
 msgstr ""
 
-#: src/ui/preferences/save_page.py:435
+#: src/ui/preferences/save_page.py:455
 msgid "Configuration Saved"
 msgstr ""
 
-#: src/ui/preferences/save_page.py:436
+#: src/ui/preferences/save_page.py:456
 msgid ""
 "Configuration saved. Active ClamAV services were restarted where needed."
 msgstr ""
 
-#: src/ui/preferences/save_page.py:441
+#: src/ui/preferences/save_page.py:461
+msgid "No Changes to Apply"
+msgstr ""
+
+#: src/ui/preferences/save_page.py:463
+msgid ""
+"No configuration changes were detected, so nothing was saved. Open a "
+"settings page and modify a value before saving."
+msgstr ""
+
+#: src/ui/preferences/save_page.py:470
 msgid "Save Failed"
 msgstr ""
 
@@ -5577,7 +5595,7 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: src/ui/tray_service.py:475
+#: src/ui/tray_service.py:495
 #, python-brace-format
 msgid "ClamUI - {status}"
 msgstr ""

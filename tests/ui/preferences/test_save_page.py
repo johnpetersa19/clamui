@@ -182,6 +182,52 @@ class TestSavePageCreation:
         # Should create Image widgets for icons (success and warning)
         assert gtk.Image.new_from_icon_name.call_count >= 2
 
+    @staticmethod
+    def _record_action_rows(adw):
+        """Make Adw.ActionRow() append every instance it builds to a list so
+        their set_subtitle() calls can be inspected afterwards (the fixture
+        otherwise returns a throwaway mock per call). Returns that list."""
+        rows: list = []
+
+        def _make(*_args, **_kwargs):
+            row = mock.MagicMock()
+            rows.append(row)
+            return row
+
+        adw.ActionRow.side_effect = _make
+        return rows
+
+    @staticmethod
+    def _subtitles(rows):
+        return [c.args[0] for row in rows for c in row.set_subtitle.call_args_list]
+
+    def test_create_page_mentions_admin_permission_when_not_root(
+        self, mock_gi_modules, save_page
+    ):
+        """When not root, the manual-save row warns about the pkexec prompt."""
+        rows = self._record_action_rows(mock_gi_modules["adw"])
+
+        with mock.patch(
+            "src.core.privileged_paths.is_running_as_root", return_value=False
+        ):
+            save_page.create_page()
+
+        assert any("administrator permission" in s for s in self._subtitles(rows))
+
+    def test_create_page_omits_admin_permission_when_root(
+        self, mock_gi_modules, save_page
+    ):
+        """Running as root, no config write needs pkexec, so the manual-save row
+        drops the 'you will be asked for administrator permission' wording."""
+        rows = self._record_action_rows(mock_gi_modules["adw"])
+
+        with mock.patch(
+            "src.core.privileged_paths.is_running_as_root", return_value=True
+        ):
+            save_page.create_page()
+
+        assert not any("administrator permission" in s for s in self._subtitles(rows))
+
 
 class TestSavePageSaveClicked:
     """Tests for SavePage._on_save_clicked() method."""
