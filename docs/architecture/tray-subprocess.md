@@ -210,7 +210,7 @@ matching the `status` values accepted by `update_status`:
 | `threat`    | red            | `dialog-error-symbolic`          | `NeedsAttention` |
 
 `get_icon_name(status)` returns `clamui-tray-<status>`; when Pillow (and the base icon) are unavailable the service
-falls back to the themed `ICON_MAP` names. There is no "paused" state.
+falls back to the themed `ICON_MAP` names (defined in `tray_service.py`). There is no "paused" state.
 
 ## Threading Model
 

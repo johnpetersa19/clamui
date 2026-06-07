@@ -267,7 +267,7 @@ When the scan finishes:
 
 - All buttons become active again
 - The status message updates with results
-- If threats were found, they appear in the "Scan Results" section below
+- If threats were found, click **View Results (N)** to open the Scan Results dialog
 - If no threats were found, you'll see a success message
 
 #### Interpreting Scan Results
@@ -327,6 +327,7 @@ Each detected threat is displayed in a card showing:
 
 5. **Action Buttons** (bottom of each card)
     - **Quarantine**: Safely isolates the threat file
+    - **Exclude**: Adds the file's path to your exclusion patterns
     - **Copy Path**: Copies the file path to your clipboard
 
 **What Should I Do With Detected Threats?**

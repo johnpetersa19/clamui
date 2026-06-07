@@ -92,7 +92,7 @@ When you drag files over the ClamUI window:
 4. **Background tint**: Light transparent overlay shows the drop is accepted
 5. **Drop the file**: Release your mouse button anywhere in the window
 6. **Border disappears**: Visual feedback clears immediately
-7. **Path updates**: The dropped path appears in "Selected Path"
+7. **Targets update**: Each dropped file/folder is added to the "Scan Targets" list
 
 This visual feedback confirms ClamUI is ready to accept your file.
 

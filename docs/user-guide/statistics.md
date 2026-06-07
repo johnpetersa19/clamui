@@ -724,8 +724,8 @@ operations without navigating to other views.
 
 **What it does:**
 
-- Switches to the **Scan view** (navigates away from Statistics)
-- Automatically starts scanning your **home directory** (equivalent to "Home Folder" profile)
+- Switches to the **Scan view** and selects the **Quick Scan** profile (your `~/Downloads` folder)
+- Does **not** start the scan automatically — review the target, then click **Start Scan**. If the Quick Scan profile is missing, it falls back to your home directory
 - Uses your configured scan backend and settings
 
 **When to use it:**
@@ -739,18 +739,18 @@ operations without navigating to other views.
 
 1. Click the **Quick Scan** row (anywhere on the row is clickable)
 2. ClamUI **navigates to the Scan view**
-3. The scan **starts automatically** with your home directory as the target
+3. ClamUI selects the **Quick Scan** profile (`~/Downloads`); click **Start Scan** to begin
 4. **Monitor progress** in the Scan view
 5. **Return to Statistics** when done to see updated metrics
 
-⚠️ **Note**: Quick Scan uses the default scan settings. If you need custom targets or exclusions,
-use [Scan Profiles](profiles.md) instead.
+⚠️ **Note**: Quick Scan uses the **Quick Scan** profile (`~/Downloads`). For different targets or exclusions,
+pick another profile or manage them via [Scan Profiles](profiles.md).
 
 💡 **Tip**: Quick Scan is equivalent to:
 
-1. Clicking "Scan" in the navigation bar
-2. Clicking "Browse" and selecting your home folder
-3. Clicking "Start Scan"
+1. Opening the **Scan** view
+2. Selecting the **Quick Scan** profile
+3. Clicking **Start Scan**
 
 It just saves you 3 steps!
 

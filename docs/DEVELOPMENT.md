@@ -415,7 +415,7 @@ clamui-scheduled-scan     # Scheduled scan CLI (systemd/cron)
 clamui-apply-preferences  # Privileged config applier (via pkexec)
 ```
 
-For a detailed breakdown of all modules, see the [Repository Structure](../CLAUDE.md#repository-structure) section in CLAUDE.md.
+For a detailed breakdown of all modules, see the [Repository Structure](../AGENTS.md#repository-structure-top-level) section in AGENTS.md.
 
 ---
 

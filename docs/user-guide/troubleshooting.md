@@ -837,7 +837,7 @@ ls -la ~/.local/share/clamui/quarantine/
 ls -la ~/.local/share/clamui/quarantine/
 
 # Check database entries
-sqlite3 ~/.local/share/clamui/quarantine.db "SELECT original_path, quarantine_path FROM quarantine_entries;"
+sqlite3 ~/.local/share/clamui/quarantine.db "SELECT original_path, quarantine_path FROM quarantine;"
 ```
 
 **Manually reconcile (advanced):**
@@ -849,7 +849,7 @@ If you see files in the directory but not in the database, or vice versa, you ma
 ls ~/.local/share/clamui/quarantine/
 
 # List entries in database
-sqlite3 ~/.local/share/clamui/quarantine.db "SELECT * FROM quarantine_entries;"
+sqlite3 ~/.local/share/clamui/quarantine.db "SELECT * FROM quarantine;"
 ```
 
 If they don't match, the safest approach is:

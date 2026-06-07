@@ -1407,8 +1407,8 @@ Total storage depends on detection frequency:
 
 - ✅ Quarantine directory is user-specific (`~/.local/share/clamui/`)
 - ✅ Only you (and root) can access quarantined files
-- ✅ File permissions: 700 (user-only access)
-- ✅ Files renamed to prevent identification
+- ✅ Permissions: quarantine directory `0o700`, quarantined files `0o400` (read-only, owner-only)
+- ✅ Files stored with a random-prefixed name and restrictive permissions
 
 **What's NOT private:**
 

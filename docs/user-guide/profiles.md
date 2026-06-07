@@ -623,12 +623,12 @@ This resets **Quick Scan**, **Full Scan**, and **Home Folder** to their original
 
 3. **Switch back to manual**:
     - Select **No Profile (Manual)** from the dropdown
-    - You can now manually select paths with Browse button
+    - You can now add paths with the **Add files** / **Add folders** buttons
 
 **Profile indicator**:
 
 - When a profile is selected, the dropdown shows the profile name
-- The "Selected Path" row shows the first target (or "Multiple locations" if the profile has multiple targets)
+- The **Scan Targets (N)** group lists the profile's targets
 
 #### Profile Tips and Tricks
 

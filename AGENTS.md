@@ -415,12 +415,15 @@ class QuarantineManager:
 Preferences pages inherit from `PreferencesPageMixin`:
 
 ```python
-from src.ui.preferences.base import PreferencesPageMixin
+from .base import PreferencesPageMixin
 
+# create_page() is a @staticmethod for config-backed pages (DatabasePage,
+# ScannerPage) or an instance method for simple settings pages
+# (BehaviorPage, ExclusionsPage). The signature varies per page.
 class DatabasePage(PreferencesPageMixin):
-    @classmethod
-    def create_page(cls, parent_window):
-        return cls(transient_for=parent_window)
+    @staticmethod
+    def create_page(config_path, widgets_dict, parent_window=None) -> Adw.PreferencesPage:
+        ...
 ```
 
 ### Reusable Export Dialog Pattern
@@ -526,7 +529,7 @@ def test_something(mock_gi_modules):
 ### Scanner Types (`src/core/scanner_types.py`)
 
 - `ScanStatus` enum: CLEAN, INFECTED, ERROR, CANCELLED
-- `ThreatDetail` dataclass: file_path, threat_name, severity, category
+- `ThreatDetail` dataclass: file_path, threat_name, category, severity
 - `ScanResult` dataclass: status, path, infected_files, scanned_files, scanned_dirs, infected_count, threat_details, skipped_files/skipped_count, warning_message, error_message; properties `is_clean`, `has_threats`, `has_warnings`
 
 ### Threat Classifier (`src/core/threat_classifier.py`)
@@ -748,7 +751,7 @@ VirusTotal is configured via **Preferences → VirusTotal** (the API key lives i
 ### Adding a Preferences Page
 
 1. Create `src/ui/preferences/new_page.py` inheriting from `PreferencesPageMixin`
-2. Implement `create_page()` class method
+2. Implement `create_page()` (an instance method, or `@staticmethod` for config-backed pages)
 3. Add page instantiation in `PreferencesWindow.__init__()`
 4. Write tests in `tests/ui/preferences/test_new_page.py`
 

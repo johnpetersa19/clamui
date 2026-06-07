@@ -530,13 +530,13 @@ After installation, verify that ClamUI is working correctly.
 ```bash
 # For native installation
 which clamui
-clamui --version
+clamui help               # prints CLI usage (confirms install)
 
 # For Flatpak
 flatpak info io.github.linx_systems.ClamUI
 
 # For AppImage
-./ClamUI-*-x86_64.AppImage --version
+./ClamUI-*-x86_64.AppImage help
 ```
 
 ### Check ClamAV
