@@ -20,6 +20,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from gi.repository import GLib
 
@@ -29,6 +30,9 @@ from .file_handler import (
     FileOperationStatus,
     SecureFileHandler,
 )
+
+if TYPE_CHECKING:
+    from ..settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,27 @@ class QuarantineResult:
         return self.status == QuarantineStatus.SUCCESS
 
 
+def _resolve_configured_directory(
+    settings_manager: "SettingsManager | None" = None,
+) -> str | None:
+    """Resolve the user-configured quarantine directory from settings.
+
+    Returns the configured path string, or ``None`` to use the default
+    (``XDG_DATA_HOME/clamui/quarantine``). Any failure to read settings
+    falls back to the default so quarantine never breaks on bad config.
+    """
+    try:
+        if settings_manager is None:
+            from ..settings_manager import SettingsManager
+
+            settings_manager = SettingsManager()
+        configured = settings_manager.get("quarantine_directory", "")
+    except Exception:
+        logger.debug("Could not read quarantine_directory setting; using default", exc_info=True)
+        return None
+    return configured if isinstance(configured, str) and configured else None
+
+
 class QuarantineManager:
     """
     Manager for quarantine operations orchestrating database and file handling.
@@ -93,18 +118,26 @@ class QuarantineManager:
         quarantine_directory: str | None = None,
         database_path: str | None = None,
         enable_periodic_cleanup: bool = True,
+        settings_manager: "SettingsManager | None" = None,
     ):
         """
         Initialize the QuarantineManager.
 
         Args:
             quarantine_directory: Optional custom quarantine directory path.
-                                  Defaults to XDG_DATA_HOME/clamui/quarantine
+                                  When ``None``, the ``quarantine_directory``
+                                  user setting is honored; if that is empty it
+                                  falls back to XDG_DATA_HOME/clamui/quarantine.
             database_path: Optional custom database path.
                            Defaults to XDG_DATA_HOME/clamui/quarantine.db
             enable_periodic_cleanup: Whether to enable periodic orphan cleanup.
                                      Defaults to True. Set to False for testing.
+            settings_manager: Optional SettingsManager used to resolve the
+                              ``quarantine_directory`` setting when no explicit
+                              directory is given. Created on demand if omitted.
         """
+        if quarantine_directory is None:
+            quarantine_directory = _resolve_configured_directory(settings_manager)
         self._file_handler = SecureFileHandler(quarantine_directory)
         self._database = QuarantineDatabase(database_path)
 

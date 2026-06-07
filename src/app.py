@@ -201,7 +201,7 @@ class ClamUIApp(Adw.Application):
         if self._quarantine_manager is None:
             from .core.quarantine import QuarantineManager
 
-            self._quarantine_manager = QuarantineManager()
+            self._quarantine_manager = QuarantineManager(settings_manager=self._settings_manager)
         return self._quarantine_manager
 
     @property

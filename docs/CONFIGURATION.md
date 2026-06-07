@@ -255,8 +255,9 @@ Specifies a custom directory for storing quarantined files.
 When set to an empty string (default), ClamUI uses the XDG-compliant location `~/.local/share/clamui/quarantine/`. You
 can override this with a custom path for centralized quarantine storage or to use a separate partition.
 
-The specified directory must be writable by the user running ClamUI. Quarantined files are stored with encrypted names
-and tracked in a SQLite database.
+The specified directory must be writable by the user running ClamUI. Quarantined files are stored with randomized
+names and restrictive permissions (`0o400`), and tracked in a SQLite database that stays at the default location.
+Changing this setting affects newly quarantined files; files already in quarantine remain where they are.
 
 **Example:**
 
