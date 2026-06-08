@@ -1588,6 +1588,108 @@ class TestTrayManagerSubprocessCrashRecovery:
         assert manager._last_respawn_time == 0.0
         assert manager._tray_down is False
 
+    def test_no_respawn_when_process_still_alive(self, mock_gtk_modules):
+        """poll()==None means the child is still alive — must NOT respawn/orphan it."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        mock_process = mock.Mock()
+        mock_process.poll = mock.Mock(return_value=None)  # Still alive
+        manager._process = mock_process
+
+        with mock.patch.object(manager, "start", return_value=True) as mock_start:
+            manager._handle_subprocess_exit()
+
+        # Live child must not be respawned nor orphaned.
+        mock_start.assert_not_called()
+        assert manager._process is mock_process
+
+    def test_respawn_start_aborts_when_shutdown_requested(self, mock_gtk_modules):
+        """A deliberate stop() racing crash-respawn wins: start(respawn=True) aborts."""
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._shutting_down = True  # stop() won the race
+
+        with mock.patch("subprocess.Popen") as mock_popen:
+            result = manager.start(respawn=True)
+
+        assert result is False
+        mock_popen.assert_not_called()
+        # Respawn must not clear the deliberate-shutdown flag.
+        assert manager._shutting_down is True
+
+    def test_recursion_error_in_json_is_skipped(self, mock_gtk_modules, caplog):
+        """RecursionError from json.loads must be caught; the reader keeps going."""
+        import logging
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+        manager._shutting_down = True  # Suppress UI-001 respawn path on EOF
+
+        real_loads = json.loads
+
+        def fake_loads(line):
+            if "boom" in line:
+                raise RecursionError("maximum recursion depth exceeded")
+            return real_loads(line)
+
+        messages = ['{"event": "boom"}\n', '{"event": "ready"}\n']
+        mock_process = mock.Mock()
+        mock_process.stdout = StringIO("".join(messages))
+        manager._process = mock_process
+
+        with (
+            mock.patch("src.ui.tray_manager.json.loads", side_effect=fake_loads),
+            caplog.at_level(logging.ERROR),
+        ):
+            manager._read_stdout()
+
+        # The recursive line was skipped; the valid message after it still ran,
+        # proving a single bad message did not kill the reader.
+        assert manager._ready is True
+        assert "Invalid JSON from tray service" in caplog.text
+
+    def test_recursion_error_does_not_respawn_live_process(self, mock_gtk_modules):
+        """A bad (recursive) line must not kill the reader and orphan a live child."""
+        from io import StringIO
+
+        from src.ui.tray_manager import TrayManager
+
+        manager = TrayManager()
+        manager._running = True
+
+        real_loads = json.loads
+
+        def fake_loads(line):
+            if "boom" in line:
+                raise RecursionError("maximum recursion depth exceeded")
+            return real_loads(line)
+
+        messages = ['{"event": "boom"}\n', '{"event": "ready"}\n']
+        mock_process = mock.Mock()
+        mock_process.stdout = StringIO("".join(messages))
+        mock_process.poll = mock.Mock(return_value=None)  # subprocess still alive
+        manager._process = mock_process
+
+        handled: list = []
+        with (
+            mock.patch("src.ui.tray_manager.json.loads", side_effect=fake_loads),
+            mock.patch.object(manager, "_handle_message", side_effect=handled.append),
+            mock.patch.object(manager, "start", return_value=True) as mock_start,
+        ):
+            manager._read_stdout()
+
+        # Reader survived the recursive line and processed the next valid message.
+        assert {"event": "ready"} in handled
+        # The still-alive subprocess must not be respawned/orphaned.
+        mock_start.assert_not_called()
+
 
 class TestTrayManagerReaderThreadIntegration:
     """Integration tests for reader thread behavior."""

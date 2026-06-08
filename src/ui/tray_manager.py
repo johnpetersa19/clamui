@@ -118,7 +118,7 @@ class TrayManager:
                 except Exception:
                     logger.debug("Failed to close tray subprocess pipe", exc_info=True)
 
-    def start(self) -> bool:
+    def start(self, respawn: bool = False) -> bool:
         """
         Start the tray service subprocess.
 
@@ -129,10 +129,17 @@ class TrayManager:
             logger.warning("Tray service already running")
             return True
 
-        # Re-arming after a previous stop() or respawn: clear shutdown state.
         with self._state_lock:
-            self._shutting_down = False
-            self._tray_down = False
+            if respawn:
+                # Respawn path: a deliberate stop() that raced ahead of
+                # crash-respawn must win. Do NOT clear _shutting_down here.
+                if self._shutting_down:
+                    logger.info("Tray respawn aborted: shutdown requested")
+                    return False
+            else:
+                # Re-arming after a previous stop() or respawn: clear state.
+                self._shutting_down = False
+                self._tray_down = False
 
         try:
             # Find the tray_service module path
@@ -240,8 +247,9 @@ class TrayManager:
                         continue
 
                     self._handle_message(message)
-                except json.JSONDecodeError as e:
+                except (json.JSONDecodeError, ValueError, RecursionError) as e:
                     logger.error(f"Invalid JSON from tray service: {e}")
+                    continue
 
         except Exception as e:
             logger.error(f"Error reading tray service stdout: {e}")
@@ -282,6 +290,15 @@ class TrayManager:
             except Exception:
                 logger.debug("Failed to poll tray subprocess for exit code", exc_info=True)
 
+        # poll() returning None means the child is still alive — the reader
+        # ended for another reason. Do NOT respawn, or we'd orphan a live child.
+        if exit_code is None:
+            logger.warning(
+                "Tray subprocess reader ended but child still alive "
+                "(poll()=None); not respawning to avoid orphaning it"
+            )
+            return
+
         # Sliding-window circuit breaker.
         now = time.monotonic()
         with self._state_lock:
@@ -312,7 +329,7 @@ class TrayManager:
             self.MAX_RESPAWNS,
         )
         try:
-            ok = self.start()
+            ok = self.start(respawn=True)
         except Exception:
             logger.exception("Tray subprocess respawn raised")
             ok = False
