@@ -19,6 +19,7 @@ from pathlib import Path
 from ..core.i18n import _
 from ..core.log_manager import LogManager
 from ..core.quarantine import QuarantineManager
+from ..core.sanitize import sanitize_log_line
 from ..core.scanner import Scanner
 from ..core.scanner_types import ScanStatus
 from ..profiles.profile_manager import ProfileManager
@@ -229,7 +230,7 @@ def _print_text_output(
     if total_infected > 0:
         print(_("\nThreats found: {count}").format(count=total_infected))
         for t in all_threats:
-            print(f"  {t.file_path}")
+            print(f"  {sanitize_log_line(t.file_path)}")
             print(f"    {t.threat_name} [{t.category}/{t.severity}]")
         if quarantine_info:
             quarantined, failures = quarantine_info
@@ -238,7 +239,7 @@ def _print_text_output(
             if failures:
                 print(_("\nFailed to quarantine:"))
                 for filepath, error in failures:
-                    print(f"  {filepath}: {error}")
+                    print(f"  {sanitize_log_line(filepath)}: {sanitize_log_line(error)}")
     elif has_errors:
         print(_("\nScan completed with errors:"))
         for r in results:
