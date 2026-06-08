@@ -72,17 +72,13 @@ class TestPreferencesPageMixinMethods:
         # Should set tooltip text
         mock_icon.set_tooltip_text.assert_called_with("Requires administrator privileges to modify")
 
-    def test_create_permission_indicator_omits_lock_when_root(
-        self, test_instance, mock_gi_modules
-    ):
+    def test_create_permission_indicator_omits_lock_when_root(self, test_instance, mock_gi_modules):
         """When already running as root, no lock icon is created: elevation is
         not required, so flagging the group as admin-only would mislead."""
         gtk = mock_gi_modules["gtk"]
         gtk.Image.new_from_icon_name.reset_mock()
 
-        with mock.patch(
-            "src.core.privileged_paths.is_running_as_root", return_value=True
-        ):
+        with mock.patch("src.core.privileged_paths.is_running_as_root", return_value=True):
             result = test_instance._create_permission_indicator()
 
         # Still returns a (empty) box, but no lock icon is built.

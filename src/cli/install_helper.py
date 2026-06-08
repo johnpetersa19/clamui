@@ -116,9 +116,7 @@ def install_privileged_helper(prefix: str = "/") -> tuple[bool, str]:
         os.chmod(apply_dst, 0o644)
 
         bin_path.parent.mkdir(parents=True, exist_ok=True)
-        bin_path.write_text(
-            _WRAPPER_TEMPLATE.format(lib_dir=RUNTIME_LIB_DIR), encoding="utf-8"
-        )
+        bin_path.write_text(_WRAPPER_TEMPLATE.format(lib_dir=RUNTIME_LIB_DIR), encoding="utf-8")
         os.chmod(bin_path, 0o755)
 
         policy_dst.parent.mkdir(parents=True, exist_ok=True)

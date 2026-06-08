@@ -201,29 +201,21 @@ class TestSavePageCreation:
     def _subtitles(rows):
         return [c.args[0] for row in rows for c in row.set_subtitle.call_args_list]
 
-    def test_create_page_mentions_admin_permission_when_not_root(
-        self, mock_gi_modules, save_page
-    ):
+    def test_create_page_mentions_admin_permission_when_not_root(self, mock_gi_modules, save_page):
         """When not root, the manual-save row warns about the pkexec prompt."""
         rows = self._record_action_rows(mock_gi_modules["adw"])
 
-        with mock.patch(
-            "src.core.privileged_paths.is_running_as_root", return_value=False
-        ):
+        with mock.patch("src.core.privileged_paths.is_running_as_root", return_value=False):
             save_page.create_page()
 
         assert any("administrator permission" in s for s in self._subtitles(rows))
 
-    def test_create_page_omits_admin_permission_when_root(
-        self, mock_gi_modules, save_page
-    ):
+    def test_create_page_omits_admin_permission_when_root(self, mock_gi_modules, save_page):
         """Running as root, no config write needs pkexec, so the manual-save row
         drops the 'you will be asked for administrator permission' wording."""
         rows = self._record_action_rows(mock_gi_modules["adw"])
 
-        with mock.patch(
-            "src.core.privileged_paths.is_running_as_root", return_value=True
-        ):
+        with mock.patch("src.core.privileged_paths.is_running_as_root", return_value=True):
             save_page.create_page()
 
         assert not any("administrator permission" in s for s in self._subtitles(rows))
@@ -709,9 +701,7 @@ class TestSavePageSaveConfigsThread:
                     mock_backup.assert_any_call("/etc/clamav/freshclam.conf")
                     mock_backup.assert_any_call("/etc/clamav/clamd.conf")
 
-    def test_save_configs_thread_no_changes_reports_no_changes(
-        self, mock_gi_modules, save_page
-    ):
+    def test_save_configs_thread_no_changes_reports_no_changes(self, mock_gi_modules, save_page):
         """No updates collected -> honest 'No Changes' message, not a phantom
         success (one way the Flatpak bug #136 surfaced)."""
         mock_button = mock.MagicMock()
@@ -736,9 +726,7 @@ class TestSavePageSaveConfigsThread:
         assert len(dialog_calls) == 1
         assert "No Changes" in dialog_calls[0].args[1]
 
-    def test_save_configs_thread_with_changes_reports_success(
-        self, mock_gi_modules, save_page
-    ):
+    def test_save_configs_thread_with_changes_reports_success(self, mock_gi_modules, save_page):
         """When changes are actually applied, the success message is shown."""
         mock_button = mock.MagicMock()
         freshclam_updates = {"DatabaseDirectory": "/var/lib/clamav"}

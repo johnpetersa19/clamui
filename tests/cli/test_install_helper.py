@@ -53,9 +53,7 @@ class TestInstallPrivilegedHelper:
         install_helper.install_privileged_helper(prefix=str(tmp_path))
         copied = (tmp_path / "usr/lib/clamui/clamui_privileged_paths.py").read_text("utf-8")
         original = (
-            Path(install_helper.__file__).resolve().parent.parent
-            / "core"
-            / "privileged_paths.py"
+            Path(install_helper.__file__).resolve().parent.parent / "core" / "privileged_paths.py"
         ).read_text("utf-8")
         assert copied == original
 
@@ -71,13 +69,11 @@ class TestInstallPrivilegedHelper:
 
     def test_policy_copied_unchanged(self, tmp_path):
         install_helper.install_privileged_helper(prefix=str(tmp_path))
-        copied = (
-            tmp_path / "usr/share/polkit-1/actions" / install_helper.POLICY_NAME
-        ).read_text("utf-8")
+        copied = (tmp_path / "usr/share/polkit-1/actions" / install_helper.POLICY_NAME).read_text(
+            "utf-8"
+        )
         original = (
-            Path(install_helper.__file__).resolve().parents[2]
-            / "data"
-            / install_helper.POLICY_NAME
+            Path(install_helper.__file__).resolve().parents[2] / "data" / install_helper.POLICY_NAME
         ).read_text("utf-8")
         assert copied == original
         # The polkit exec.path must match where the wrapper is installed.
@@ -108,9 +104,7 @@ class TestInstallPrivilegedHelper:
 
     def test_missing_source_reports_error(self, tmp_path, monkeypatch):
         missing = tmp_path / "nope.py"
-        monkeypatch.setattr(
-            install_helper, "_source_paths", lambda: (missing, missing, missing)
-        )
+        monkeypatch.setattr(install_helper, "_source_paths", lambda: (missing, missing, missing))
         success, message = install_helper.install_privileged_helper(prefix=str(tmp_path))
         assert success is False
         assert "not found" in message.lower()
