@@ -394,15 +394,47 @@ class TestParseConfig:
         assert error is None
         assert len(config.raw_lines) > 0
 
-    def test_parse_config_with_inline_comments(self, tmp_path):
-        """Test parsing config file with inline comments."""
+    def test_parse_config_hash_in_value_is_not_inline_comment(self, tmp_path):
+        """ClamAV config has no inline comments: '#' after a value is kept verbatim."""
         config_file = tmp_path / "test.conf"
         config_file.write_text("LogVerbose yes # Enable verbose logging\n")
 
         config, error = parse_config(str(config_file))
 
         assert error is None
+        # The entire remainder of the line is the value; '#' is not a comment marker.
+        assert config.get_value("LogVerbose") == "yes # Enable verbose logging"
+
+    def test_password_with_hash_roundtrips_without_truncation(self, tmp_path):
+        """A value containing '#' (e.g. a password) survives parse -> to_string."""
+        config_file = tmp_path / "test.conf"
+        config_file.write_text("HTTPProxyPassword s3cr#t!\n")
+
+        config, error = parse_config(str(config_file))
+
+        assert error is None
+        # Full value preserved on read (not truncated at '#').
+        assert config.get_value("HTTPProxyPassword") == "s3cr#t!"
+
+        # Write-back reproduces the line verbatim (no truncation, no ' # ' artifact).
+        output = config.to_string()
+        assert "HTTPProxyPassword s3cr#t!" in output
+        assert "HTTPProxyPassword s3cr\n" not in output
+        assert " # t" not in output
+
+    def test_whole_line_comment_still_preserved(self, tmp_path):
+        """A real whole-line comment (first non-space char '#') is preserved as-is."""
+        config_file = tmp_path / "test.conf"
+        config_file.write_text("# This is a comment\nLogVerbose yes\n")
+
+        config, error = parse_config(str(config_file))
+
+        assert error is None
+        # The comment line is not parsed as a key/value...
+        assert "#" not in config.values
         assert config.get_value("LogVerbose") == "yes"
+        # ...and it is retained verbatim in the reconstructed output.
+        assert "# This is a comment" in config.to_string()
 
     def test_parse_config_with_multi_value_options(self, tmp_path):
         """Test parsing config file with multiple values for same key."""
@@ -867,8 +899,8 @@ class TestClamAVConfigToString:
         assert "LogVerbose yes" in result
         assert "NewOption value" in result
 
-    def test_to_string_with_inline_comment(self):
-        """Test to_string preserves inline comments."""
+    def test_to_string_ignores_comment_field(self):
+        """ClamAV config has no inline comments: a value's comment is never written."""
         config = ClamAVConfig(file_path=Path("/test"))
         config.raw_lines = ["LogVerbose yes\n"]
         config.values["LogVerbose"] = [
@@ -878,7 +910,7 @@ class TestClamAVConfigToString:
         result = config.to_string()
 
         assert "LogVerbose no" in result
-        assert "# Changed to no" in result
+        assert "#" not in result
 
 
 class TestWriteConfigWithElevation:
@@ -1090,24 +1122,15 @@ class TestFlatpakElevationRouting:
         """In Flatpak, /etc paths always require elevation (no sandbox direct write)."""
         monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: True)
 
-        assert (
-            clamav_config_module._path_needs_elevation(Path("/etc/freshclam.conf"))
-            is True
-        )
-        assert (
-            clamav_config_module._path_needs_elevation(Path("/etc/clamav/clamd.conf"))
-            is True
-        )
+        assert clamav_config_module._path_needs_elevation(Path("/etc/freshclam.conf")) is True
+        assert clamav_config_module._path_needs_elevation(Path("/etc/clamav/clamd.conf")) is True
 
     def test_user_path_not_forced_to_elevation_in_flatpak(self, monkeypatch, tmp_path):
         """In Flatpak, a writable non-system path still uses the direct write path."""
         monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: True)
 
         # tmp_path is user-writable and not under a system prefix.
-        assert (
-            clamav_config_module._path_needs_elevation(tmp_path / "freshclam.conf")
-            is False
-        )
+        assert clamav_config_module._path_needs_elevation(tmp_path / "freshclam.conf") is False
 
     def test_existing_user_writable_file_skips_elevation(self, monkeypatch, tmp_path):
         """A writable existing config (e.g. a chown'd /etc/freshclam.conf) writes
@@ -1133,10 +1156,7 @@ class TestFlatpakElevationRouting:
         monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: False)
         monkeypatch.setattr(clamav_config_module, "is_running_as_root", lambda: True)
 
-        assert (
-            clamav_config_module._path_needs_elevation(Path("/etc/freshclam.conf"))
-            is False
-        )
+        assert clamav_config_module._path_needs_elevation(Path("/etc/freshclam.conf")) is False
 
     def test_root_still_elevates_system_path_in_flatpak(self, monkeypatch):
         """Even as root, Flatpak system paths route through the host helper
@@ -1144,10 +1164,7 @@ class TestFlatpakElevationRouting:
         monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: True)
         monkeypatch.setattr(clamav_config_module, "is_running_as_root", lambda: True)
 
-        assert (
-            clamav_config_module._path_needs_elevation(Path("/etc/freshclam.conf"))
-            is True
-        )
+        assert clamav_config_module._path_needs_elevation(Path("/etc/freshclam.conf")) is True
 
     def test_writer_path_resolved_on_host_in_flatpak(self, monkeypatch):
         """In Flatpak, the helper is resolved via the host, not /app/bin."""
@@ -1178,9 +1195,7 @@ class TestFlatpakElevationRouting:
         assert error is not None
         assert "helper not installed" in error.lower()
 
-    def test_flatpak_system_write_uses_host_helper_via_flatpak_spawn(
-        self, monkeypatch, tmp_path
-    ):
+    def test_flatpak_system_write_uses_host_helper_via_flatpak_spawn(self, monkeypatch, tmp_path):
         """End-to-end: a Flatpak /etc write invokes the HOST helper through
         ``flatpak-spawn --host pkexec`` (never the sandbox /app/bin path)."""
         config = ClamAVConfig(file_path=Path("/etc/clamav/freshclam.conf"))
@@ -1228,9 +1243,7 @@ class TestFlatpakElevationRouting:
         probe_calls = [c for c in run_calls if "test" in c and "-e" in c]
         assert len(probe_calls) == 1
 
-    def test_flatpak_staging_not_host_visible_gives_clear_error(
-        self, monkeypatch, tmp_path
-    ):
+    def test_flatpak_staging_not_host_visible_gives_clear_error(self, monkeypatch, tmp_path):
         """When the staging dir is not reachable on the host, fail clearly and
         never invoke pkexec (issue #136 staging visibility)."""
         config = ClamAVConfig(file_path=Path("/etc/clamav/freshclam.conf"))
@@ -1644,9 +1657,7 @@ class TestWriteConfigsFlatpak:
             "_get_privileged_writer_path",
             lambda: "/usr/bin/clamui-apply-preferences",
         )
-        monkeypatch.setattr(
-            clamav_config_module, "staging_root_for_uid", lambda _uid: staging_root
-        )
+        monkeypatch.setattr(clamav_config_module, "staging_root_for_uid", lambda _uid: staging_root)
 
         staged_paths: list[str] = []
 

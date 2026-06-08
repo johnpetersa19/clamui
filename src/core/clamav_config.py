@@ -272,9 +272,6 @@ class ClamAVConfig:
                         new_line = f"{key} {config_value.value}"
                     else:
                         new_line = key
-                    # Preserve inline comment if present
-                    if config_value.comment:
-                        new_line += f" # {config_value.comment}"
                     line_updates[config_value.line_number] = new_line
 
         # Build output lines
@@ -405,17 +402,10 @@ def parse_config(file_path: str) -> tuple[ClamAVConfig | None, str | None]:
         if stripped.startswith("#"):
             continue
 
-        # Handle inline comments
-        comment = None
+        # ClamAV config files (clamd.conf/freshclam.conf) do not support inline
+        # comments; only whole-line comments (handled above). Treat the entire
+        # stripped line as content so values containing '#' are preserved.
         content = stripped
-        comment_pos = stripped.find("#")
-        if comment_pos > 0:
-            # Check if # is not inside a quoted string (basic check)
-            before_hash = stripped[:comment_pos]
-            # Simple heuristic: if quotes are balanced before #, it's a comment
-            if before_hash.count('"') % 2 == 0 and before_hash.count("'") % 2 == 0:
-                content = stripped[:comment_pos].strip()
-                comment = stripped[comment_pos + 1 :].strip()
 
         # Parse key-value pair
         # ClamAV format: Key Value (separated by first space)
@@ -431,7 +421,7 @@ def parse_config(file_path: str) -> tuple[ClamAVConfig | None, str | None]:
         value = parts[1] if len(parts) > 1 else ""
 
         # Add value to config (supports multi-value options)
-        config_value = ClamAVConfigValue(value=value, comment=comment, line_number=line_number)
+        config_value = ClamAVConfigValue(value=value, line_number=line_number)
 
         if key not in config.values:
             config.values[key] = []
