@@ -342,6 +342,25 @@ class TestProfileManagerCRUD:
         assert profile.is_default is False
         assert profile.id is not None
 
+    def test_create_profile_strips_surrounding_whitespace(self, manager):
+        """Test that surrounding whitespace is stripped before storing the name."""
+        profile = manager.create_profile(
+            name="  Quick  ",
+            targets=["/home/user"],
+            exclusions={},
+        )
+
+        # Stored, validated, and deduplicated name must be the stripped value.
+        assert profile.name == "Quick"
+        # The stripped name is what is retrievable and what blocks duplicates.
+        assert manager.get_profile_by_name("Quick") is not None
+        with pytest.raises(ValueError):
+            manager.create_profile(
+                name="Quick",
+                targets=["/home/user"],
+                exclusions={},
+            )
+
     def test_create_profile_with_all_fields(self, manager):
         """Test creating a profile with all fields."""
         profile = manager.create_profile(
@@ -1627,6 +1646,26 @@ class TestXdgMigration:
 
         assert "_migrations" in settings
         assert settings["_migrations"].get("xdg_migration_version") == 1
+
+    def test_migration_state_write_is_atomic(self, temp_config_dir, monkeypatch):
+        """Migration state is written atomically: valid JSON, no leftover temp files."""
+        monkeypatch.setattr(
+            "src.core.flatpak.get_xdg_user_dir",
+            lambda x: "/home/user/Downloads" if x == "DOWNLOAD" else None,
+        )
+
+        ProfileManager(config_dir=temp_config_dir)
+
+        settings_file = temp_config_dir / "settings.json"
+        assert settings_file.exists()
+        # File contains complete, valid JSON (not a half-written file).
+        with open(settings_file) as f:
+            settings = json.load(f)
+        assert settings["_migrations"]["xdg_migration_version"] == 1
+        # Owner-only permissions like the rest of the config files.
+        assert (settings_file.stat().st_mode & 0o777) == 0o600
+        # No temp files were left behind by the atomic rename.
+        assert not list(temp_config_dir.glob("settings_*.json"))
 
     def test_migration_preserves_existing_settings(self, temp_config_dir, monkeypatch):
         """Test that migration preserves existing settings in settings.json."""

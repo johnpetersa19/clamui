@@ -241,10 +241,30 @@ class ProfileManager:
 
         settings["_migrations"] = state
 
+        # Atomic write (temp file + rename) to avoid corrupting settings.json and
+        # to mirror the owner-only permissions used elsewhere for config files.
         try:
             self._config_dir.mkdir(parents=True, exist_ok=True)
-            with open(settings_path, "w", encoding="utf-8") as f:
-                json.dump(settings, f, indent=2)
+            fd, temp_path = tempfile.mkstemp(
+                suffix=".json",
+                prefix="settings_",
+                dir=self._config_dir,
+            )
+            try:
+                try:
+                    f = os.fdopen(fd, "w", encoding="utf-8")
+                except Exception:
+                    with contextlib.suppress(OSError):
+                        os.close(fd)
+                    raise
+                with f:
+                    json.dump(settings, f, indent=2)
+                Path(temp_path).replace(settings_path)
+                os.chmod(settings_path, 0o600)
+            except Exception:
+                with contextlib.suppress(OSError):
+                    Path(temp_path).unlink(missing_ok=True)
+                raise
         except OSError as e:
             logger.error("Failed to save migration state: %s", e)
 
@@ -723,6 +743,10 @@ class ProfileManager:
         Raises:
             ValueError: If validation fails
         """
+        # Normalize the name once at the boundary so the stored, validated, and
+        # deduplicated value all match (validation strips, but storage must too).
+        name = name.strip()
+
         # Validate profile fields (raises ValueError if invalid)
         self._validate_profile(name, targets, exclusions or {})
 
@@ -797,6 +821,8 @@ class ProfileManager:
 
             # Determine final values (updated or existing)
             new_name = updates.get("name", profile.name)
+            # Normalize once at the boundary so stored/validated/deduped names match.
+            new_name = new_name.strip()
             new_targets = updates.get("targets", profile.targets)
             new_exclusions = updates.get("exclusions", profile.exclusions)
 
@@ -1020,7 +1046,7 @@ class ProfileManager:
                 raise ValueError(f"Invalid profile data: missing required field '{field}'")
 
         # Extract profile data with defaults
-        name = str(profile_data.get("name", ""))
+        name = str(profile_data.get("name", "")).strip()
         targets = profile_data.get("targets", [])
         exclusions = profile_data.get("exclusions", {})
         description = str(profile_data.get("description", ""))
