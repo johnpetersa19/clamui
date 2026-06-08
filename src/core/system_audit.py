@@ -308,10 +308,23 @@ def _host_find_daily_cvd(db_dir: str) -> str | None:
     try:
         result = subprocess.run(
             [
-                "flatpak-spawn", "--host", "find", db_dir,
-                "-maxdepth", "1", "-type", "f",
-                "(", "-iname", "daily.cvd", "-o", "-iname", "daily.cld", ")",
-                "-print", "-quit",
+                "flatpak-spawn",
+                "--host",
+                "find",
+                db_dir,
+                "-maxdepth",
+                "1",
+                "-type",
+                "f",
+                "(",
+                "-iname",
+                "daily.cvd",
+                "-o",
+                "-iname",
+                "daily.cld",
+                ")",
+                "-print",
+                "-quit",
             ],
             capture_output=True,
             text=True,
@@ -631,7 +644,7 @@ def check_firewall() -> AuditSectionResult:
                 )
             )
             firewall_found = True
-        elif rc != -1:  # Command exists but not running
+        elif is_binary_installed("firewall-cmd"):  # binary present but not running
             section.checks.append(
                 AuditCheckResult(
                     name=_("Firewalld"),
@@ -1236,11 +1249,29 @@ def check_ssh_hardening() -> AuditSectionResult:
 
 
 def _parse_sshd_config() -> dict[str, str] | None:
-    """Parse /etc/ssh/sshd_config for key settings.
+    """Parse the effective sshd configuration for key settings.
+
+    Prefers ``sshd -T`` (the effective configuration, which resolves Match and
+    Include directives). Falls back to reading /etc/ssh/sshd_config directly; in
+    that case the FIRST value wins (sshd semantics) and directives after the
+    first top-level ``Match`` block are ignored, since they are conditional.
 
     Returns a dict of lowercase setting name -> value, or None on error.
     """
     config_path = "/etc/ssh/sshd_config"
+
+    # Prefer the effective configuration when the sshd binary is available.
+    if is_binary_installed("sshd"):
+        rc, stdout, _stderr = _run_command(["sshd", "-T"])
+        if rc == 0 and stdout:
+            effective: dict[str, str] = {}
+            for line in stdout.splitlines():
+                parts = line.split(None, 1)
+                if len(parts) == 2:
+                    effective.setdefault(parts[0].lower(), parts[1].strip())
+            if effective:
+                return effective
+
     try:
         if is_flatpak():
             rc, stdout, _stderr = _run_command(["cat", config_path])
@@ -1261,8 +1292,13 @@ def _parse_sshd_config() -> dict[str, str] | None:
         if not line or line.startswith("#"):
             continue
         parts = line.split(None, 1)
+        # Stop at the first top-level Match block: subsequent directives are
+        # conditional and must not be applied as global defaults.
+        if parts and parts[0].lower() == "match":
+            break
         if len(parts) == 2:
-            settings[parts[0].lower()] = parts[1].strip()
+            # sshd uses first-value-wins for duplicate keys.
+            settings.setdefault(parts[0].lower(), parts[1].strip())
 
     return settings
 
@@ -1474,6 +1510,26 @@ def run_rootkit_check() -> AuditSectionResult:
                 name=_("Rootkit Scan"),
                 status=AuditStatus.SKIPPED,
                 detail=_("Authentication was cancelled"),
+                info_url=_URLS["chkrootkit"],
+            )
+        )
+        return section
+
+    # Abnormal termination (crash, missing helper, non-zero exit). chkrootkit
+    # itself exits 0 even when it finds infections, so a non-zero code here
+    # means the scan did not complete — do not infer "no rootkits".
+    if result.returncode != 0:
+        stderr = sanitize_log_line(result.stderr.strip())
+        detail = _("Rootkit scan could not be completed (exit {code})").format(
+            code=result.returncode
+        )
+        if stderr:
+            detail = f"{detail}: {stderr}"
+        section.checks.append(
+            AuditCheckResult(
+                name=_("Rootkit Scan"),
+                status=AuditStatus.UNKNOWN,
+                detail=detail,
                 info_url=_URLS["chkrootkit"],
             )
         )

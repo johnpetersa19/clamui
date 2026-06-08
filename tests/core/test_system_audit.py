@@ -21,6 +21,7 @@ from src.core.system_audit import (
     _database_age_from_daemon,
     _get_database_age,
     _parse_cvd_age,
+    _parse_sshd_config,
     check_auto_updates,
     check_clamav_health,
     check_firewall,
@@ -280,9 +281,7 @@ class TestDatabaseAgeDaemonFallback:
     @patch("src.core.system_audit._database_age_from_daemon")
     @patch("src.core.system_audit._parse_cvd_age")
     @patch("src.core.system_audit._find_daily_cvd_path")
-    def test_get_database_age_prefers_readable_file(
-        self, mock_find, mock_parse, mock_daemon
-    ):
+    def test_get_database_age_prefers_readable_file(self, mock_find, mock_parse, mock_daemon):
         # A readable file header wins; the daemon is not consulted.
         mock_find.return_value = "/var/lib/clamav/daily.cvd"
         mock_parse.return_value = (1, "28 May 2026")
@@ -389,6 +388,30 @@ class TestCheckFirewall:
         result = check_firewall()
         assert any(c.status == AuditStatus.FAIL for c in result.checks)
 
+    @patch("src.core.system_audit._check_firewall_gui")
+    @patch("src.core.system_audit._check_open_ports")
+    @patch("src.core.system_audit.is_binary_installed")
+    @patch("src.core.system_audit._run_command")
+    @patch("src.core.system_audit._check_systemd_service")
+    def test_firewalld_absent_not_reported_as_installed(
+        self, mock_systemd, mock_run_cmd, mock_binary, mock_ports, mock_gui
+    ):
+        """Under Flatpak, flatpak-spawn succeeds with a nonzero 'command not found'
+        when firewall-cmd is absent. We must NOT report 'installed but not running'
+        unless the binary actually exists."""
+        mock_systemd.return_value = (False, "inactive")
+        mock_run_cmd.return_value = (127, "", "command not found")
+        mock_binary.return_value = False  # firewall-cmd binary absent
+        mock_ports.return_value = None
+        mock_gui.return_value = None
+
+        result = check_firewall()
+        assert not any(
+            c.status == AuditStatus.WARNING and "Firewalld" in c.name for c in result.checks
+        )
+        # Falls through to the "no firewall" FAIL instead.
+        assert any(c.status == AuditStatus.FAIL for c in result.checks)
+
 
 class TestCheckMacFramework:
     """Tests for check_mac_framework function."""
@@ -451,6 +474,44 @@ class TestCheckSshHardening:
         statuses = [c.status for c in result.checks]
         assert AuditStatus.FAIL in statuses
         assert AuditStatus.WARNING in statuses
+
+
+class TestParseSshdConfig:
+    """Tests for _parse_sshd_config function."""
+
+    @patch("src.core.system_audit.is_binary_installed", return_value=True)
+    @patch("src.core.system_audit._run_command")
+    def test_prefers_effective_config(self, mock_cmd, mock_binary):
+        """When sshd is available, parse the effective config from `sshd -T`."""
+        mock_cmd.return_value = (
+            0,
+            "permitrootlogin no\npasswordauthentication yes\n",
+            "",
+        )
+        settings = _parse_sshd_config()
+        assert settings == {
+            "permitrootlogin": "no",
+            "passwordauthentication": "yes",
+        }
+        mock_cmd.assert_called_once_with(["sshd", "-T"])
+
+    @patch("src.core.system_audit.is_binary_installed", return_value=False)
+    @patch("src.core.system_audit.is_flatpak", return_value=True)
+    @patch("src.core.system_audit._run_command")
+    def test_first_value_wins_and_stops_at_match(self, mock_cmd, mock_flatpak, mock_binary):
+        """sshd uses first-value-wins; directives after a Match block are ignored."""
+        config = (
+            "PermitRootLogin no\n"
+            "PermitRootLogin yes\n"  # duplicate: ignored (first wins)
+            "PasswordAuthentication no\n"
+            "Match User admin\n"
+            "X11Forwarding yes\n"  # after Match: must not be applied globally
+        )
+        mock_cmd.return_value = (0, config, "")
+        settings = _parse_sshd_config()
+        assert settings["permitrootlogin"] == "no"
+        assert settings["passwordauthentication"] == "no"
+        assert "x11forwarding" not in settings
 
 
 class TestCheckIntrustionDetection:
@@ -548,6 +609,22 @@ class TestRunRootkitCheck:
         )
         result = run_rootkit_check()
         assert any(c.status == AuditStatus.PASS for c in result.checks)
+
+    @patch("src.core.system_audit.subprocess.run")
+    @patch("src.core.system_audit._run_command")
+    def test_chkrootkit_nonzero_exit_is_not_clean(self, mock_cmd, mock_run):
+        """A non-zero chkrootkit exit means the scan did not complete; we must
+        report UNKNOWN, never a false 'No rootkits detected' PASS."""
+        mock_cmd.return_value = (0, "/usr/sbin/chkrootkit", "")
+        mock_run.return_value = MagicMock(
+            returncode=2,
+            stdout="",
+            stderr="chkrootkit: cannot find a temporary directory\n",
+        )
+        result = run_rootkit_check()
+        statuses = [c.status for c in result.checks]
+        assert AuditStatus.UNKNOWN in statuses
+        assert not any(c.status == AuditStatus.PASS for c in result.checks)
 
     @patch("src.core.system_audit.subprocess.run")
     @patch("src.core.system_audit._run_command")
