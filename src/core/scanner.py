@@ -632,8 +632,8 @@ class Scanner:
                     files_scanned=files_scanned,
                     files_total=files_total,
                     infected_count=infected_count,
-                    infected_files=infected_files,
-                    infected_threats=infected_threats,
+                    infected_files=list(infected_files),
+                    infected_threats=dict(infected_threats),
                     estimate_exceeded=(files_total is not None and files_scanned > files_total),
                 )
                 progress_callback(progress)
@@ -658,8 +658,8 @@ class Scanner:
                         files_scanned=files_scanned,
                         files_total=files_total,
                         infected_count=infected_count,
-                        infected_files=infected_files,
-                        infected_threats=infected_threats,
+                        infected_files=list(infected_files),
+                        infected_threats=dict(infected_threats),
                         estimate_exceeded=(files_total is not None and files_scanned > files_total),
                     )
                     progress_callback(progress)
@@ -881,6 +881,11 @@ class Scanner:
             # Regex pattern: "/path/to/file: ThreatName FOUND"
             # Uses rsplit to handle colons in file paths (e.g., Windows C:\)
             # Look for infected file lines (format: "/path/to/file: Virus.Name FOUND")
+            # Skip verbose "Scanning <path>" lines so a clean file whose name
+            # ends in "FOUND" is not misparsed as a detection (mirrors on_line).
+            if line.startswith("Scanning "):
+                continue
+
             if line.endswith("FOUND"):
                 # Extract file path and threat name
                 # Format: "/path/to/file: ThreatName FOUND"
@@ -922,7 +927,14 @@ class Scanner:
 
         # Determine overall status based on exit code
         warning_message = None
-        if exit_code == 0:
+        if infected_count > 0:
+            # Detections are authoritative: clamscan returns exit code 2 when it
+            # both finds a virus and hits an error (e.g. an unreadable file), so
+            # never let an error code mask a real threat.
+            status = ScanStatus.INFECTED
+            if exit_code == 2 and skipped_files:
+                warning_message = f"{len(skipped_files)} file(s) could not be accessed"
+        elif exit_code == 0:
             status = ScanStatus.CLEAN
         elif exit_code == 1:
             status = ScanStatus.INFECTED
@@ -932,7 +944,7 @@ class Scanner:
             # truncated archives). Treat as CLEAN only when we positively identified
             # the cause as non-fatal (a skipped file or a limit/truncation warning)
             # and nothing looked like a hard error. Unrecognized stderr stays ERROR.
-            if infected_count == 0 and not hard_error_lines and (skipped_files or nonfatal_warnings):
+            if not hard_error_lines and (skipped_files or nonfatal_warnings):
                 status = ScanStatus.CLEAN
                 if skipped_files:
                     warning_message = f"{len(skipped_files)} file(s) could not be accessed"
