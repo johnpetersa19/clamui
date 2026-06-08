@@ -753,14 +753,21 @@ class Scheduler:
             Service file content as string
         """
         # Build command with options
-        # Use shlex.quote() to prevent command injection via malicious paths
-        exec_cmd = shlex.quote(cli_path)
+        # cli_path may be a multi-token command (e.g. 'flatpak run ...' or
+        # '<python> -m src.cli.scheduled_scan'); quote each token separately
+        # so it stays an executable ExecStart rather than one quoted blob.
+        # shlex.quote() on each token still prevents injection via malicious paths.
+        exec_cmd = " ".join(shlex.quote(tok) for tok in shlex.split(cli_path))
         if skip_on_battery:
             exec_cmd += " --skip-on-battery"
         if auto_quarantine:
             exec_cmd += " --auto-quarantine"
         for target in targets:
             exec_cmd += f" --target {shlex.quote(target)}"
+
+        # Escape literal '%' so systemd does not interpret it as a specifier
+        # (e.g. legitimate directory names may contain '%').
+        exec_cmd = exec_cmd.replace("%", "%%")
 
         return f"""[Unit]
 Description=ClamUI Scheduled Antivirus Scan
@@ -824,14 +831,21 @@ WantedBy=timers.target
             cron_time = self._generate_crontab_entry(frequency, time, day_of_week, day_of_month)
 
             # Build command
-            # Use shlex.quote() to prevent command injection via malicious paths
-            cron_cmd = shlex.quote(cli_path)
+            # cli_path may be a multi-token command (e.g. 'flatpak run ...' or
+            # '<python> -m src.cli.scheduled_scan'); quote each token separately
+            # so it stays an executable command rather than one quoted blob.
+            # shlex.quote() on each token still prevents injection via malicious paths.
+            cron_cmd = " ".join(shlex.quote(tok) for tok in shlex.split(cli_path))
             if skip_on_battery:
                 cron_cmd += " --skip-on-battery"
             if auto_quarantine:
                 cron_cmd += " --auto-quarantine"
             for target in targets:
                 cron_cmd += f" --target {shlex.quote(target)}"
+
+            # Escape literal '%' so cron does not treat it as a newline/stdin
+            # separator (e.g. legitimate directory names may contain '%').
+            cron_cmd = cron_cmd.replace("%", "\\%")
 
             # Create cron entry
             cron_entry = f"{cron_time} {cron_cmd}"
