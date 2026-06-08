@@ -1,8 +1,10 @@
 # ClamUI ConnectionPool Tests
 """Unit tests for the ConnectionPool class."""
 
+import os
 import queue
 import sqlite3
+import stat
 import tempfile
 import threading
 import time
@@ -391,3 +393,45 @@ class TestConnectionPoolGetConnection:
         conn2 = pool.acquire()
         assert isinstance(conn2, sqlite3.Connection)
         conn2.close()
+
+
+class TestConnectionPoolSecurePermissions:
+    """Tests for _secure_db_file_permissions O_NOFOLLOW hardening."""
+
+    @pytest.fixture
+    def temp_dir(self):
+        """Create a temporary directory for database files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    def test_secure_permissions_applied_to_real_file(self, temp_dir):
+        """Test chmod is applied to a real database file (0o600)."""
+        db_path = temp_dir / "real.db"
+        db_path.write_bytes(b"data")
+        os.chmod(db_path, 0o644)
+
+        pool = ConnectionPool(str(db_path))
+        pool._secure_db_file_permissions()
+
+        assert stat.S_IMODE(os.stat(db_path).st_mode) == 0o600
+
+    def test_secure_permissions_skips_symlinked_db_file(self, temp_dir):
+        """Test a symlinked db file does NOT have its target's perms changed (O_NOFOLLOW)."""
+        # Target lives outside; perms must stay untouched.
+        target = temp_dir / "outside.txt"
+        target.write_bytes(b"secret")
+        os.chmod(target, 0o644)
+
+        # Plant a symlink at the WAL path (one of the secured db files).
+        db_path = temp_dir / "pool.db"
+        db_path.write_bytes(b"data")
+        wal_link = Path(str(db_path) + "-wal")
+        wal_link.symlink_to(target)
+
+        pool = ConnectionPool(str(db_path))
+        pool._secure_db_file_permissions()
+
+        # Symlink target untouched (O_NOFOLLOW raises ELOOP -> skipped).
+        assert stat.S_IMODE(os.lstat(target).st_mode) == 0o644
+        # The real db file is still secured.
+        assert stat.S_IMODE(os.stat(db_path).st_mode) == 0o600

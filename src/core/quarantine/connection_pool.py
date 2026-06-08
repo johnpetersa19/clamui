@@ -140,15 +140,21 @@ class ConnectionPool:
         ]
 
         for db_file in db_files:
-            if db_file.exists():
-                try:
-                    os.chmod(db_file, self.DB_FILE_PERMISSIONS)
-                except (OSError, PermissionError):
-                    # Silently handle permission errors to avoid breaking database functionality
-                    # on systems with restrictive security policies or immutable files
-                    logger.debug(
-                        "Failed to enforce SQLite permissions on %s", db_file, exc_info=True
-                    )
+            # Open with O_NOFOLLOW so a symlink planted here cannot redirect chmod
+            # to an arbitrary file. ENOENT is expected for WAL/SHM when SQLite hasn't
+            # created them yet; ELOOP means a symlink — both are silently skipped.
+            try:
+                fd = os.open(db_file, os.O_RDONLY | os.O_NOFOLLOW)
+            except OSError:
+                continue
+            try:
+                os.fchmod(fd, self.DB_FILE_PERMISSIONS)
+            except OSError:
+                # Silently handle permission errors to avoid breaking database functionality
+                # on systems with restrictive security policies or immutable files
+                logger.debug("Failed to enforce SQLite permissions on %s", db_file, exc_info=True)
+            finally:
+                os.close(fd)
 
     def acquire(self, timeout: float | None = None) -> sqlite3.Connection:
         """

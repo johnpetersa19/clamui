@@ -171,6 +171,11 @@ _INDEX_FIELD_PATTERN = re.compile(r'"(id|timestamp|type)"\s*:\s*"([^"\\]*(?:\\.[
 # whitespace variations and ensures we capture all three fields.
 _INDEX_EXTRACT_MAX_BYTES = 512
 
+# Valid log entry id: UUIDs and any opaque token of word chars / dashes. Used to
+# reject ids ingested from on-disk JSON or the index before they reach a
+# filesystem path, preventing path traversal (e.g. "../../etc/passwd").
+_VALID_LOG_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+
 
 def _sanitize_private_line(text: str | None) -> str:
     """Sanitize log-injection vectors and redact sensitive identifiers."""
@@ -501,7 +506,16 @@ class LogEntry:
         tampering with stored log files or reading maliciously crafted log entries.
         """
         # Extract and sanitize fields
-        # IDs and timestamps are system-controlled, don't need sanitization
+        # Timestamps are system-controlled, don't need sanitization.
+        # The id flows into a filesystem path on read/delete, so reject ids that
+        # don't match the strict pattern and regenerate a safe one (prevents path
+        # traversal from tampered/crafted log files, e.g. "../../etc/passwd").
+        raw_id = data.get("id")
+        log_id = (
+            raw_id
+            if isinstance(raw_id, str) and _VALID_LOG_ID_PATTERN.match(raw_id)
+            else str(uuid.uuid4())
+        )
         # Type and status should be controlled enums but sanitize for defense in depth
         raw_summary = data.get("summary", "")
         raw_details = data.get("details", "")
@@ -510,7 +524,7 @@ class LogEntry:
         raw_path = data.get("path")
 
         return cls(
-            id=data.get("id", str(uuid.uuid4())),
+            id=log_id,
             timestamp=data.get("timestamp", datetime.now().isoformat()),
             type=_sanitize_private_line(raw_type),
             status=_sanitize_private_line(raw_status),
@@ -1390,6 +1404,24 @@ class LogManager:
         # Apply limit
         return entries[:limit]
 
+    def _safe_log_file(self, log_id: str | None) -> Path | None:
+        """
+        Resolve <log_id>.json inside the log directory, rejecting traversal.
+
+        Returns None when the id is missing, fails the strict id pattern, or the
+        constructed path would escape the log directory (defense-in-depth against
+        a tampered id reaching open()/unlink()).
+        """
+        if not log_id or not _VALID_LOG_ID_PATTERN.match(log_id):
+            return None
+        log_file = self._log_dir / f"{log_id}.json"
+        try:
+            if not log_file.resolve().is_relative_to(self._log_dir.resolve()):
+                return None
+        except OSError:
+            return None
+        return log_file
+
     def _load_log_entries_by_ids(self, index_entries: list[dict]) -> list[LogEntry]:
         """
         Load LogEntry objects for the given index entries.
@@ -1406,8 +1438,8 @@ class LogManager:
             if not log_id:
                 continue
             try:
-                log_file = self._log_dir / f"{log_id}.json"
-                if log_file.exists():
+                log_file = self._safe_log_file(log_id)
+                if log_file is not None and log_file.exists():
                     with open(log_file, encoding="utf-8") as f:
                         data = json.load(f)
                         entries.append(LogEntry.from_dict(data))
@@ -1564,8 +1596,8 @@ class LogManager:
         with self._lock:
             try:
                 self._check_and_run_privacy_migration_unlocked()
-                log_file = self._log_dir / f"{log_id}.json"
-                if log_file.exists():
+                log_file = self._safe_log_file(log_id)
+                if log_file is not None and log_file.exists():
                     with open(log_file, encoding="utf-8") as f:
                         data = json.load(f)
                         return LogEntry.from_dict(data)
@@ -1585,8 +1617,8 @@ class LogManager:
         """
         with self._lock:
             try:
-                log_file = self._log_dir / f"{log_id}.json"
-                if log_file.exists():
+                log_file = self._safe_log_file(log_id)
+                if log_file is not None and log_file.exists():
                     log_file.unlink()
 
                     # Update index by removing the deleted entry (best-effort)

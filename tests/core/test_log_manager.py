@@ -119,6 +119,31 @@ class TestLogEntry:
         assert entry.path == "/home/user"
         assert entry.duration == 120.5
 
+    def test_from_dict_regenerates_traversal_id(self):
+        """Test from_dict rejects a path-traversal id and regenerates a safe one."""
+        import uuid
+
+        malicious = {
+            "id": "../../etc/passwd",
+            "timestamp": "2024-01-16T14:00:00",
+            "type": "scan",
+            "status": "clean",
+            "summary": "x",
+            "details": "y",
+        }
+        entry = LogEntry.from_dict(malicious)
+
+        # The traversal id must not survive; a valid UUID is generated instead.
+        assert entry.id != "../../etc/passwd"
+        assert "/" not in entry.id
+        uuid.UUID(entry.id)  # raises ValueError if not a valid UUID
+
+    def test_from_dict_preserves_valid_id(self):
+        """Test from_dict keeps an id matching the strict pattern."""
+        data = {"id": "abc_DEF-123", "summary": "ok"}
+        entry = LogEntry.from_dict(data)
+        assert entry.id == "abc_DEF-123"
+
     def test_from_dict_with_missing_fields(self):
         """Test LogEntry.from_dict handles missing fields gracefully."""
         data = {"summary": "Partial data"}
@@ -781,6 +806,30 @@ class TestLogManager:
         """Test delete_log returns False for non-existent ID."""
         result = log_manager.delete_log("non-existent-id")
         assert result is False
+
+    def test_get_log_by_id_rejects_path_traversal(self, log_manager, temp_log_dir):
+        """Test get_log_by_id with a traversal id cannot read outside the log dir."""
+        # Plant a victim file in the parent of the log dir.
+        victim = Path(temp_log_dir).parent / "victim.json"
+        victim.write_text('{"id": "victim", "summary": "secret"}', encoding="utf-8")
+        try:
+            # ".../<log_dir>/../victim.json" must not resolve/read the victim.
+            assert log_manager.get_log_by_id("../victim") is None
+            assert log_manager.get_log_by_id("../../etc/passwd") is None
+        finally:
+            victim.unlink()
+
+    def test_delete_log_rejects_path_traversal(self, log_manager, temp_log_dir):
+        """Test delete_log with a traversal id cannot delete outside the log dir."""
+        victim = Path(temp_log_dir).parent / "victim.json"
+        victim.write_text("important", encoding="utf-8")
+        try:
+            assert log_manager.delete_log("../victim") is False
+            assert log_manager.delete_log("../../etc/passwd") is False
+            # The out-of-tree file must still exist.
+            assert victim.exists()
+        finally:
+            victim.unlink()
 
     def test_clear_logs(self, log_manager, temp_log_dir):
         """Test clearing all logs."""
