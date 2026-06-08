@@ -554,6 +554,124 @@ class TestUploadFile:
 
         assert result.status == VTScanStatus.CLEAN
 
+    def test_upload_file_retry_sends_full_bytes(self, client, tmp_path):
+        """Retries must re-send the full file body, not an exhausted handle."""
+        import requests
+
+        test_file = tmp_path / "test.txt"
+        content = b"hello virustotal payload content"
+        test_file.write_bytes(content)
+        client._request_times = []  # Bypass rate limiting
+
+        success = mock.Mock()
+        success.status_code = 200
+        success.json.return_value = {"data": {"id": "analysis_123"}}
+
+        seen_files = []
+
+        def fake_request(method, url, **kwargs):
+            seen_files.append(kwargs.get("files"))
+            if len(seen_files) == 1:
+                raise requests.exceptions.Timeout("boom")
+            return success
+
+        poll_result = VTScanResult(
+            status=VTScanStatus.CLEAN, file_path=str(test_file), sha256="a" * 64
+        )
+
+        with (
+            mock.patch.object(client._get_session(), "request", side_effect=fake_request),
+            mock.patch("time.sleep"),
+            mock.patch.object(client, "_poll_analysis", return_value=poll_result),
+        ):
+            result = client.upload_file(str(test_file), "a" * 64)
+
+        # Timeout on attempt 1, success on attempt 2.
+        assert len(seen_files) == 2
+        file_part = seen_files[1]["file"]
+        # The retry must carry the complete file as bytes, not a spent handle.
+        assert isinstance(file_part[1], bytes)
+        assert file_part[1] == content
+        assert result.status == VTScanStatus.CLEAN
+
+    def test_upload_file_small_posts_files_directly(self, client, tmp_path):
+        """Files <= the direct-upload limit POST straight to /files."""
+        test_file = tmp_path / "small.txt"
+        test_file.write_bytes(b"tiny")
+        client._request_times = []
+
+        upload_resp = mock.Mock()
+        upload_resp.status_code = 200
+        upload_resp.json.return_value = {"data": {"id": "analysis_1"}}
+        poll_result = VTScanResult(
+            status=VTScanStatus.CLEAN, file_path=str(test_file), sha256="a" * 64
+        )
+
+        with (
+            mock.patch.object(client, "_make_request", side_effect=[(upload_resp, None)]) as mreq,
+            mock.patch.object(client, "_poll_analysis", return_value=poll_result),
+        ):
+            client.upload_file(str(test_file), "a" * 64)
+
+        assert mreq.call_count == 1
+        assert mreq.call_args_list[0].args[0] == "POST"
+        assert mreq.call_args_list[0].args[1] == "/files"
+
+    def test_upload_file_large_uses_upload_url(self, client, tmp_path):
+        """Files > the direct-upload limit GET an upload URL then POST to it."""
+        test_file = tmp_path / "big.bin"
+        test_file.write_bytes(b"x" * 100)
+        client._request_times = []
+
+        one_time_url = "https://upload.virustotal.com/one-time-url"
+        url_resp = mock.Mock()
+        url_resp.status_code = 200
+        url_resp.json.return_value = {"data": one_time_url}
+
+        upload_resp = mock.Mock()
+        upload_resp.status_code = 200
+        upload_resp.json.return_value = {"data": {"id": "analysis_456"}}
+
+        poll_result = VTScanResult(
+            status=VTScanStatus.CLEAN, file_path=str(test_file), sha256="a" * 64
+        )
+
+        with (
+            mock.patch("src.core.virustotal.VT_DIRECT_UPLOAD_MAX", 4),
+            mock.patch.object(
+                client,
+                "_make_request",
+                side_effect=[(url_resp, None), (upload_resp, None)],
+            ) as mreq,
+            mock.patch.object(client, "_poll_analysis", return_value=poll_result),
+        ):
+            result = client.upload_file(str(test_file), "a" * 64)
+
+        assert mreq.call_count == 2
+        assert mreq.call_args_list[0].args[0] == "GET"
+        assert mreq.call_args_list[0].args[1] == "/files/upload_url"
+        assert mreq.call_args_list[1].args[0] == "POST"
+        assert mreq.call_args_list[1].args[1] == one_time_url
+        assert result.status == VTScanStatus.CLEAN
+
+    def test_upload_file_large_missing_upload_url(self, client, tmp_path):
+        """A missing/invalid upload URL yields an ERROR result, not a crash."""
+        test_file = tmp_path / "big.bin"
+        test_file.write_bytes(b"x" * 100)
+        client._request_times = []
+
+        url_resp = mock.Mock()
+        url_resp.status_code = 200
+        url_resp.json.return_value = {"data": None}
+
+        with (
+            mock.patch("src.core.virustotal.VT_DIRECT_UPLOAD_MAX", 4),
+            mock.patch.object(client, "_make_request", return_value=(url_resp, None)),
+        ):
+            result = client.upload_file(str(test_file), "a" * 64)
+
+        assert result.status == VTScanStatus.ERROR
+
 
 class TestWaitForRateLimit:
     """Tests for _wait_for_rate_limit method."""
