@@ -84,6 +84,8 @@ class TrayManager:
 
         # Profile state
         self._current_profile_id: str | None = None
+        # Last-known menu state, re-pushed to a respawned subprocess on "ready".
+        self._current_profiles: list[dict] = []
 
         # Register for atexit cleanup
         global _atexit_registered
@@ -403,6 +405,12 @@ class TrayManager:
             with self._state_lock:
                 self._ready = True
             logger.info("Tray service is ready")
+            # Re-push cached state on the GTK main loop. Essential after a crash
+            # respawn (the new subprocess starts from defaults, so the icon would
+            # otherwise show the wrong badge and an empty profile submenu); a
+            # harmless no-op on the initial ready. Marshalled via idle_add so it
+            # does not race other main-thread _send_command writers.
+            GLib.idle_add(self._resync_tray_state)
 
         elif event == "pong":
             logger.debug("Received pong from tray service")
@@ -443,6 +451,28 @@ class TrayManager:
                 logger.warning("select_profile action missing profile_id")
         else:
             logger.warning(f"No handler for action: {action}")
+
+    def _resync_tray_state(self) -> bool:
+        """Re-push cached tray state to the (possibly just-respawned) subprocess.
+
+        Runs on the GTK main loop. After a crash respawn the new subprocess starts
+        from defaults (status "protected", empty submenu); without this the tray
+        would misreport state until the next change. Idempotent on first ready.
+        """
+        with self._state_lock:
+            status = self._current_status
+            profiles = list(self._current_profiles)
+            profile_id = self._current_profile_id
+        self._send_command({"action": "update_status", "status": status})
+        if profiles:
+            self._send_command(
+                {
+                    "action": "update_profiles",
+                    "profiles": profiles,
+                    "current_profile_id": profile_id,
+                }
+            )
+        return False  # GLib.idle_add: run once
 
     def _send_command(self, command: dict) -> bool:
         """Send a command to the tray service."""
@@ -547,6 +577,7 @@ class TrayManager:
             if current_profile_id is not None:
                 self._current_profile_id = current_profile_id
             profile_id_to_send = self._current_profile_id
+            self._current_profiles = list(profiles)
         self._send_command(
             {
                 "action": "update_profiles",
