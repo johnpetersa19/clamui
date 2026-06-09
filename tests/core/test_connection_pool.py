@@ -435,3 +435,53 @@ class TestConnectionPoolSecurePermissions:
         assert stat.S_IMODE(os.lstat(target).st_mode) == 0o644
         # The real db file is still secured.
         assert stat.S_IMODE(os.stat(db_path).st_mode) == 0o600
+
+
+class TestConnectionPoolExhaustionRecovery:
+    """Regression: a blocked acquirer must recover when capacity frees up.
+
+    When the pool is at max capacity and an outstanding connection is discarded
+    by release() (because it failed its health check), _total_connections drops
+    below pool_size. A thread already blocked inside acquire() must be able to
+    create a fresh connection instead of stranding forever on an empty queue.
+    """
+
+    @pytest.fixture
+    def temp_db_path(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield str(Path(tmpdir) / "test_exhaust.db")
+
+    def test_blocked_acquirer_recovers_after_broken_connection_discarded(self, temp_db_path):
+        pool = ConnectionPool(temp_db_path, pool_size=1)
+        try:
+            # Hold the only connection: pool is now at capacity, queue is empty.
+            conn1 = pool.acquire()
+            assert pool._total_connections == 1
+
+            result: dict = {}
+
+            def waiter():
+                try:
+                    result["conn"] = pool.acquire(timeout=2.0)
+                except Exception as exc:  # record for assertion
+                    result["error"] = exc
+
+            t = threading.Thread(target=waiter)
+            t.start()
+
+            # Let the waiter reach the blocking wait, then discard a broken
+            # connection. This frees capacity but puts nothing back on the queue.
+            time.sleep(0.3)
+            conn1.close()
+            pool.release(conn1)
+            assert pool._total_connections == 0
+
+            t.join(timeout=3.0)
+            assert not t.is_alive()
+
+            # The waiter must have obtained a fresh connection, not timed out.
+            assert "error" not in result, f"acquirer was stranded: {result.get('error')!r}"
+            assert isinstance(result.get("conn"), sqlite3.Connection)
+            result["conn"].close()
+        finally:
+            pool.close_all()

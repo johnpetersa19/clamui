@@ -768,21 +768,31 @@ class QuarantineManager:
             Number of entries removed
         """
         with self._lock:
-            # Get old entries
             old_entries = self.get_old_entries(days)
 
-            # Delete each file
+            removed = 0
             for entry in old_entries:
                 try:
-                    self._file_handler.delete_from_quarantine(entry.quarantine_path)
+                    file_result = self._file_handler.delete_from_quarantine(entry.quarantine_path)
+                    file_gone = file_result.is_success or (
+                        file_result.status == FileOperationStatus.FILE_NOT_FOUND
+                    )
                 except Exception as e:
-                    # Continue even if file deletion fails
+                    # Treat an unexpected failure as "file still present" and keep the
+                    # DB row, so the file stays tracked and retryable instead of
+                    # leaking an untracked file on disk.
+                    file_gone = False
                     logger.warning(
                         "Failed to delete quarantined file %s: %s", entry.quarantine_path, e
                     )
 
-            # Remove from database
-            return self._database.cleanup_old_entries(days)
+                # Only drop the DB row once its file is actually gone. Removing the row
+                # while the file remains would orphan it: cleanup_orphaned_entries only
+                # prunes rows whose files are missing, so it could never reclaim it.
+                if file_gone and self._database.remove_entry(entry.id):
+                    removed += 1
+
+            return removed
 
     def cleanup_old_entries_async(
         self,

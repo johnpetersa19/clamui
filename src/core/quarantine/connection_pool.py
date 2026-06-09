@@ -17,6 +17,7 @@ import os
 import queue
 import sqlite3
 import threading
+import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -194,8 +195,34 @@ class ConnectionPool:
                 self._total_connections += 1
                 return conn
 
-        # STEP 3: At max capacity - wait for released connection
-        return self._pool.get(block=True, timeout=timeout)
+        # STEP 3: At max capacity - wait for a released connection. Poll instead of
+        # blocking forever on the queue so that if capacity frees up (a broken
+        # connection was discarded by release(), decrementing _total_connections),
+        # this waiter can create a fresh connection rather than stranding on an
+        # empty queue that no one will ever put to.
+        deadline = None if timeout is None else time.monotonic() + timeout
+        poll_interval = 0.1
+        while True:
+            # Re-check capacity under the lock: a concurrent release() may have
+            # discarded an invalid connection, leaving room to create a new one.
+            with self._lock:
+                if self._closed:
+                    raise RuntimeError("Connection pool has been closed")
+                if self._total_connections < self._pool_size:
+                    conn = self._create_connection()
+                    self._total_connections += 1
+                    return conn
+            if deadline is None:
+                wait = poll_interval
+            else:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise queue.Empty
+                wait = min(poll_interval, remaining)
+            try:
+                return self._pool.get(block=True, timeout=wait)
+            except queue.Empty:
+                continue
 
     def release(self, conn: sqlite3.Connection) -> None:
         """
