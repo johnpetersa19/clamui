@@ -424,6 +424,46 @@ class TestDaemonScannerProgressParsing:
         assert infected_files == ["/home/user/malware.exe"]
         assert len(progress_events) == 1
 
+    def test_scan_with_progress_emits_independent_snapshots(self, daemon_scanner_class):
+        """Each progress snapshot must keep len(infected_files) == infected_count.
+
+        ScanProgress objects are handed to progress_callback, which schedules a
+        GTK update via GLib.idle_add on the main thread. If the daemon scanner
+        passed the live infected_files list / infected_threats dict by reference,
+        the background thread would keep mutating them after the snapshot was
+        emitted, so an early snapshot's int infected_count would desync from the
+        ever-growing shared list (and the main thread could observe a partially
+        mutated structure). Snapshots must be independent copies.
+        """
+        scanner = daemon_scanner_class()
+        captured = []
+        lines = [
+            "/home/user/a.exe: Win.Trojan.A FOUND",
+            "/home/user/b.exe: Win.Trojan.B FOUND",
+            "/home/user/c.exe: Win.Trojan.C FOUND",
+        ]
+
+        def fake_stream(process, is_cancelled, on_line):
+            for line in lines:
+                on_line(line)
+            return ("\n".join(lines), "", False)
+
+        with patch("src.core.daemon_scanner.stream_process_output", side_effect=fake_stream):
+            scanner._scan_with_progress(
+                process=MagicMock(),
+                progress_callback=captured.append,
+                files_total=3,
+            )
+
+        assert len(captured) == 3
+        # First snapshot must reflect exactly one infection, not the final three.
+        assert captured[0].infected_files == ["/home/user/a.exe"]
+        assert len(captured[0].infected_threats) == 1
+        # Every snapshot stays internally consistent with its own count.
+        for progress in captured:
+            assert len(progress.infected_files) == progress.infected_count
+            assert len(progress.infected_threats) == progress.infected_count
+
 
 class TestDaemonScannerThreatClassification:
     """Tests for threat classification functions."""

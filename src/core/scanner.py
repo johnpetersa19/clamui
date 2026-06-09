@@ -578,7 +578,8 @@ class Scanner:
             # Check if pattern is an absolute path
             if pattern.startswith("/") or pattern.startswith("~"):
                 expanded = str(Path(pattern).expanduser()) if pattern.startswith("~") else pattern
-                if full_path.startswith(expanded):
+                norm = expanded.rstrip("/")
+                if full_path == norm or full_path.startswith(norm + os.sep):
                     return True
             # Check glob pattern against filename
             elif fnmatch.fnmatch(name, pattern) or fnmatch.fnmatch(full_path, pattern):

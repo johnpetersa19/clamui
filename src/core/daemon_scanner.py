@@ -550,8 +550,8 @@ class DaemonScanner:
                     files_scanned=files_scanned,
                     files_total=files_total,
                     infected_count=infected_count,
-                    infected_files=infected_files,
-                    infected_threats=infected_threats,
+                    infected_files=list(infected_files),
+                    infected_threats=dict(infected_threats),
                 )
                 progress_callback(progress)
 
@@ -584,8 +584,8 @@ class DaemonScanner:
                         files_scanned=files_scanned,
                         files_total=files_total,
                         infected_count=infected_count,
-                        infected_files=infected_files,
-                        infected_threats=infected_threats,
+                        infected_files=list(infected_files),
+                        infected_threats=dict(infected_threats),
                     )
                     progress_callback(progress)
 
@@ -609,8 +609,8 @@ class DaemonScanner:
                             files_scanned=files_scanned,
                             files_total=files_total,
                             infected_count=infected_count,
-                            infected_files=infected_files,
-                            infected_threats=infected_threats,
+                            infected_files=list(infected_files),
+                            infected_threats=dict(infected_threats),
                         )
                         progress_callback(progress)
                         break

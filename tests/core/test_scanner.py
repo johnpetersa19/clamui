@@ -2708,6 +2708,29 @@ class TestIsPathExcluded:
             is True
         )
 
+    def test_absolute_path_respects_separator_boundary(self):
+        """Sibling paths sharing a prefix must not be excluded (no under-count).
+
+        Excluding "/home/user/foo" must not also exclude "/home/user/foobar",
+        otherwise _count_files undercounts and the progress estimate is wrong.
+        """
+        scanner = Scanner()
+
+        # The excluded directory itself and files under it are excluded.
+        assert (
+            scanner._is_path_excluded(
+                "/home/user/foo/file.txt", "file.txt", ["/home/user/foo"], is_dir=False
+            )
+            is True
+        )
+        # A sibling directory that merely shares the prefix is NOT excluded.
+        assert (
+            scanner._is_path_excluded(
+                "/home/user/foobar/file.txt", "file.txt", ["/home/user/foo"], is_dir=False
+            )
+            is False
+        )
+
 
 class TestGetActiveBackend:
     """Tests for Scanner.get_active_backend method."""
