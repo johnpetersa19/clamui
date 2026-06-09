@@ -16,6 +16,7 @@ from src.core.system_audit import (
     AuditReport,
     AuditSectionResult,
     AuditStatus,
+    _check_open_ports,
     _check_systemd_service,
     _check_ufw_enabled,
     _database_age_from_daemon,
@@ -413,6 +414,28 @@ class TestCheckFirewall:
         assert any(c.status == AuditStatus.FAIL for c in result.checks)
 
 
+class TestCheckOpenPorts:
+    """Tests for _check_open_ports function."""
+
+    @patch("src.core.system_audit.subprocess.run")
+    def test_multiline_ss_output_flags_risky_port(self, mock_run):
+        """Exercises the real _run_command sanitization: `ss` output has one
+        socket per line and every line must be parsed. Collapsing newlines into
+        one line means only field 4 of the first socket is read, so a risky port
+        on a later line (here 3389/RDP) is missed and never flagged FAIL."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=(
+                "tcp   LISTEN 0 128 0.0.0.0:22   0.0.0.0:*\n"
+                "tcp   LISTEN 0 128 0.0.0.0:3389 0.0.0.0:*\n"
+            ),
+            stderr="",
+        )
+        section = AuditSectionResult(category=AuditCategory.FIREWALL, title="t", icon_name="i")
+        _check_open_ports(section)
+        assert any(c.status == AuditStatus.FAIL for c in section.checks)
+
+
 class TestCheckMacFramework:
     """Tests for check_mac_framework function."""
 
@@ -512,6 +535,23 @@ class TestParseSshdConfig:
         assert settings["permitrootlogin"] == "no"
         assert settings["passwordauthentication"] == "no"
         assert "x11forwarding" not in settings
+
+    @patch("src.core.system_audit.is_binary_installed", return_value=True)
+    @patch("src.core.system_audit.subprocess.run")
+    def test_effective_config_multiline_not_collapsed(self, mock_run, mock_binary):
+        """Exercises the real _run_command sanitization: `sshd -T` output is
+        multi-line and each directive must remain its own key. A single-line
+        sanitizer collapses newlines, merging every directive into one bogus key
+        and forcing defaults that can hide an insecure config (false-secure)."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="permitrootlogin yes\npasswordauthentication yes\nx11forwarding yes\n",
+            stderr="",
+        )
+        settings = _parse_sshd_config()
+        assert settings["permitrootlogin"] == "yes"
+        assert settings["passwordauthentication"] == "yes"
+        assert settings["x11forwarding"] == "yes"
 
 
 class TestCheckIntrustionDetection:
@@ -637,6 +677,26 @@ class TestRunRootkitCheck:
         )
         result = run_rootkit_check()
         assert any(c.status == AuditStatus.FAIL for c in result.checks)
+
+    @patch("src.core.system_audit.subprocess.run")
+    @patch("src.core.system_audit._run_command")
+    def test_chkrootkit_multiple_infected_counted_individually(self, mock_cmd, mock_run):
+        """Each INFECTED line must be parsed as a separate finding. Sanitizing the
+        whole multiline stdout with a single-line sanitizer collapses newlines and
+        would merge every finding into one, undercounting the rootkits."""
+        mock_cmd.return_value = (0, "/usr/sbin/chkrootkit", "")
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=(
+                "Checking `bindshell'... INFECTED\n"
+                "Checking `lkm'... INFECTED\n"
+                "Checking `sniffer'... INFECTED\n"
+            ),
+            stderr="",
+        )
+        result = run_rootkit_check()
+        findings = [c for c in result.checks if "INFECTED" in (c.detail or "")]
+        assert len(findings) == 3
 
 
 # =============================================================================

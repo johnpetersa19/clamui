@@ -522,6 +522,14 @@ class LogEntry:
         raw_status = data.get("status", "unknown")
         raw_type = data.get("type", "unknown")
         raw_path = data.get("path")
+        # duration is annotated float; coerce defensively so a tampered/corrupt
+        # stored log with a null or non-numeric duration cannot crash downstream
+        # arithmetic (statistics aggregation) or comparisons (CSV export).
+        raw_duration = data.get("duration", 0.0)
+        try:
+            duration = float(raw_duration)
+        except (TypeError, ValueError):
+            duration = 0.0
 
         return cls(
             id=log_id,
@@ -531,7 +539,7 @@ class LogEntry:
             summary=_sanitize_private_line(raw_summary),
             details=_sanitize_private_text(raw_details),
             path=sanitize_log_line(raw_path) if raw_path else None,
-            duration=data.get("duration", 0.0),
+            duration=duration,
             scheduled=data.get("scheduled", False),
         )
 

@@ -159,6 +159,40 @@ class TestLogEntry:
         assert entry.path is None
         assert entry.duration == 0.0
 
+    def test_from_dict_coerces_nonnumeric_duration(self):
+        """Test from_dict coerces a null/non-numeric duration to a float.
+
+        A tampered or corrupt stored log with ``"duration": null`` (or a
+        string) must not leave a non-float on the entry, which would crash
+        downstream arithmetic (statistics aggregation) and comparisons
+        (CSV export ``entry.duration > 0``).
+        """
+        # null duration (key present, value None) must become 0.0, not None
+        entry_null = LogEntry.from_dict(
+            {
+                "id": "dur-null",
+                "timestamp": "2024-01-01T00:00:00",
+                "type": "scan",
+                "status": "clean",
+                "summary": "s",
+                "details": "d",
+                "duration": None,
+            }
+        )
+        assert entry_null.duration == 0.0
+        assert isinstance(entry_null.duration, float)
+        # Comparison used by CSV export must not raise
+        assert (entry_null.duration > 0) is False
+
+        # numeric string is coerced to float
+        entry_str = LogEntry.from_dict({"id": "dur-str", "duration": "12.5"})
+        assert entry_str.duration == 12.5
+        assert isinstance(entry_str.duration, float)
+
+        # garbage string falls back to 0.0 instead of crashing
+        entry_bad = LogEntry.from_dict({"id": "dur-bad", "duration": "abc"})
+        assert entry_bad.duration == 0.0
+
     def test_roundtrip_serialization(self):
         """Test that to_dict and from_dict are reversible."""
         original = LogEntry.create(

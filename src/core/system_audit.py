@@ -35,7 +35,7 @@ from .flatpak import get_clean_env, is_flatpak, wrap_host_command
 from .i18n import _
 from .keyring_manager import delete_portmaster_token, get_portmaster_token
 from .portmaster_client import PortmasterStatus, probe_portmaster
-from .sanitize import sanitize_log_line
+from .sanitize import sanitize_log_line, sanitize_log_text
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,11 @@ def _is_service_installed(service_name: str) -> bool:
 def _run_command(args: list[str], timeout: int = _SUBPROCESS_TIMEOUT) -> tuple[int, str, str]:
     """Run a command and return (returncode, stdout, stderr).
 
-    All output is sanitized. Returns (-1, "", error) on failure.
+    Output is sanitized for injection-safety. stdout uses the multi-line
+    sanitizer (newlines preserved) because callers parse it line by line
+    (e.g. ``ss``, ``sshd -T``, lynis-report); collapsing newlines would merge
+    every line into one and silently break that parsing. stderr is surfaced in
+    single-line error details, so it keeps the single-line sanitizer.
     """
     try:
         result = subprocess.run(
@@ -226,7 +230,7 @@ def _run_command(args: list[str], timeout: int = _SUBPROCESS_TIMEOUT) -> tuple[i
         )
         return (
             result.returncode,
-            sanitize_log_line(result.stdout.strip()),
+            sanitize_log_text(result.stdout.strip()),
             sanitize_log_line(result.stderr.strip()),
         )
     except subprocess.TimeoutExpired:
@@ -1535,9 +1539,14 @@ def run_rootkit_check() -> AuditSectionResult:
         )
         return section
 
-    # Parse output for INFECTED lines
-    output = sanitize_log_line(result.stdout)
-    infected_lines = [line.strip() for line in output.splitlines() if "INFECTED" in line]
+    # Parse output for INFECTED lines. Use sanitize_log_text (preserves newlines)
+    # so each finding stays on its own line; sanitize_log_line collapses newlines
+    # into spaces, which would merge every INFECTED line into one and undercount
+    # the detected rootkits as a single finding.
+    output = sanitize_log_text(result.stdout)
+    infected_lines = [
+        sanitize_log_line(line.strip()) for line in output.splitlines() if "INFECTED" in line
+    ]
 
     if infected_lines:
         section.checks.append(

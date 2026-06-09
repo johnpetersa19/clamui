@@ -765,6 +765,14 @@ class Scheduler:
         for target in targets:
             exec_cmd += f" --target {shlex.quote(target)}"
 
+        # Neutralize systemd environment-variable expansion in user-supplied
+        # paths.  Unlike a shell, systemd expands "${VAR}" (and a standalone
+        # "$VAR" argument) even inside single quotes -- shlex.quote() does NOT
+        # protect against this -- so a target such as "/data/${HOME}/x" would
+        # be silently rewritten to a wrong/empty path at scan time.  The
+        # documented escape for a literal dollar sign is "$$".
+        exec_cmd = exec_cmd.replace("$", "$$")
+
         # Escape literal '%' so systemd does not interpret it as a specifier
         # (e.g. legitimate directory names may contain '%').
         exec_cmd = exec_cmd.replace("%", "%%")

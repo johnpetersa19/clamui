@@ -434,6 +434,24 @@ Time: 5.234 sec"""
         assert sanitize_log_text("Text\u0090DCS") == "TextDCS"
         assert "\u009b" not in sanitize_log_text("\u009b\u0080\u009f")
 
+    def test_sanitize_log_text_preserves_char_after_lone_esc(self):
+        """A stray ESC must not swallow the following newline or printable.
+
+        Regression: the ANSI pattern's non-CSI branch matched ESC + ANY char, so a
+        lone ESC before a newline merged two lines (breaking the multi-line
+        contract) and ESC before a letter ate the letter. The branch now only
+        consumes a valid Fe final byte (0x40-0x5F); a lone ESC is left for the
+        control-char pass to strip, preserving the following character.
+        """
+        # ESC immediately before a newline: the newline must survive.
+        assert sanitize_log_text("line1\x1b\nline2") == "line1\nline2"
+        # ESC before a lowercase letter (not a valid Fe escape): letter preserved.
+        assert sanitize_log_text("\x1bhello") == "hello"
+        # Real CSI sequences are still fully stripped (no regression).
+        assert sanitize_log_text("a\x1b[31mb\x1b[0m") == "ab"
+        # No ESC survives either way (injection-safe).
+        assert "\x1b" not in sanitize_log_text("x\x1b\ny")
+
 
 class TestSanitizationEdgeCases:
     """Tests for edge cases and boundary conditions."""

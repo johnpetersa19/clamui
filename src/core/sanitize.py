@@ -24,7 +24,7 @@ ANSI_ESCAPE_PATTERN = re.compile(
         [0-9;]*  # Optional numeric parameters separated by semicolons
         [a-zA-Z] # Final character (command)
     |
-        [^[]   # Other ESC sequences (not CSI)
+        [@A-Z\\\]^_]   # Other ESC: ESC + one Fe final byte (0x40-0x5F, excl. '['); leaves a lone ESC for the control-char pass to strip, so newlines/printables after a stray ESC are preserved
     )
     """,
     re.VERBOSE,
