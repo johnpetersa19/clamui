@@ -231,7 +231,7 @@ def _print_text_output(
         print(_("\nThreats found: {count}").format(count=total_infected))
         for t in all_threats:
             print(f"  {sanitize_log_line(t.file_path)}")
-            print(f"    {t.threat_name} [{t.category}/{t.severity}]")
+            print(f"    {sanitize_log_line(t.threat_name)} [{t.category}/{t.severity}]")
         if quarantine_info:
             quarantined, failures = quarantine_info
             if quarantined:

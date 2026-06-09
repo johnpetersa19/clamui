@@ -47,6 +47,22 @@ class TestPrintTextOutputSanitization:
         assert "\x1b" not in captured.out
         assert "evil" in captured.out
 
+    def test_threat_name_is_sanitized(self, capsys):
+        """A malicious ClamAV threat name with ANSI escapes must be stripped."""
+        threat = ThreatDetail(
+            file_path="/clean/path",
+            threat_name="Evil\x1b[2Jname",
+            category="malware",
+            severity="high",
+        )
+        result = _infected_result([threat])
+
+        _print_text_output([result], duration=0.1, quarantine_info=None)
+
+        captured = capsys.readouterr()
+        assert "\x1b" not in captured.out
+        assert "Evilname" in captured.out
+
     def test_quarantine_failure_path_is_sanitized(self, capsys):
         """Quarantine-failure path and error strings must also be sanitized."""
         threat = ThreatDetail(
