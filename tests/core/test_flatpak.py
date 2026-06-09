@@ -670,6 +670,21 @@ class TestGetXdgUserDir:
                     result = flatpak.get_xdg_user_dir(dir_type)
                     assert result == "/home/user/test"
 
+    def test_get_xdg_user_dir_home_fallback_returns_none(self):
+        """xdg-user-dir prints $HOME when the dir is unconfigured; treat as a miss.
+
+        Regression: an unconfigured Downloads dir made xdg-user-dir return $HOME,
+        which the Quick Scan default then adopted as its target -> scanning the
+        entire home directory instead of ~/Downloads.
+        """
+        home = os.path.expanduser("~")
+        mock_result = mock.Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = home + "\n"
+        with mock.patch.object(flatpak, "is_flatpak", return_value=False):
+            with mock.patch("subprocess.run", return_value=mock_result):
+                assert flatpak.get_xdg_user_dir("DOWNLOAD") is None
+
 
 class TestIsPortalPath:
     """Tests for is_portal_path() function."""

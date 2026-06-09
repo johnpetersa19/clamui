@@ -306,8 +306,16 @@ def get_xdg_user_dir(dir_type: str) -> str | None:
             text=True,
             timeout=5,
         )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
+        resolved = result.stdout.strip()
+        if result.returncode == 0 and resolved:
+            # xdg-user-dir prints $HOME when the requested user dir is not
+            # configured. $HOME is never a valid user *subdirectory* (Downloads,
+            # Documents, etc. are always nested under home), so treat a bare
+            # $HOME result as a lookup miss. This stops callers such as the
+            # Quick Scan default from targeting the entire home directory.
+            home = os.path.expanduser("~")
+            if os.path.normpath(resolved) != os.path.normpath(home):
+                return resolved
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         logger.debug("Failed to resolve XDG user directory for %s", dir_type, exc_info=True)
 

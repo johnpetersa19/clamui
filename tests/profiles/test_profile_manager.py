@@ -1820,3 +1820,57 @@ class TestRestoreDefaultProfiles:
         # Verify defaults were restored
         default_names = {p.name for p in profiles if p.is_default}
         assert default_names == {"Quick Scan", "Full Scan", "Home Folder"}
+
+
+class TestProfileManagerHardening:
+    """Regression tests for default-profile rename and import name validation."""
+
+    @pytest.fixture
+    def temp_config_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
+
+    @pytest.fixture
+    def manager(self, temp_config_dir):
+        return ProfileManager(config_dir=temp_config_dir)
+
+    def test_cannot_rename_default_profile(self, manager):
+        """Renaming a default profile must raise: defaults are recreated by name at
+        startup, so a rename would orphan it and spawn a duplicate default."""
+        default = next(p for p in manager.list_profiles() if p.is_default)
+
+        with pytest.raises(ValueError, match="Cannot rename a default profile"):
+            manager.update_profile(default.id, name=default.name + " Renamed")
+
+        # Non-name edits on a default remain allowed.
+        updated = manager.update_profile(default.id, description="changed")
+        assert updated is not None
+        assert updated.description == "changed"
+        assert updated.name == default.name
+
+    def test_update_default_with_same_name_is_allowed(self, manager):
+        """Editing other fields while passing the unchanged name must not raise."""
+        default = next(p for p in manager.list_profiles() if p.is_default)
+        updated = manager.update_profile(default.id, name=default.name, description="x")
+        assert updated is not None
+        assert updated.name == default.name
+
+    def test_default_rename_blocked_prevents_duplicate_on_reload(self, temp_config_dir):
+        """End-to-end: the guard keeps exactly one profile per default name across reloads."""
+        manager = ProfileManager(config_dir=temp_config_dir)
+        default = next(p for p in manager.list_profiles() if p.is_default)
+        with pytest.raises(ValueError):
+            manager.update_profile(default.id, name="Custom Renamed Default")
+
+        reloaded = ProfileManager(config_dir=temp_config_dir)
+        default_names = [p.name for p in reloaded.list_profiles() if p.is_default]
+        assert len(default_names) == len(set(default_names))
+
+    def test_import_profile_null_name_raises(self, manager, temp_config_dir):
+        """Importing a profile whose name is JSON null must raise rather than create
+        a profile literally named 'None'."""
+        import_path = Path(temp_config_dir) / "null_name.json"
+        import_path.write_text(json.dumps({"profile": {"name": None, "targets": ["/home"]}}))
+
+        with pytest.raises(ValueError, match="non-empty string"):
+            manager.import_profile(import_path)

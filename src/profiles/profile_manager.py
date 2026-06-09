@@ -823,6 +823,12 @@ class ProfileManager:
             new_name = updates.get("name", profile.name)
             # Normalize once at the boundary so stored/validated/deduped names match.
             new_name = new_name.strip()
+            # Default profiles are recreated by name at startup (see
+            # _ensure_default_profiles), so renaming one orphans it and spawns a
+            # duplicate default on the next launch. Defaults are already protected
+            # from deletion and is_default changes; treat renaming the same way.
+            if profile.is_default and new_name != profile.name:
+                raise ValueError("Cannot rename a default profile")
             new_targets = updates.get("targets", profile.targets)
             new_exclusions = updates.get("exclusions", profile.exclusions)
 
@@ -1046,7 +1052,10 @@ class ProfileManager:
                 raise ValueError(f"Invalid profile data: missing required field '{field}'")
 
         # Extract profile data with defaults
-        name = str(profile_data.get("name", "")).strip()
+        raw_name = profile_data.get("name")
+        if not isinstance(raw_name, str) or not raw_name.strip():
+            raise ValueError("Invalid profile data: 'name' must be a non-empty string")
+        name = raw_name.strip()
         targets = profile_data.get("targets", [])
         exclusions = profile_data.get("exclusions", {})
         description = str(profile_data.get("description", ""))
