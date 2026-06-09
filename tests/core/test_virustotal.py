@@ -338,6 +338,60 @@ class TestParseFileReport:
             "malformed" in result.error_message.lower() or "missing" in result.error_message.lower()
         )
 
+    def test_parse_report_non_dict_engine_result_returns_error(self, client):
+        """A non-dict value in last_analysis_results must yield ERROR, not crash.
+
+        Regression: the detection loop called .get() on each engine result; a null
+        (or otherwise non-dict) value raised AttributeError, which escaped the
+        (KeyError, TypeError) handler. In scan_file_async that killed the worker
+        thread so the completion callback never fired and the UI hung. The handler
+        now also catches AttributeError and returns a clean ERROR result.
+        """
+        data = {
+            "data": {
+                "attributes": {
+                    "last_analysis_stats": {"malicious": 1, "undetected": 5},
+                    "last_analysis_results": {"BrokenEngine": None},
+                }
+            }
+        }
+
+        result = client._parse_file_report(data, "test_hash")
+
+        assert result.status == VTScanStatus.ERROR
+        assert result.error_message is not None
+
+    def test_parse_total_engines_includes_all_buckets(self, client):
+        """total_engines must count timeout/failure/type-unsupported engines too.
+        Real VT reports include engines that timed out or could not process the
+        file. Omitting those buckets undercounts the "X / Y" denominator shown
+        to the user.
+        """
+        data = {
+            "data": {
+                "attributes": {
+                    "last_analysis_stats": {
+                        "malicious": 3,
+                        "suspicious": 1,
+                        "undetected": 60,
+                        "harmless": 0,
+                        "timeout": 4,
+                        "confirmed-timeout": 1,
+                        "failure": 2,
+                        "type-unsupported": 5,
+                    },
+                    "last_analysis_results": {},
+                }
+            }
+        }
+
+        result = client._parse_file_report(data, "test_hash")
+
+        assert result.status == VTScanStatus.DETECTED
+        assert result.detections == 4
+        # 3 + 1 + 60 + 0 + 4 + 1 + 2 + 5 = 76, not just the four common buckets (64).
+        assert result.total_engines == 76
+
 
 class TestVTDetection:
     """Tests for VTDetection dataclass."""

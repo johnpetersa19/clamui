@@ -395,12 +395,15 @@ class VirusTotalClient:
             stats = attrs.get("last_analysis_stats", {})
             results = attrs.get("last_analysis_results", {})
 
-            malicious = stats.get("malicious", 0)
-            suspicious = stats.get("suspicious", 0)
-            undetected = stats.get("undetected", 0)
-            harmless = stats.get("harmless", 0)
+            malicious = stats.get("malicious") or 0
+            suspicious = stats.get("suspicious") or 0
 
-            total = malicious + suspicious + undetected + harmless
+            # The "X / Y" denominator must include every verdict bucket VT
+            # reports (timeout, confirmed-timeout, failure, type-unsupported,
+            # undetected, harmless, …), not just the four common ones — engines
+            # that timed out or could not process the file still ran, and
+            # omitting them silently undercounts total_engines on real reports.
+            total = sum(v for v in stats.values() if isinstance(v, int) and not isinstance(v, bool))
             detections = malicious + suspicious
 
             # Parse individual engine detections
@@ -447,7 +450,7 @@ class VirusTotalClient:
                 permalink=permalink,
             )
 
-        except (KeyError, TypeError) as e:
+        except (KeyError, TypeError, AttributeError) as e:
             logger.error(f"Failed to parse VT response: {e}")
             return VTScanResult(
                 status=VTScanStatus.ERROR,
