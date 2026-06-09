@@ -126,6 +126,7 @@ ignore = [
 "src/main.py" = ["T201"]              # Startup diagnostic
 "src/core/logging_config.py" = ["T201"] # Fallback when logger itself fails
 "src/core/log_manager.py" = ["T201"]   # Export error handling
+"tests/e2e/_gui_construction_probe.py" = ["T201"]  # standalone diagnostic probe
 "tests/**/*.py" = ["S101", "S105", "S106", "S107", "PT006", "PT008", "PT011", "PT018", "PT021", "PT022"]  # assert + test credentials + pytest style
 
 [tool.ruff.lint.isort]
