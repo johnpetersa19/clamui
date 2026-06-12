@@ -1030,6 +1030,89 @@ class TestGetCleanEnv:
             assert env["PATH"] == "/usr/bin"
             assert env["HOME"] == "/home/user"
 
+    def test_strips_pythonhome(self):
+        """PYTHONHOME must be stripped so host Python scripts (e.g. firewall-cmd)
+        bootstrap the host stdlib, not the AppImage's (GitHub issue #155)."""
+        with mock.patch.dict(
+            os.environ,
+            {"PYTHONHOME": "/tmp/mount/usr", "HOME": "/home/user"},
+            clear=True,
+        ):
+            env = flatpak.get_clean_env()
+            assert "PYTHONHOME" not in env
+
+    def test_strips_pythonpath(self):
+        """PYTHONPATH must be stripped so host Python tools use host site-packages."""
+        with mock.patch.dict(
+            os.environ,
+            {
+                "PYTHONPATH": "/tmp/mount/usr/lib/python3.12/site-packages",
+                "HOME": "/home/user",
+            },
+            clear=True,
+        ):
+            env = flatpak.get_clean_env()
+            assert "PYTHONPATH" not in env
+
+    def test_strips_pythondontwritebytecode(self):
+        """PYTHONDONTWRITEBYTECODE is part of the AppImage Python env and is stripped."""
+        with mock.patch.dict(
+            os.environ,
+            {"PYTHONDONTWRITEBYTECODE": "1", "HOME": "/home/user"},
+            clear=True,
+        ):
+            env = flatpak.get_clean_env()
+            assert "PYTHONDONTWRITEBYTECODE" not in env
+
+    def test_strips_gi_typelib_path(self):
+        """GI_TYPELIB_PATH must be stripped so host tools that ``import gi`` load
+        host typelibs, not the AppImage's bundled ones (GitHub issue #155)."""
+        with mock.patch.dict(
+            os.environ,
+            {
+                "GI_TYPELIB_PATH": "/tmp/mount/usr/lib/girepository-1.0",
+                "HOME": "/home/user",
+            },
+            clear=True,
+        ):
+            env = flatpak.get_clean_env()
+            assert "GI_TYPELIB_PATH" not in env
+
+    def test_strips_full_appimage_python_env(self):
+        """Regression for issue #155: the full AppImage AppRun environment is
+        sanitized of every var that breaks a host Python helper, while
+        host-essential vars survive."""
+        with mock.patch.dict(
+            os.environ,
+            {
+                # AppImage-injected (must be stripped)
+                "PYTHONHOME": "/tmp/mount/usr",
+                "PYTHONPATH": "/tmp/mount/usr/lib/python3.12/site-packages",
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "GI_TYPELIB_PATH": "/tmp/mount/usr/lib/girepository-1.0",
+                "LD_LIBRARY_PATH": "/tmp/mount/usr/lib",
+                "APPDIR": "/tmp/mount",
+                # Host-essential (must survive)
+                "PATH": "/usr/bin:/bin",
+                "HOME": "/home/user",
+                "LANG": "en_US.UTF-8",
+            },
+            clear=True,
+        ):
+            env = flatpak.get_clean_env()
+            for stripped in (
+                "PYTHONHOME",
+                "PYTHONPATH",
+                "PYTHONDONTWRITEBYTECODE",
+                "GI_TYPELIB_PATH",
+                "LD_LIBRARY_PATH",
+                "APPDIR",
+            ):
+                assert stripped not in env, f"{stripped} should be stripped"
+            assert env["PATH"] == "/usr/bin:/bin"
+            assert env["HOME"] == "/home/user"
+            assert env["LANG"] == "en_US.UTF-8"
+
 
 class TestGetClamavDatabaseDir:
     """Tests for get_clamav_database_dir() function."""
