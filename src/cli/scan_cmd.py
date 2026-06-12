@@ -22,6 +22,7 @@ from ..core.quarantine import QuarantineManager
 from ..core.sanitize import sanitize_log_line
 from ..core.scanner import Scanner
 from ..core.scanner_types import ScanStatus
+from ..core.settings_manager import SettingsManager
 from ..profiles.profile_manager import ProfileManager
 from .output import get_config_dir, print_error, print_info, print_json
 
@@ -267,7 +268,8 @@ def run(args: argparse.Namespace) -> int:
 
     # Check ClamAV availability
     log_manager = LogManager()
-    scanner = Scanner(log_manager=log_manager)
+    settings_manager = SettingsManager()
+    scanner = Scanner(log_manager=log_manager, settings_manager=settings_manager)
     is_available, version_or_error = scanner.check_available()
     if not is_available:
         print_error(_("ClamAV not available: {error}").format(error=version_or_error))

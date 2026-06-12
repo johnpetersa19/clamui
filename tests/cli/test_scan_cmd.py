@@ -7,7 +7,10 @@ Focuses on the security-sensitive path where filesystem-derived strings
 terminal and must be sanitized to prevent ANSI/control-sequence injection.
 """
 
-from src.cli.scan_cmd import _print_text_output
+import argparse
+from unittest.mock import patch
+
+from src.cli.scan_cmd import _print_text_output, run
 from src.core.scanner_types import ScanResult, ScanStatus, ThreatDetail
 
 
@@ -79,3 +82,53 @@ class TestPrintTextOutputSanitization:
         captured = capsys.readouterr()
         assert "\x1b" not in captured.out
         assert "evil/file" in captured.out
+
+
+def _clean_result(path: str) -> ScanResult:
+    """Build a minimal CLEAN ScanResult so run()'s scan path short-circuits."""
+    return ScanResult(
+        status=ScanStatus.CLEAN,
+        path=path,
+        stdout="",
+        stderr="",
+        exit_code=0,
+        infected_files=[],
+        scanned_files=1,
+        scanned_dirs=0,
+        infected_count=0,
+        error_message=None,
+        threat_details=[],
+    )
+
+
+class TestRunWiresSettingsManager:
+    """run() must construct a Scanner that honors saved user settings."""
+
+    def test_run_builds_scanner_with_settings_manager(self, tmp_path):
+        """Scanner must be built with the SettingsManager so global exclusions
+        and the configured scan_backend are honored by CLI scans."""
+        target = tmp_path / "scanme"
+        target.mkdir()
+        args = argparse.Namespace(
+            paths=[str(target)],
+            profile=None,
+            verbose=False,
+            no_recursive=False,
+            quarantine=False,
+            json_output=False,
+        )
+
+        with (
+            patch("src.cli.scan_cmd.LogManager"),
+            patch("src.cli.scan_cmd.SettingsManager") as mock_settings_cls,
+            patch("src.cli.scan_cmd.Scanner") as mock_scanner_cls,
+        ):
+            scanner = mock_scanner_cls.return_value
+            scanner.check_available.return_value = (True, "1.0.0")
+            scanner.scan_sync.return_value = _clean_result(str(target))
+
+            run(args)
+
+        assert (
+            mock_scanner_cls.call_args.kwargs["settings_manager"] is mock_settings_cls.return_value
+        )
