@@ -881,10 +881,15 @@ class ClamUIApp(Adw.Application):
         self._initial_use_virustotal = False
 
         if self._scan_view:
-            self._scan_view._set_selected_path(paths[0])
             if use_vt:
+                # VirusTotal scans a single file per request; only the first
+                # path is forwarded to the setup dialog and scan pipeline.
+                self._scan_view._set_selected_path(paths[0])
                 self._show_virustotal_setup_dialog(paths[0])
             else:
+                # ClamAV scans every CLI-provided target (files and folders),
+                # so populate the full selection before starting.
+                self._scan_view._replace_selected_paths(paths)
                 self._scan_view._start_scan()
 
     def _trigger_virustotal_scan(self, file_path: str, api_key: str) -> None:

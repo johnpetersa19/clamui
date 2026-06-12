@@ -1267,3 +1267,68 @@ class TestClamUIAppVirusTotalScan:
         assert captured.get("vt_result") is result
         assert captured.get("parent") is app.props.active_window
         assert captured.get("presented") is True
+
+
+class TestClamUIAppInitialScanPaths:
+    """Regression tests for forwarding CLI-provided scan targets to the UI."""
+
+    def test_multiple_clamav_paths_populate_all_targets(self, app):
+        """All CLI paths must be forwarded to the scan view, not just the first.
+
+        Regression: _process_initial_scan_paths called _set_selected_path(paths[0]),
+        so launching ClamUI from a file manager with N selected files only scanned
+        the first one ("Scan Target (1)" despite "Received N path(s)").
+        """
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._initial_scan_paths = ["/tmp/a.pdf", "/tmp/b.pdf"]
+        app._initial_use_virustotal = False
+
+        app._process_initial_scan_paths()
+
+        mock_scan_view._replace_selected_paths.assert_called_once_with(["/tmp/a.pdf", "/tmp/b.pdf"])
+        mock_scan_view._start_scan.assert_called_once_with()
+        mock_scan_view._set_selected_path.assert_not_called()
+        # State is consumed so a later activate() does not re-trigger the scan.
+        assert app._initial_scan_paths == []
+        assert app._initial_use_virustotal is False
+
+    def test_single_clamav_path_uses_multi_target_api(self, app):
+        """A single CLI path still goes through the multi-target replace API."""
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._initial_scan_paths = ["/tmp/only.pdf"]
+        app._initial_use_virustotal = False
+
+        app._process_initial_scan_paths()
+
+        mock_scan_view._replace_selected_paths.assert_called_once_with(["/tmp/only.pdf"])
+        mock_scan_view._start_scan.assert_called_once_with()
+
+    def test_virustotal_path_uses_first_only(self, app):
+        """VirusTotal scans a single file per request, so only the first path is
+        forwarded to the setup dialog and the ClamAV auto-scan is not started."""
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._initial_scan_paths = ["/tmp/a.pdf", "/tmp/b.pdf"]
+        app._initial_use_virustotal = True
+        app._show_virustotal_setup_dialog = mock.MagicMock()
+
+        app._process_initial_scan_paths()
+
+        mock_scan_view._set_selected_path.assert_called_once_with("/tmp/a.pdf")
+        app._show_virustotal_setup_dialog.assert_called_once_with("/tmp/a.pdf")
+        mock_scan_view._replace_selected_paths.assert_not_called()
+        mock_scan_view._start_scan.assert_not_called()
+
+    def test_no_paths_is_noop(self, app):
+        """With no pending paths nothing is forwarded to the scan view."""
+        mock_scan_view = mock.MagicMock()
+        app._scan_view = mock_scan_view
+        app._initial_scan_paths = []
+
+        app._process_initial_scan_paths()
+
+        mock_scan_view._replace_selected_paths.assert_not_called()
+        mock_scan_view._set_selected_path.assert_not_called()
+        mock_scan_view._start_scan.assert_not_called()
