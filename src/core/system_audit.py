@@ -19,6 +19,7 @@ Tier 2 deep scans (root via pkexec, opt-in):
 """
 
 import logging
+import re
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -297,9 +298,15 @@ def _parse_cvd_age(cvd_path: str) -> tuple[int | None, str | None]:
         return (None, _("Invalid database file format"))
 
     try:
-        # Strip null bytes from padded header
-        stime = fields[8].strip().strip("\x00")
-        build_timestamp = int(stime)
+        # The stime field (field 9) is immediately followed by the gzip-
+        # compressed database payload with no delimiter. Ascii-decoding the
+        # raw 512-byte header leaves arbitrary binary bytes appended to the
+        # timestamp, so int() on the whole field raises ValueError. Take only
+        # the leading run of digits.
+        match = re.match(r"\d+", fields[8].strip().strip("\x00"))
+        if match is None:
+            raise ValueError("no numeric stime found")
+        build_timestamp = int(match.group())
         age_seconds = time.time() - build_timestamp
         days_old = int(age_seconds / 86400)
         return (days_old, fields[1])

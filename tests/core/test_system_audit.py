@@ -232,6 +232,31 @@ class TestParseCvdAge:
         assert days_old is None
         assert error is not None
 
+    def test_stime_followed_by_binary_payload(self, tmp_path):
+        """Regression: real .cld/.cvd files append the gzip-compressed payload
+        directly after the stime field with no delimiter.
+
+        ascii-decoding the raw 512-byte header (errors="ignore") drops bytes
+        >= 128 but keeps the many payload bytes that fall in 0-127 by chance,
+        appending them straight onto the stime digits. The old
+        strip().strip("\\x00") did not remove those arbitrary binary bytes, so
+        int(stime) raised ValueError and a healthy database was reported as
+        "age could not be determined". The fix takes only the leading digit run.
+        """
+        import time
+
+        build_ts = int(time.time()) - (3 * 86400)
+        header_text = f"ClamAV-VDB:24 Jun 2026:27000:2000000:90:md5:dsig:builder:{build_ts}"
+        # Binary payload appended directly after the stime digits -- NO null
+        # padding and NO newline, exactly as observed on a real daily.cld.
+        junk = b"\x1f\x08\x00\x1e-3<>i\x7f$2Yi\x01*X\x01wvi" + bytes(range(256)) * 2
+        cvd_file = tmp_path / "daily.cld"
+        cvd_file.write_bytes(header_text.encode("ascii") + junk)
+
+        days_old, date_str = _parse_cvd_age(str(cvd_file))
+        assert days_old == 3
+        assert date_str == "24 Jun 2026"
+
 
 class TestDatabaseAgeDaemonFallback:
     """Tests for the daemon-based database-age fallback (issue #143).
