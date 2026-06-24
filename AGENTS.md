@@ -788,8 +788,8 @@ Key runtime dependencies:
 
 - `PyGObject>=3.56.3` / `pycairo>=1.29.0` - GTK4/Adwaita bindings (provided by system/GNOME runtime)
 - `psutil>=7.2.2` - Battery status (scheduled-scan skip-on-battery)
-- `matplotlib>=3.10.9` - Statistics view charts
-- `requests>=2.34.2` / `urllib3>=2.7.0` / `certifi>=2026.5.20` - VirusTotal HTTP + TLS
+- `matplotlib>=3.11.0` - Statistics view charts
+- `requests>=2.34.2` / `urllib3>=2.7.0` / `certifi>=2026.6.17` - VirusTotal HTTP + TLS
 - `keyring>=25.7.0` - Secure credential storage (VirusTotal API key)
 - `Pillow>=12.2.0` - Tray icon generation (composite status badges)
 - `cairosvg>=2.9.0` - SVG to PNG conversion for tray icons
