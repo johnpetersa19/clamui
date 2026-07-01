@@ -13,6 +13,7 @@ from src.core.scanner_base import (
     communicate_with_cancel_check,
     create_cancelled_result,
     create_error_result,
+    parse_total_errors,
     stream_process_output,
     terminate_process_gracefully,
 )
@@ -621,3 +622,103 @@ class TestCollectClamavWarnings:
         skipped, nonfatal, hard_errors = collect_clamav_warnings("", stderr)
         assert len(hard_errors) == 1
         assert "Can't allocate memory" in hard_errors[0]
+
+    def test_cant_access_file_warning_classified_as_skipped(self):
+        """clamscan lstat() failure (e.g. file deleted mid-scan) is a skipped file."""
+        stderr = "WARNING: /home/user/tmp/ephemeral.dat: Can't access file\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings("", stderr)
+        assert skipped == ["/home/user/tmp/ephemeral.dat"]
+        assert nonfatal == []
+        assert hard_errors == []
+
+    def test_cant_open_file_warning_classified_as_skipped(self):
+        """clamscan open() failure names the path AFTER the marker."""
+        stderr = "WARNING: Can't open file /home/user/locked.bin: Permission denied\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings("", stderr)
+        assert skipped == ["/home/user/locked.bin"]
+        assert nonfatal == []
+        assert hard_errors == []
+
+    def test_unrar_dlopen_warning_is_nonfatal(self):
+        """Missing optional unrar module is informational, not an error."""
+        stderr = (
+            "LibClamAV Warning: Cannot dlopen libclamunrar_iface: file not found, "
+            "unrar support unavailable\n"
+        )
+        skipped, nonfatal, hard_errors = collect_clamav_warnings("", stderr)
+        assert skipped == []
+        assert len(nonfatal) == 1
+        assert "libclamunrar_iface" in nonfatal[0]
+        assert hard_errors == []
+
+    def test_bytecode_timeout_warning_is_nonfatal(self):
+        """Bytecode signature timeouts are by-design protections, not errors."""
+        stderr = "LibClamAV Warning: Bytecode run timed out, timeout flag set\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings("", stderr)
+        assert skipped == []
+        assert len(nonfatal) == 1
+        assert hard_errors == []
+
+    def test_per_file_time_limit_reached_classified_as_skipped(self):
+        """Per-file CL_ETIMEOUT lines end with ERROR but are partial scans, not failures."""
+        stdout = "/home/user/huge.tar: Time limit reached ERROR\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings(stdout, "")
+        assert skipped == ["/home/user/huge.tar"]
+        assert hard_errors == []
+
+    def test_per_file_access_denied_classified_as_skipped(self):
+        """Plain 'Access denied' lines from clamscan -v are skipped files."""
+        stdout = "/root/secret.txt: Access denied\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings(stdout, "")
+        assert skipped == ["/root/secret.txt"]
+        assert hard_errors == []
+
+    def test_clamdscan_access_denied_error_line_classified_as_skipped(self):
+        """clamdscan's 'Access denied. ERROR' replies are skipped files."""
+        stdout = "/root/secret.txt: Access denied. ERROR\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings(stdout, "")
+        assert skipped == ["/root/secret.txt"]
+        assert hard_errors == []
+
+    def test_unknown_libclamav_warning_stays_hard_error(self):
+        """Unrecognized LibClamAV warnings must keep vetoing the benign downgrade."""
+        stderr = "LibClamAV Warning: something novel happened\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings("", stderr)
+        assert skipped == []
+        assert nonfatal == []
+        assert hard_errors == ["LibClamAV Warning: something novel happened"]
+
+    def test_unknown_per_file_error_line_stays_hard_error(self):
+        """Unknown per-file '... ERROR' replies must stay hard errors."""
+        stdout = "/home/user/file.bin: SomeThing ERROR\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings(stdout, "")
+        assert skipped == []
+        assert hard_errors == ["/home/user/file.bin: SomeThing ERROR"]
+
+    def test_file_list_cant_open_error_stays_hard_error(self):
+        """clamdscan's own 'ERROR: ... Can't open file' must not be swallowed."""
+        stdout = "ERROR: --file-list: Can't open file /run/user/1000/clamui_filelist.txt\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings(stdout, "")
+        assert skipped == []
+        assert len(hard_errors) == 1
+
+
+class TestParseTotalErrors:
+    """Tests for parse_total_errors summary parsing."""
+
+    def test_parses_total_errors_from_summary(self):
+        stdout = (
+            "----------- SCAN SUMMARY -----------\n"
+            "Scanned files: 340\n"
+            "Infected files: 0\n"
+            "Total errors: 3\n"
+            "Time: 10.000 sec (0 m 10 s)\n"
+        )
+        assert parse_total_errors(stdout) == 3
+
+    def test_returns_zero_when_summary_line_absent(self):
+        stdout = "----------- SCAN SUMMARY -----------\nScanned files: 5\n"
+        assert parse_total_errors(stdout) == 0
+
+    def test_returns_zero_for_empty_output(self):
+        assert parse_total_errors("") == 0

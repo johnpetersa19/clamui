@@ -13,6 +13,7 @@ DaemonScanner (clamdscan) to avoid code duplication:
 
 import logging
 import os
+import re
 import select
 import subprocess
 from collections.abc import Callable
@@ -38,7 +39,13 @@ _NONFATAL_SKIP_MARKERS = (
     ": Failed to open file",
     ": File path check failure:",
     ": Not supported file type",
+    ": Can't access file",  # clamscan lstat() failure (e.g. file deleted mid-scan)
+    ": Access denied",  # per-file EACCES line (clamscan -v / clamdscan "Access denied. ERROR")
+    ": Time limit reached",  # per-file CL_ETIMEOUT; file partially scanned, scan continues
 )
+# Warnings where the skipped path FOLLOWS the marker instead of preceding it:
+# "WARNING: Can't open file <path>: <strerror text>" (clamscan open() failure).
+_NONFATAL_SKIP_PATH_PREFIXES = ("WARNING: Can't open file ",)
 _IGNORABLE_WARNING_LINES = ("LibClamAV Warning: cli_realpath: Invalid arguments.",)
 
 # LibClamAV Error patterns from non-fatal file parsing (CL_EPARSE/CL_EFORMAT).
@@ -61,7 +68,28 @@ _NONFATAL_WARNING_PATTERNS = (
     "size limit reached",  # generic scan/file size cap reached
     "recursion limit",  # archive/container recursion depth cap
     "max recursion level reached",  # cli_magic_scan recursion cap
+    "cannot dlopen libclamunrar",  # optional unrar module missing; scan continues without it
+    "bytecode run timed out",  # bytecode signature timeout; file scan continues
 )
+
+# Matches the "Total errors: N" line from the clamscan/clamdscan scan summary.
+_TOTAL_ERRORS_RE = re.compile(r"^Total errors:\s*(\d+)$")
+
+
+def parse_total_errors(stdout: str) -> int:
+    """Extract the error count from the ClamAV scan-summary block.
+
+    Both clamscan and clamdscan print "Total errors: N" in their summary when
+    at least one file could not be read. In -i mode the per-file "Access
+    denied" lines are suppressed, so this summary line can be the only
+    positive signal that an exit code of 2 was caused by unreadable files
+    rather than a scan failure. Returns 0 when the line is absent.
+    """
+    for raw_line in stdout.splitlines():
+        match = _TOTAL_ERRORS_RE.match(raw_line.strip())
+        if match:
+            return int(match.group(1))
+    return 0
 
 
 def communicate_with_cancel_check(
@@ -382,6 +410,13 @@ def _extract_skipped_path(line: str) -> str | None:
                 file_path = file_path[len("WARNING:") :].strip()
             if file_path.startswith("ERROR:"):
                 file_path = file_path[len("ERROR:") :].strip()
+            return file_path or None
+    for prefix in _NONFATAL_SKIP_PATH_PREFIXES:
+        if line.startswith(prefix):
+            rest = line[len(prefix) :]
+            # "<path>: <strerror text>" — strerror messages contain no colon,
+            # so splitting on the last colon keeps colons inside the path.
+            file_path = rest.rsplit(":", 1)[0].strip() if ":" in rest else rest.strip()
             return file_path or None
     return None
 

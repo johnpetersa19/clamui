@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from gi.repository import GLib
 
 from .clamav_config import parse_config
+from .i18n import _
 from .log_manager import LogManager
 from .scanner_base import (
     cleanup_process,
@@ -24,6 +25,7 @@ from .scanner_base import (
     communicate_with_cancel_check,
     create_cancelled_result,
     create_error_result,
+    parse_total_errors,
     save_scan_log,
     stream_process_output,
     terminate_process_gracefully,
@@ -246,7 +248,7 @@ class Scanner:
         ):
             return Scanner._daemon_cache[1]
 
-        is_available, _ = check_clamd_connection(config_path=self._get_clamd_config_path())
+        is_available, _msg = check_clamd_connection(config_path=self._get_clamd_config_path())
         Scanner._daemon_cache = (now, is_available)
         return is_available
 
@@ -261,7 +263,7 @@ class Scanner:
         if backend == "clamscan":
             return "clamscan"
         elif backend == "daemon":
-            is_available, _ = self._get_daemon_scanner().check_available()
+            is_available, _msg = self._get_daemon_scanner().check_available()
             return "daemon" if is_available else "unavailable"
         else:  # auto
             is_available = self._is_daemon_available_cached()
@@ -945,10 +947,22 @@ class Scanner:
             # truncated archives). Treat as CLEAN only when we positively identified
             # the cause as non-fatal (a skipped file or a limit/truncation warning)
             # and nothing looked like a hard error. Unrecognized stderr stays ERROR.
+            total_errors = parse_total_errors(stdout)
             if not hard_error_lines and (skipped_files or nonfatal_warnings):
                 status = ScanStatus.CLEAN
                 if skipped_files:
                     warning_message = f"{len(skipped_files)} file(s) could not be accessed"
+                else:
+                    warning_message = _(
+                        "{count} non-fatal warning(s) during scan; some files may "
+                        "have been only partially scanned"
+                    ).format(count=len(nonfatal_warnings))
+            elif not hard_error_lines and total_errors > 0:
+                # -i mode suppresses per-file "Access denied" lines, so the
+                # summary's "Total errors: N" is the only positive signal that
+                # exit 2 was caused by unreadable files, not a scan failure.
+                status = ScanStatus.CLEAN
+                warning_message = _("{count} file(s) could not be read").format(count=total_errors)
             else:
                 status = ScanStatus.ERROR
         else:
@@ -973,6 +987,7 @@ class Scanner:
             skipped_files=skipped_files,
             skipped_count=len(skipped_files),
             warning_message=warning_message,
+            nonfatal_warnings=nonfatal_warnings,
         )
 
     def _save_scan_log(self, result: ScanResult, duration: float) -> None:
