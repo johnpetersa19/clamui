@@ -25,7 +25,7 @@ from ..core.quarantine import (
     QuarantineResult,
     QuarantineStatus,
 )
-from .compat import create_banner
+from .compat import create_banner, safe_set_placeholder_text
 from .pagination import PaginatedListController
 from .utils import add_row_icon, resolve_icon_name
 from .view_helpers import EmptyStateConfig, create_empty_state, create_loading_row
@@ -185,15 +185,10 @@ class QuarantineView(Gtk.Box):
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         header_box.set_spacing(12)
 
-        # Search entry
+        # Search entry (placeholder text requires GTK 4.10+; skipped on older
+        # versions — setting the property there raises TypeError)
         self._search_entry = Gtk.SearchEntry()
-        # set_placeholder_text() requires GTK 4.10+; fall back to GObject property
-        if hasattr(self._search_entry, "set_placeholder_text"):
-            self._search_entry.set_placeholder_text(_("Search by threat name or path..."))
-        else:
-            self._search_entry.set_property(
-                "placeholder-text", _("Search by threat name or path...")
-            )
+        safe_set_placeholder_text(self._search_entry, _("Search by threat name or path..."))
         self._search_entry.set_hexpand(True)
         self._search_entry.connect("search-changed", self._on_search_changed)
         header_box.append(self._search_entry)

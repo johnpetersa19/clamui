@@ -20,6 +20,7 @@ from .compat import (
     create_entry_row,
     create_toolbar_view,
     open_paths_dialog,
+    remove_all_children,
     save_path_dialog,
 )
 from .utils import add_row_icon, resolve_icon_name
@@ -1136,8 +1137,8 @@ class ProfileListDialog(Adw.Window):
 
     def _refresh_profile_list(self):
         """Refresh the profile list from the profile manager."""
-        # Clear existing rows - use remove_all() for O(1) instead of O(n²) loop removal
-        self._profiles_listbox.remove_all()
+        # Clear existing rows (Gtk.ListBox.remove_all() requires GTK 4.12+)
+        remove_all_children(self._profiles_listbox)
 
         # Get profiles from manager
         if self._profile_manager is None:

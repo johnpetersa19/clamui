@@ -19,6 +19,7 @@ from gi.repository import Adw, GLib, Gtk
 
 from ...core.i18n import _, ngettext
 from ...core.scanner import ScanProgress
+from ..compat import safe_set_subtitle_lines
 from ..utils import resolve_icon_name
 
 
@@ -70,7 +71,7 @@ class ScanProgressWidget(Gtk.Box):
         self._current_file_row = Adw.ActionRow()
         self._current_file_row.set_title(_("Currently scanning"))
         self._current_file_row.set_subtitle(_("Waiting for scan data..."))
-        self._current_file_row.set_subtitle_lines(1)
+        safe_set_subtitle_lines(self._current_file_row, 1)
         self._file_spinner = Gtk.Spinner()
         self._file_spinner.set_spinning(True)
         self._current_file_row.add_prefix(self._file_spinner)

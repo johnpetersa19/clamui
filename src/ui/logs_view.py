@@ -15,7 +15,12 @@ from ..core.i18n import _
 from ..core.log_manager import DaemonStatus, LogEntry, LogManager
 from ..core.statistics_calculator import StatisticsCalculator
 from .clipboard_helper import ClipboardHelper
-from .compat import create_toolbar_view, safe_add_suffix, safe_add_titled_with_icon
+from .compat import (
+    create_toolbar_view,
+    remove_all_children,
+    safe_add_suffix,
+    safe_add_titled_with_icon,
+)
 from .file_export import CSV_FILTER, JSON_FILTER, TEXT_FILTER, FileExportHelper
 from .fullscreen_dialog import FullscreenLogDialog
 from .pagination import PaginatedListController
@@ -1219,7 +1224,8 @@ class LogsView(Gtk.Box):
 
                 # Clear existing rows and show loading placeholder in listbox
                 # This is done synchronously but is fast enough for typical row counts
-                self._logs_listbox.remove_all()
+                # (Gtk.ListBox.remove_all() requires GTK 4.12+)
+                remove_all_children(self._logs_listbox)
                 loading_row = self._create_loading_state()
                 self._logs_listbox.append(loading_row)
             else:
