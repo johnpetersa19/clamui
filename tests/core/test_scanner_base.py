@@ -8,6 +8,7 @@ from src.core.scanner_base import (
     KILL_WAIT_TIMEOUT,
     STREAM_POLL_TIMEOUT,
     TERMINATE_GRACE_TIMEOUT,
+    _extract_skipped_path,
     cleanup_process,
     collect_clamav_warnings,
     communicate_with_cancel_check,
@@ -659,12 +660,33 @@ class TestCollectClamavWarnings:
         assert len(nonfatal) == 1
         assert hard_errors == []
 
-    def test_per_file_time_limit_reached_classified_as_skipped(self):
-        """Per-file CL_ETIMEOUT lines end with ERROR but are partial scans, not failures."""
+    def test_per_file_time_limit_reached_classified_as_nonfatal(self):
+        """Per-file CL_ETIMEOUT lines are partial scans: nonfatal, not skipped files."""
         stdout = "/home/user/huge.tar: Time limit reached ERROR\n"
         skipped, nonfatal, hard_errors = collect_clamav_warnings(stdout, "")
-        assert skipped == ["/home/user/huge.tar"]
+        assert skipped == []
+        assert nonfatal == ["/home/user/huge.tar: Time limit reached ERROR"]
         assert hard_errors == []
+
+    def test_marker_first_cant_access_file_extracts_trailing_path(self):
+        """clamdscan's 'ERROR: Can't access file <path>' names the path AFTER the marker."""
+        assert _extract_skipped_path("ERROR: Can't access file /root/gone.bin") == "/root/gone.bin"
+
+    def test_marker_first_cant_access_file_lines_yield_distinct_paths(self):
+        """Two marker-first access errors must produce two distinct skipped paths."""
+        stdout = (
+            "ERROR: Can't access file /root/gone.bin\nERROR: Can't access file /root/gone2.bin\n"
+        )
+        skipped, nonfatal, hard_errors = collect_clamav_warnings(stdout, "")
+        assert skipped == ["/root/gone.bin", "/root/gone2.bin"]
+        assert hard_errors == []
+
+    def test_novel_marker_first_line_does_not_yield_garbage_path(self):
+        """Unknown marker-first wordings must stay hard errors, not become path 'ERROR'."""
+        stdout = "ERROR: Access denied\n"
+        skipped, nonfatal, hard_errors = collect_clamav_warnings(stdout, "")
+        assert skipped == []
+        assert hard_errors == ["ERROR: Access denied"]
 
     def test_per_file_access_denied_classified_as_skipped(self):
         """Plain 'Access denied' lines from clamscan -v are skipped files."""
@@ -707,6 +729,7 @@ class TestParseTotalErrors:
     """Tests for parse_total_errors summary parsing."""
 
     def test_parses_total_errors_from_summary(self):
+        """The 'Total errors: N' summary line yields its numeric count."""
         stdout = (
             "----------- SCAN SUMMARY -----------\n"
             "Scanned files: 340\n"
@@ -717,8 +740,10 @@ class TestParseTotalErrors:
         assert parse_total_errors(stdout) == 3
 
     def test_returns_zero_when_summary_line_absent(self):
+        """A summary without a 'Total errors' line parses as zero errors."""
         stdout = "----------- SCAN SUMMARY -----------\nScanned files: 5\n"
         assert parse_total_errors(stdout) == 0
 
     def test_returns_zero_for_empty_output(self):
+        """Empty scanner output parses as zero errors."""
         assert parse_total_errors("") == 0

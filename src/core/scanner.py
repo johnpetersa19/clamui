@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 from gi.repository import GLib
 
 from .clamav_config import parse_config
-from .i18n import _
 from .log_manager import LogManager
 from .scanner_base import (
     cleanup_process,
@@ -25,7 +24,7 @@ from .scanner_base import (
     communicate_with_cancel_check,
     create_cancelled_result,
     create_error_result,
-    parse_total_errors,
+    resolve_exit2_status,
     save_scan_log,
     stream_process_output,
     terminate_process_gracefully,
@@ -930,6 +929,7 @@ class Scanner:
 
         # Determine overall status based on exit code
         warning_message = None
+        exit2_error_message = None
         if infected_count > 0:
             # Detections are authoritative: clamscan returns exit code 2 when it
             # both finds a virus and hits an error (e.g. an unreadable file), so
@@ -942,35 +942,19 @@ class Scanner:
         elif exit_code == 1:
             status = ScanStatus.INFECTED
         elif exit_code == 2:
-            # Exit code 2 = warnings/errors. clamscan reports 2 even for benign,
-            # by-design situations (unreadable files, files exceeding scan limits,
-            # truncated archives). Treat as CLEAN only when we positively identified
-            # the cause as non-fatal (a skipped file or a limit/truncation warning)
-            # and nothing looked like a hard error. Unrecognized stderr stays ERROR.
-            total_errors = parse_total_errors(stdout)
-            if not hard_error_lines and (skipped_files or nonfatal_warnings):
-                status = ScanStatus.CLEAN
-                if skipped_files:
-                    warning_message = f"{len(skipped_files)} file(s) could not be accessed"
-                else:
-                    warning_message = _(
-                        "{count} non-fatal warning(s) during scan; some files may "
-                        "have been only partially scanned"
-                    ).format(count=len(nonfatal_warnings))
-            elif not hard_error_lines and total_errors > 0:
-                # -i mode suppresses per-file "Access denied" lines, so the
-                # summary's "Total errors: N" is the only positive signal that
-                # exit 2 was caused by unreadable files, not a scan failure.
-                status = ScanStatus.CLEAN
-                warning_message = _("{count} file(s) could not be read").format(count=total_errors)
-            else:
-                status = ScanStatus.ERROR
+            status, warning_message, exit2_error_message = resolve_exit2_status(
+                stdout, scanned_files, hard_error_lines, skipped_files, nonfatal_warnings
+            )
         else:
             status = ScanStatus.ERROR
 
         error_message = None
         if status == ScanStatus.ERROR:
-            error_message = stderr.strip() or (hard_error_lines[0] if hard_error_lines else None)
+            error_message = (
+                exit2_error_message
+                or stderr.strip()
+                or (hard_error_lines[0] if hard_error_lines else None)
+            )
 
         return ScanResult(
             status=status,

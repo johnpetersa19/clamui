@@ -18,7 +18,6 @@ from pathlib import Path
 from gi.repository import GLib
 
 from .flatpak import is_flatpak, wrap_host_command
-from .i18n import _
 from .log_manager import LogManager
 from .sanitize import sanitize_surrogate_path
 from .scanner_base import (
@@ -27,7 +26,8 @@ from .scanner_base import (
     communicate_with_cancel_check,
     create_cancelled_result,
     create_error_result,
-    parse_total_errors,
+    is_genuine_error_line,
+    resolve_exit2_status,
     save_scan_log,
     stream_process_output,
     terminate_process_gracefully,
@@ -842,6 +842,7 @@ class DaemonScanner:
 
         # Determine overall status based on exit code
         warning_message = None
+        exit2_error_message = None
         if infected_count > 0:
             # Detections are authoritative: clamdscan returns exit code 2 when it
             # both finds a virus and hits an error (e.g. an unreadable file), so
@@ -854,46 +855,29 @@ class DaemonScanner:
             # error replies (per-file "... ERROR" or clamdscan's own "ERROR:" /
             # "LibClamAV Error:" lines) may override it — stray unrecognized
             # warning lines must not flip a successful scan to ERROR.
-            genuine_error_lines = [
-                line
-                for line in hard_error_lines
-                if line.endswith(" ERROR") or line.startswith(("ERROR:", "LibClamAV Error:"))
-            ]
+            genuine_error_lines = [line for line in hard_error_lines if is_genuine_error_line(line)]
             status = ScanStatus.ERROR if genuine_error_lines else ScanStatus.CLEAN
         elif exit_code == 1:
             status = ScanStatus.INFECTED
         elif exit_code == 2:
-            # Exit code 2 = warnings/errors. clamscan/clamdscan report 2 even for
-            # benign, by-design situations (unreadable files, files exceeding scan
-            # limits, truncated archives). Treat as CLEAN only when we positively
-            # identified the cause as non-fatal (a skipped file or a limit/truncation
-            # warning) and nothing looked like a hard error. Unrecognized stderr
-            # stays ERROR.
-            total_errors = parse_total_errors(stdout)
-            if not hard_error_lines and (skipped_files or nonfatal_warnings):
-                status = ScanStatus.CLEAN
-                if skipped_files:
-                    warning_message = f"{len(skipped_files)} file(s) could not be accessed"
-                else:
-                    warning_message = _(
-                        "{count} non-fatal warning(s) during scan; some files may "
-                        "have been only partially scanned"
-                    ).format(count=len(nonfatal_warnings))
-            elif not hard_error_lines and total_errors > 0:
-                # -i mode suppresses per-file "Access denied" lines, so the
-                # summary's "Total errors: N" is the only positive signal that
-                # exit 2 was caused by unreadable files, not a scan failure.
-                status = ScanStatus.CLEAN
-                warning_message = _("{count} file(s) could not be read").format(count=total_errors)
-            else:
-                status = ScanStatus.ERROR
+            # scanned_files here is ClamUI's own pre-count of scan targets
+            # (clamdscan reports no summary counts), so the helper compares
+            # failure signals against it instead of requiring it to be > 0.
+            status, warning_message, exit2_error_message = resolve_exit2_status(
+                stdout,
+                file_count,
+                hard_error_lines,
+                skipped_files,
+                nonfatal_warnings,
+                scanned_is_precount=True,
+            )
         else:
             status = ScanStatus.ERROR
 
         # Prefer stderr for hard errors, but fall back to a concise stdout line when stderr is empty.
         error_message: str | None = None
         if status == ScanStatus.ERROR:
-            error_message = stderr.strip() or None
+            error_message = exit2_error_message or stderr.strip() or None
             if error_message is None:
                 if hard_error_lines:
                     error_message = hard_error_lines[0]

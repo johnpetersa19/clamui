@@ -296,7 +296,7 @@ Infected files: 1
 /home/user/a.txt: File path check failure: Permission denied. ERROR
 /home/user/b.txt: File path check failure: Permission denied. ERROR
 """
-        result = scanner._parse_results("/home/user", stdout, "", 2, file_count=2, dir_count=0)
+        result = scanner._parse_results("/home/user", stdout, "", 2, file_count=3, dir_count=0)
 
         assert result.status == scan_status_class.CLEAN
         assert result.infected_count == 0
@@ -313,7 +313,7 @@ Infected files: 1
 /home/user/a.txt: File path check failure: Permission denied. ERROR
 /home/user/a.txt: File path check failure: Permission denied. ERROR
 """
-        result = scanner._parse_results("/home/user", stdout, "", 2, file_count=1, dir_count=0)
+        result = scanner._parse_results("/home/user", stdout, "", 2, file_count=2, dir_count=0)
 
         assert result.status == scan_status_class.CLEAN
         assert result.skipped_count == 1
@@ -331,7 +331,7 @@ LibClamAV Warning: cli_realpath: Invalid arguments.
 WARNING: /home/user/.cache/steam_pipe: Not supported file type
 LibClamAV Warning: cli_realpath: Invalid arguments.
 """
-        result = scanner._parse_results("/home/user", stdout, "", 2, file_count=2, dir_count=0)
+        result = scanner._parse_results("/home/user", stdout, "", 2, file_count=3, dir_count=0)
 
         assert result.status == scan_status_class.CLEAN
         assert result.infected_count == 0
@@ -341,6 +341,48 @@ LibClamAV Warning: cli_realpath: Invalid arguments.
             "/home/user/.cache/steam_pipe",
         ]
         assert result.warning_message == "2 file(s) could not be accessed"
+
+    def test_parse_results_all_files_skipped_is_error(
+        self, daemon_scanner_class, scan_status_class
+    ):
+        """Exit 2 where every pre-counted file was inaccessible must not report CLEAN."""
+        scanner = daemon_scanner_class()
+
+        stdout = "".join(f"/root/secret{i}.txt: Access denied. ERROR\n" for i in range(1, 6))
+        result = scanner._parse_results("/root", stdout, "", 2, file_count=5, dir_count=1)
+
+        assert result.status == scan_status_class.ERROR
+        assert result.error_message == "No files could be scanned"
+        assert result.skipped_count == 5
+
+    def test_parse_results_all_skipped_without_precount_still_downgrades(
+        self, daemon_scanner_class, scan_status_class
+    ):
+        """With counting disabled (file_count=0) skip warnings still downgrade to CLEAN."""
+        scanner = daemon_scanner_class()
+
+        stdout = "/root/secret.txt: Access denied. ERROR\n"
+        result = scanner._parse_results("/root", stdout, "", 2, file_count=0, dir_count=0)
+
+        assert result.status == scan_status_class.CLEAN
+        assert result.skipped_files == ["/root/secret.txt"]
+        assert result.warning_message == "1 file(s) could not be accessed"
+
+    def test_parse_results_total_errors_covering_precount_is_error(
+        self, daemon_scanner_class, scan_status_class
+    ):
+        """'Total errors' matching the pre-count means every file failed -> ERROR."""
+        scanner = daemon_scanner_class()
+
+        stdout = """
+----------- SCAN SUMMARY -----------
+Infected files: 0
+Total errors: 4
+"""
+        result = scanner._parse_results("/root", stdout, "", 2, file_count=4, dir_count=1)
+
+        assert result.status == scan_status_class.ERROR
+        assert result.error_message == "No files could be scanned"
 
     def test_parse_results_exit_code_2_with_detection_is_infected(
         self, daemon_scanner_class, scan_status_class

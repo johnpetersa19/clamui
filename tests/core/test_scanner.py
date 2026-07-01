@@ -954,15 +954,19 @@ Total errors: 1
     def test_parse_results_cant_access_file_warning_is_skipped(self):
         """'WARNING: <path>: Can't access file' (file deleted mid-scan) is a skip."""
         scanner = Scanner()
+        stdout = """----------- SCAN SUMMARY -----------
+Scanned files: 1
+Infected files: 0
+"""
         stderr = "WARNING: /home/user/tmp/ephemeral.dat: Can't access file\n"
 
-        result = scanner._parse_results("/home/user", "", stderr, 2)
+        result = scanner._parse_results("/home/user", stdout, stderr, 2)
 
         assert result.status == ScanStatus.CLEAN
         assert result.skipped_files == ["/home/user/tmp/ephemeral.dat"]
 
-    def test_parse_results_time_limit_reached_is_skipped(self):
-        """Per-file 'Time limit reached ERROR' lines are partial scans, not failures."""
+    def test_parse_results_time_limit_reached_is_nonfatal(self):
+        """Per-file 'Time limit reached ERROR' lines are partial scans, not skipped files."""
         scanner = Scanner()
         stdout = """/home/user/huge.tar: Time limit reached ERROR
 
@@ -973,7 +977,39 @@ Infected files: 0
         result = scanner._parse_results("/home/user", stdout, "", 2)
 
         assert result.status == ScanStatus.CLEAN
-        assert result.skipped_files == ["/home/user/huge.tar"]
+        assert result.skipped_files == []
+        assert result.nonfatal_warnings == ["/home/user/huge.tar: Time limit reached ERROR"]
+        assert result.warning_message == (
+            "1 non-fatal warning(s) during scan; some files may have been only partially scanned"
+        )
+
+    def test_parse_results_total_errors_with_zero_scanned_is_error(self):
+        """Exit 2 where every file failed ('Scanned files: 0') must not report CLEAN."""
+        scanner = Scanner()
+        stdout = """----------- SCAN SUMMARY -----------
+Scanned directories: 1
+Scanned files: 0
+Infected files: 0
+Total errors: 3
+"""
+        result = scanner._parse_results("/root", stdout, "", 2)
+
+        assert result.status == ScanStatus.ERROR
+        assert result.error_message == "No files could be scanned"
+
+    def test_parse_results_skipped_files_with_zero_scanned_is_error(self):
+        """Exit 2 with only skip warnings and no scanned files is an all-failed ERROR."""
+        scanner = Scanner()
+        stdout = """----------- SCAN SUMMARY -----------
+Scanned files: 0
+Infected files: 0
+"""
+        stderr = "WARNING: /gone: Can't access file\n"
+
+        result = scanner._parse_results("/gone", stdout, stderr, 2)
+
+        assert result.status == ScanStatus.ERROR
+        assert result.error_message == "No files could be scanned"
 
     def test_parse_results_nonfatal_only_downgrade_sets_warning_fields(self):
         """A nonfatal-only downgrade must surface the warnings to the caller."""
