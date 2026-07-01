@@ -42,6 +42,10 @@ def _make_result(
     infected_files=None,
     error_message=None,
     threat_details=None,
+    skipped_files=None,
+    skipped_count=0,
+    warning_message=None,
+    nonfatal_warnings=None,
 ):
     """Create a ScanResult using fresh imports to avoid enum identity issues."""
     from src.core.scanner_types import ScanResult, ScanStatus
@@ -59,6 +63,10 @@ def _make_result(
         infected_count=infected_count,
         error_message=error_message,
         threat_details=threat_details or [],
+        skipped_files=skipped_files or [],
+        skipped_count=skipped_count,
+        warning_message=warning_message,
+        nonfatal_warnings=nonfatal_warnings or [],
     )
 
 
@@ -419,6 +427,45 @@ class TestAggregatedResult:
         result = agg.to_scan_result(["/only/one"])
         assert result.path == "/only/one"
 
+    def test_to_scan_result_forwards_skipped_warning_fields(self, mock_gi_for_controller):
+        """Skipped files and nonfatal warnings must survive the conversion."""
+        if "src.ui.scan.scan_controller" in sys.modules:
+            del sys.modules["src.ui.scan.scan_controller"]
+        from src.ui.scan.scan_controller import AggregatedResult
+
+        agg = AggregatedResult(
+            skipped_files=["/a/locked", "/b/locked"],
+            skipped_count=2,
+            nonfatal_warnings=["LibClamAV Warning: cli_scanxz: exceeds limits"],
+        )
+        result = agg.to_scan_result(["/a", "/b"])
+        assert result.skipped_files == ["/a/locked", "/b/locked"]
+        assert result.skipped_count == 2
+        assert result.nonfatal_warnings == ["LibClamAV Warning: cli_scanxz: exceeds limits"]
+        assert result.warning_message == "2 file(s) could not be accessed"
+        assert result.has_warnings
+
+    def test_to_scan_result_warning_message_without_skips(self, mock_gi_for_controller):
+        """Without skipped files, distinct per-target messages are joined."""
+        if "src.ui.scan.scan_controller" in sys.modules:
+            del sys.modules["src.ui.scan.scan_controller"]
+        from src.ui.scan.scan_controller import AggregatedResult
+
+        agg = AggregatedResult(warning_messages=["limit warning A", "limit warning B"])
+        result = agg.to_scan_result(["/a"])
+        assert result.warning_message == "limit warning A; limit warning B"
+        assert result.skipped_count == 0
+
+    def test_to_scan_result_no_warnings_yields_none_message(self, mock_gi_for_controller):
+        if "src.ui.scan.scan_controller" in sys.modules:
+            del sys.modules["src.ui.scan.scan_controller"]
+        from src.ui.scan.scan_controller import AggregatedResult
+
+        agg = AggregatedResult()
+        result = agg.to_scan_result(["/a"])
+        assert result.warning_message is None
+        assert not result.has_warnings
+
 
 # =============================================================================
 # Result Aggregation Logic
@@ -490,6 +537,42 @@ class TestResultAggregation:
         assert agg.total_dirs == 5
         assert agg.total_infected == 1
         _assert_status(agg, "infected")
+
+    def test_aggregate_result_merges_skipped_and_warning_fields(self, controller):
+        """Skipped files dedup across targets; counts sum; messages stay distinct."""
+        from src.ui.scan.scan_controller import AggregatedResult
+
+        agg = AggregatedResult()
+        first = _make_result(
+            status_value="clean",
+            path="/a",
+            skipped_files=["/a/locked", "/shared/locked"],
+            skipped_count=2,
+            warning_message="2 file(s) could not be accessed",
+            nonfatal_warnings=["LibClamAV Warning: cli_tnef: file truncated, returning CLEAN"],
+        )
+        second = _make_result(
+            status_value="clean",
+            path="/b",
+            skipped_files=["/shared/locked", "/b/locked"],
+            skipped_count=2,
+            warning_message="2 file(s) could not be accessed",
+            nonfatal_warnings=[
+                "LibClamAV Warning: cli_tnef: file truncated, returning CLEAN",
+                "LibClamAV Warning: cli_scanxz: decompress file size exceeds limits",
+            ],
+        )
+
+        controller._aggregate_result(agg, first)
+        controller._aggregate_result(agg, second)
+
+        assert agg.skipped_files == ["/a/locked", "/shared/locked", "/b/locked"]
+        assert agg.skipped_count == 4
+        assert agg.nonfatal_warnings == [
+            "LibClamAV Warning: cli_tnef: file truncated, returning CLEAN",
+            "LibClamAV Warning: cli_scanxz: decompress file size exceeds limits",
+        ]
+        assert agg.warning_messages == ["2 file(s) could not be accessed"]
 
     def test_aggregate_partial_from_cancelled(self, controller):
         """_aggregate_partial should accumulate partial data without status change."""

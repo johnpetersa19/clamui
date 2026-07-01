@@ -60,19 +60,23 @@ class ScanView(Gtk.Box):
         self,
         settings_manager: SettingsManager | None = None,
         quarantine_manager: QuarantineManager | None = None,
+        log_manager=None,
         **kwargs,
     ):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, **kwargs)
 
         self._settings_manager = settings_manager
         self._quarantine_manager = quarantine_manager or QuarantineManager()
+        self._log_manager = log_manager
         self._current_result: ScanResult | None = None
         self._scan_state_callback = None
         self._eicar_temp_path = ""
 
         self._setup_css()
-        self._setup_ui()
+        # The controller creates the Scanner that _setup_ui's backend
+        # indicator reads, so it must be wired first.
         self._setup_controller()
+        self._setup_ui()
 
     def _setup_css(self):
         css_provider = Gtk.CssProvider()
@@ -135,7 +139,9 @@ class ScanView(Gtk.Box):
         self._setup_drop_target()
 
     def _setup_controller(self):
-        self._scanner = Scanner(settings_manager=self._settings_manager)
+        self._scanner = Scanner(
+            log_manager=self._log_manager, settings_manager=self._settings_manager
+        )
 
         self._controller = ScanController(self._scanner, self._settings_manager)
         self._controller.set_callbacks(
@@ -245,11 +251,18 @@ class ScanView(Gtk.Box):
                 StatusLevel.WARNING,
             )
         elif result.status == ScanStatus.CLEAN:
-            msg = _("Scan complete - No threats found")
-            if result.has_warnings:
+            if result.skipped_count > 0:
                 msg = _("Scan complete - No threats found ({count} file(s) not accessible)").format(
                     count=result.skipped_count
                 )
+            elif result.warning_message:
+                # Warnings without a skipped-file count (e.g. non-fatal scanner
+                # warnings) — never render a bare "0 file(s)" message.
+                msg = _("Scan complete - No threats found ({warning})").format(
+                    warning=result.warning_message
+                )
+            else:
+                msg = _("Scan complete - No threats found")
             self._show_banner(msg, StatusLevel.SUCCESS)
         elif result.status == ScanStatus.CANCELLED:
             self._show_banner(_("Scan cancelled"), StatusLevel.WARNING)
@@ -391,6 +404,11 @@ class ScanView(Gtk.Box):
 
     # --- Public API ---
 
+    @property
+    def is_scanning(self) -> bool:
+        """Whether a scan is currently in progress."""
+        return self._controller.is_scanning
+
     def set_scan_state_changed_callback(self, callback):
         self._scan_state_callback = callback
 
@@ -408,6 +426,9 @@ class ScanView(Gtk.Box):
 
     def _set_selected_path(self, path: str):
         self._target_selector.set_paths([path])
+
+    def _replace_selected_paths(self, paths: list[str]) -> None:
+        self._target_selector.set_paths(paths)
 
     def _start_scan_public(self):
         self._start_scan()

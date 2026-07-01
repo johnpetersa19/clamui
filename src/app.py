@@ -863,6 +863,16 @@ class ClamUIApp(Adw.Application):
             win.set_active_view(view_name)
             self._current_view = view_name
 
+    def switch_to_view(self, view_name: str):
+        """Switch the active view by name (e.g. "scan", "logs")."""
+        self._view_coordinator.switch_to_view(view_name, getattr(self, f"{view_name}_view"))
+
+    def _show_window_toast(self, message: str) -> None:
+        """Show a toast notification on the main window if one is available."""
+        win = self.props.active_window
+        if win is not None and hasattr(win, "add_toast"):
+            win.add_toast(Adw.Toast.new(message))
+
     def set_initial_scan_paths(self, file_paths: list[str], use_virustotal: bool = False):
         """Store initial scan paths from CLI or file manager integration."""
         self._initial_scan_paths = file_paths
@@ -874,23 +884,52 @@ class ClamUIApp(Adw.Application):
         if not self._initial_scan_paths:
             return
 
+        if not self._scan_view:
+            # Keep the request pending; do_activate re-processes it once the
+            # scan view has been created.
+            return
+
+        if self._scan_view.is_scanning:
+            # Repopulating the selection now would mutate the target list the
+            # scan worker thread is using; drop the request and tell the user.
+            self._initial_scan_paths = []
+            self._initial_use_virustotal = False
+            self._show_window_toast(
+                _("A scan is already running — the new scan request was ignored")
+            )
+            return
+
         paths = self._initial_scan_paths
         self._initial_scan_paths = []
 
         use_vt = self._initial_use_virustotal
         self._initial_use_virustotal = False
 
-        if self._scan_view:
-            if use_vt:
-                # VirusTotal scans a single file per request; only the first
-                # path is forwarded to the setup dialog and scan pipeline.
-                self._scan_view._set_selected_path(paths[0])
-                self._show_virustotal_setup_dialog(paths[0])
-            else:
-                # ClamAV scans every CLI-provided target (files and folders),
-                # so populate the full selection before starting.
-                self._scan_view._replace_selected_paths(paths)
-                self._scan_view._start_scan()
+        # Surface the scan UI so a second invocation does not start a scan
+        # invisibly under whichever view is currently shown.
+        self.switch_to_view("scan")
+
+        if use_vt:
+            # VirusTotal scans a single file per request; only the first
+            # path is forwarded to the setup dialog and scan pipeline.
+            if len(paths) > 1:
+                ignored_count = len(paths) - 1
+                self._show_window_toast(
+                    ngettext(
+                        "VirusTotal scans one file per request — "
+                        "{count} additional selection was ignored",
+                        "VirusTotal scans one file per request — "
+                        "{count} additional selections were ignored",
+                        ignored_count,
+                    ).format(count=ignored_count)
+                )
+            self._scan_view._set_selected_path(paths[0])
+            self._show_virustotal_setup_dialog(paths[0])
+        else:
+            # ClamAV scans every CLI-provided target (files and folders),
+            # so populate the full selection before starting.
+            self._scan_view._replace_selected_paths(paths)
+            self._scan_view._start_scan()
 
     def _trigger_virustotal_scan(self, file_path: str, api_key: str) -> None:
         """Trigger a VirusTotal scan for the specified file."""

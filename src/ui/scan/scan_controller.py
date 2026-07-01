@@ -41,10 +41,23 @@ class AggregatedResult:
     infected_files: list[str] = field(default_factory=list)
     threat_details: list = field(default_factory=list)
     error_messages: list[str] = field(default_factory=list)
+    skipped_files: list[str] = field(default_factory=list)
+    skipped_count: int = 0
+    nonfatal_warnings: list[str] = field(default_factory=list)
+    warning_messages: list[str] = field(default_factory=list)
 
     def to_scan_result(self, paths: list[str]) -> ScanResult:
         """Convert to ScanResult for dialog compatibility."""
         exit_code = 1 if self.status == ScanStatus.INFECTED else (2 if self.error_messages else 0)
+        # Re-derive the single-target phrasing when files were skipped,
+        # otherwise join the distinct per-target messages (e.g. non-fatal
+        # scanner warnings) — same composition as the legacy ScanView.
+        if self.skipped_count > 0:
+            warning_message = f"{self.skipped_count} file(s) could not be accessed"
+        elif self.warning_messages:
+            warning_message = "; ".join(self.warning_messages)
+        else:
+            warning_message = None
         return ScanResult(
             status=self.status,
             path=", ".join(paths) if len(paths) > 1 else paths[0] if paths else "",
@@ -57,6 +70,10 @@ class AggregatedResult:
             infected_count=self.total_infected,
             error_message="; ".join(self.error_messages) if self.error_messages else None,
             threat_details=self.threat_details,
+            skipped_files=self.skipped_files,
+            skipped_count=self.skipped_count,
+            warning_message=warning_message,
+            nonfatal_warnings=self.nonfatal_warnings,
         )
 
 
@@ -224,11 +241,7 @@ class ScanController:
 
     def _aggregate_result(self, agg: AggregatedResult, scan: ScanResult):
         """Add scan result to aggregated total."""
-        agg.total_files += scan.scanned_files
-        agg.total_dirs += scan.scanned_dirs
-        agg.total_infected += scan.infected_count
-        agg.infected_files.extend(scan.infected_files)
-        agg.threat_details.extend(scan.threat_details)
+        self._aggregate_partial(agg, scan)
 
         if scan.status == ScanStatus.ERROR and scan.error_message:
             agg.error_messages.append(scan.error_message)
@@ -242,6 +255,15 @@ class ScanController:
         agg.total_infected += scan.infected_count
         agg.infected_files.extend(scan.infected_files)
         agg.threat_details.extend(scan.threat_details)
+        for skipped in scan.skipped_files or []:
+            if skipped not in agg.skipped_files:
+                agg.skipped_files.append(skipped)
+        agg.skipped_count += scan.skipped_count
+        for warning in scan.nonfatal_warnings or []:
+            if warning not in agg.nonfatal_warnings:
+                agg.nonfatal_warnings.append(warning)
+        if scan.warning_message and scan.warning_message not in agg.warning_messages:
+            agg.warning_messages.append(scan.warning_message)
 
     def _create_progress_callback(self):
         """Create throttled progress callback."""

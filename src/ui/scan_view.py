@@ -1988,7 +1988,12 @@ class ScanView(Gtk.Box):
         Scans each selected path sequentially and aggregates results.
         """
         try:
-            if not self._selected_paths:
+            # Snapshot the targets: self._selected_paths can be repopulated
+            # from the main thread (e.g. a second CLI/file-manager invocation)
+            # while this worker is running; iterating the live list would
+            # corrupt the scan session.
+            targets = list(self._selected_paths)
+            if not targets:
                 # Should not happen, but handle gracefully
                 result = ScanResult(
                     status=ScanStatus.ERROR,
@@ -2029,15 +2034,20 @@ class ScanView(Gtk.Box):
             all_threat_details: list = []
             all_stdout: list[str] = []
             all_stderr: list[str] = []
+            all_skipped_files: list[str] = []
+            seen_skipped_files: set[str] = set()
+            total_skipped_count = 0
+            all_nonfatal_warnings: list[str] = []
+            all_warning_messages: list[str] = []
             has_errors = False
             error_messages: list[str] = []
             final_status = ScanStatus.CLEAN
 
-            target_count = len(self._selected_paths)
+            target_count = len(targets)
             backend_override = self._scan_backend_override
             daemon_force_stream = self._scan_daemon_force_stream
 
-            for idx, target_path in enumerate(self._selected_paths, start=1):
+            for idx, target_path in enumerate(targets, start=1):
                 # Check if cancel all was requested before starting next target
                 if self._cancel_all_requested:
                     logger.info(f"Cancel all requested, skipping target {idx}/{target_count}")
@@ -2075,23 +2085,29 @@ class ScanView(Gtk.Box):
                     daemon_force_stream=daemon_force_stream,
                 )
 
-                # Check if scan was cancelled (either this target or cancel all)
-                if result.status == ScanStatus.CANCELLED or self._cancel_all_requested:
-                    # Aggregate partial results from this cancelled target
-                    total_scanned_files += result.scanned_files
-                    total_scanned_dirs += result.scanned_dirs
-                    total_infected_count += result.infected_count
-                    all_infected_files.extend(result.infected_files)
-                    all_threat_details.extend(result.threat_details)
-                    final_status = ScanStatus.CANCELLED
-                    break
-
-                # Aggregate results
+                # Aggregate results (also partial results from a cancelled target)
                 total_scanned_files += result.scanned_files
                 total_scanned_dirs += result.scanned_dirs
                 total_infected_count += result.infected_count
                 all_infected_files.extend(result.infected_files)
                 all_threat_details.extend(result.threat_details)
+                for skipped in result.skipped_files or []:
+                    if skipped not in seen_skipped_files:
+                        seen_skipped_files.add(skipped)
+                        all_skipped_files.append(skipped)
+                total_skipped_count += result.skipped_count
+                # nonfatal_warnings is a newer ScanResult field; read it
+                # defensively so aggregation works with or without it.
+                for warning in getattr(result, "nonfatal_warnings", None) or []:
+                    if warning not in all_nonfatal_warnings:
+                        all_nonfatal_warnings.append(warning)
+                if result.warning_message and result.warning_message not in all_warning_messages:
+                    all_warning_messages.append(result.warning_message)
+
+                # Check if scan was cancelled (either this target or cancel all)
+                if result.status == ScanStatus.CANCELLED or self._cancel_all_requested:
+                    final_status = ScanStatus.CANCELLED
+                    break
 
                 if result.stdout:
                     all_stdout.append(f"=== {target_path} ===\n{result.stdout}")
@@ -2115,12 +2131,20 @@ class ScanView(Gtk.Box):
                 else:
                     final_status = ScanStatus.CLEAN
 
+            # Compose the aggregated warning: re-derive the single-target
+            # phrasing when files were skipped, otherwise join the distinct
+            # per-target messages (e.g. non-fatal scanner warnings).
+            if total_skipped_count > 0:
+                aggregated_warning = f"{total_skipped_count} file(s) could not be accessed"
+            elif all_warning_messages:
+                aggregated_warning = "; ".join(all_warning_messages)
+            else:
+                aggregated_warning = None
+
             # Build aggregated result
             aggregated_result = ScanResult(
                 status=final_status,
-                path=(
-                    ", ".join(self._selected_paths) if target_count > 1 else self._selected_paths[0]
-                ),
+                path=(", ".join(targets) if target_count > 1 else targets[0]),
                 stdout="\n\n".join(all_stdout),
                 stderr="\n\n".join(all_stderr),
                 exit_code=(1 if final_status == ScanStatus.INFECTED else (2 if has_errors else 0)),
@@ -2130,7 +2154,12 @@ class ScanView(Gtk.Box):
                 infected_count=total_infected_count,
                 error_message="; ".join(error_messages) if error_messages else None,
                 threat_details=all_threat_details,
+                skipped_files=all_skipped_files,
+                skipped_count=total_skipped_count,
+                warning_message=aggregated_warning,
             )
+            if hasattr(aggregated_result, "nonfatal_warnings"):
+                aggregated_result.nonfatal_warnings = all_nonfatal_warnings
 
             # Schedule UI update on main thread
             GLib.idle_add(self._on_scan_complete, aggregated_result)
@@ -2246,11 +2275,17 @@ class ScanView(Gtk.Box):
             )
         elif result.status == ScanStatus.CLEAN:
             self._show_view_results(0)
-            if result.has_warnings:
+            if result.skipped_count > 0:
                 # Clean but with warnings about skipped files
                 status_message = _(
                     "Scan complete - No threats found ({count} file(s) not accessible)"
                 ).format(count=result.skipped_count)
+            elif result.warning_message:
+                # Warnings without a skipped-file count (e.g. non-fatal scanner
+                # warnings) — never render a bare "0 file(s)" message.
+                status_message = _("Scan complete - No threats found ({warning})").format(
+                    warning=result.warning_message
+                )
             else:
                 status_message = _("Scan complete - No threats found")
             self._set_status_message(status_message, StatusLevel.SUCCESS)
@@ -2399,6 +2434,11 @@ class ScanView(Gtk.Box):
     def set_scan_state_changed_callback(self, callback):
         """Alias for set_on_scan_state_changed for backwards compatibility."""
         self.set_on_scan_state_changed(callback)
+
+    @property
+    def is_scanning(self) -> bool:
+        """Whether a scan is currently in progress."""
+        return self._is_scanning
 
     def get_selected_profile(self) -> "ScanProfile | None":
         """Return the currently selected scan profile."""
