@@ -186,8 +186,8 @@ class FileExportHelper:
             self._dialog_title,
             window,
             Gtk.FileChooserAction.SAVE,
-            "_Save",
-            "_Cancel",
+            _("_Save"),
+            _("_Cancel"),
         )
         dialog.set_current_name(default_name)
         dialog.add_filter(gtk_filter)

@@ -1289,6 +1289,21 @@ class TestPatternUtilities:
         assert compiled.match("/tmp/subdir")
         assert not compiled.match("/var/tmp/file")
 
+    def test_glob_to_regex_literal_trailing_dollar_is_anchored(self):
+        """A glob ending in a literal '$' must still get the end anchor.
+
+        'backup$' translates to r'backup\\$'; treating that escaped dollar
+        as the anchor left the pattern end-unanchored, silently excluding
+        every path that merely starts with 'backup$'.
+        """
+        import re
+
+        regex = glob_to_regex("backup$")
+        assert regex.endswith("\\$$")
+        compiled = re.compile(regex)
+        assert compiled.fullmatch("backup$")
+        assert not compiled.match("backup$2024.tar")
+
     def test_glob_to_regex_multiple_wildcards(self):
         """Test glob_to_regex handles multiple wildcards."""
         regex = glob_to_regex("*.test.*")

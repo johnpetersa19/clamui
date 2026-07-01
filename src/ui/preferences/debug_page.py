@@ -23,7 +23,7 @@ from ...core.flatpak import is_flatpak
 from ...core.i18n import N_, _, ngettext
 from ...core.logging_config import get_logging_config
 from ..compat import create_toolbar_view, save_path_dialog
-from ..utils import resolve_icon_name
+from ..utils import enable_escape_to_close, resolve_icon_name
 from .base import PreferencesPageMixin, styled_prefix_icon
 
 logger = logging.getLogger(__name__)
@@ -603,7 +603,7 @@ class DebugPage(PreferencesPageMixin):
 
         def on_export_success():
             """Called when export succeeds."""
-            self._show_toast("Logs exported successfully")
+            self._show_toast(_("Logs exported successfully"))
             self._update_log_size_display()
 
         def on_file_selected(file_path: str):
@@ -614,8 +614,8 @@ class DebugPage(PreferencesPageMixin):
             else:
                 GLib.idle_add(
                     self._show_simple_dialog,
-                    "Export Failed",
-                    "Failed to export log files. Check file permissions.",
+                    _("Export Failed"),
+                    _("Failed to export log files. Check file permissions."),
                 )
 
         # Use custom file chooser since we need ZIP export (not text content)
@@ -630,10 +630,10 @@ class DebugPage(PreferencesPageMixin):
             on_save_callback: Callback with file path when saved
         """
         zip_filter = Gtk.FileFilter()
-        zip_filter.set_name("ZIP Archives")
+        zip_filter.set_name(_("ZIP Archives"))
         zip_filter.add_pattern("*.zip")
         all_filter = Gtk.FileFilter()
-        all_filter.set_name("All Files")
+        all_filter.set_name(_("All Files"))
         all_filter.add_pattern("*")
 
         save_path_dialog(
@@ -650,7 +650,7 @@ class DebugPage(PreferencesPageMixin):
         log_files = logging_config.get_log_files()
 
         if not log_files:
-            self._show_simple_dialog("No Logs to Clear", "There are no log files to delete.")
+            self._show_simple_dialog(_("No Logs to Clear"), _("There are no log files to delete."))
             return
 
         # Show confirmation dialog
@@ -662,6 +662,7 @@ class DebugPage(PreferencesPageMixin):
         dialog.set_title(_("Clear Logs"))
         dialog.set_default_size(400, -1)
         dialog.set_modal(True)
+        enable_escape_to_close(dialog)
         dialog.set_deletable(True)
         dialog.set_transient_for(self._parent_window)
 
@@ -693,12 +694,12 @@ class DebugPage(PreferencesPageMixin):
         file_count = len(logging_config.get_log_files())
 
         label = Gtk.Label()
-        label.set_markup(
-            f"<b>Delete all log files?</b>\n\n"
-            f"This will permanently delete {file_count} log file(s) "
-            f"totaling {size_str}.\n\n"
-            f"This action cannot be undone."
+        heading = _("Delete all log files?")
+        body = _("This will permanently delete {count} log file(s) totaling {size}.").format(
+            count=file_count, size=size_str
         )
+        footer = _("This action cannot be undone.")
+        label.set_markup(f"<b>{heading}</b>\n\n{body}\n\n{footer}")
         label.set_wrap(True)
         label.set_justify(Gtk.Justification.CENTER)
         content_box.append(label)
@@ -708,11 +709,11 @@ class DebugPage(PreferencesPageMixin):
         button_box.set_halign(Gtk.Align.CENTER)
         button_box.set_margin_top(12)
 
-        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button = Gtk.Button(label=_("Cancel"))
         cancel_button.connect("clicked", lambda _: dialog.close())
         button_box.append(cancel_button)
 
-        delete_button = Gtk.Button(label="Delete Logs")
+        delete_button = Gtk.Button(label=_("Delete Logs"))
         delete_button.add_css_class("destructive-action")
         delete_button.connect("clicked", lambda _: self._do_clear_logs(dialog))
         button_box.append(delete_button)
@@ -736,11 +737,11 @@ class DebugPage(PreferencesPageMixin):
         success = logging_config.clear_logs()
 
         if success:
-            self._show_toast("Logs cleared successfully")
+            self._show_toast(_("Logs cleared successfully"))
         else:
             self._show_simple_dialog(
-                "Clear Failed",
-                "Some log files could not be deleted. They may be in use or protected.",
+                _("Clear Failed"),
+                _("Some log files could not be deleted. They may be in use or protected."),
             )
 
         # Update size display

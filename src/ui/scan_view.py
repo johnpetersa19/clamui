@@ -24,7 +24,7 @@ from ..core.utils import (
     validate_dropped_files,
 )
 from .clipboard_helper import ClipboardHelper
-from .compat import create_banner, open_paths_dialog
+from .compat import create_banner, open_paths_dialog, safe_set_subtitle_lines
 from .eicar_helper import (
     EICAR_TEST_STRING as _EICAR_HELPER_STRING,
 )
@@ -1309,7 +1309,7 @@ class ScanView(Gtk.Box):
         self._current_file_row = Adw.ActionRow()
         self._current_file_row.set_title(_("Currently scanning"))
         self._current_file_row.set_subtitle(_("Waiting for scan data..."))
-        self._current_file_row.set_subtitle_lines(1)
+        safe_set_subtitle_lines(self._current_file_row, 1)
         # Spinner prefix
         self._file_spinner = Gtk.Spinner()
         self._file_spinner.set_spinning(True)

@@ -29,6 +29,35 @@ _DATABASE_EXTENSIONS = {".cvd", ".cld", ".cud"}
 _DEFAULT_DATABASE_DIRS = ("/var/lib/clamav", "/usr/local/share/clamav")
 
 
+def systemd_unit_exists(unit_name: str) -> bool:
+    """
+    Check whether a systemd unit is actually known to systemd.
+
+    `systemctl is-active` prints "inactive" for units systemd has never
+    heard of, so callers probing multiple candidate unit names cannot use
+    its output alone to distinguish "installed but stopped" from
+    "not installed". LoadState is "loaded" only for real units.
+
+    Args:
+        unit_name: Full unit name (e.g. "clamav-freshclam.service")
+
+    Returns:
+        True if systemd reports the unit as loaded, False otherwise
+    """
+    try:
+        result = subprocess.run(
+            wrap_host_command(["systemctl", "show", "-p", "LoadState", "--value", unit_name]),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=get_clean_env(),
+        )
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        logger.debug("systemctl show failed for %s", unit_name, exc_info=True)
+        return False
+    return result.returncode == 0 and result.stdout.strip() == "loaded"
+
+
 def check_clamav_installed() -> tuple[bool, str | None]:
     """
     Check if ClamAV (clamscan) is installed and accessible.
