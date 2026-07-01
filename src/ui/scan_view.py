@@ -17,6 +17,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from ..core.i18n import _, ngettext
 from ..core.quarantine import QuarantineManager
+from ..core.result_formatters import clean_scan_status_message, compose_scan_warning
 from ..core.scanner import Scanner, ScanProgress, ScanResult, ScanStatus
 from ..core.utils import (
     format_scan_path,
@@ -2036,8 +2037,8 @@ class ScanView(Gtk.Box):
             all_stderr: list[str] = []
             all_skipped_files: list[str] = []
             seen_skipped_files: set[str] = set()
-            total_skipped_count = 0
             all_nonfatal_warnings: list[str] = []
+            seen_nonfatal_warnings: set[str] = set()
             all_warning_messages: list[str] = []
             has_errors = False
             error_messages: list[str] = []
@@ -2095,11 +2096,9 @@ class ScanView(Gtk.Box):
                     if skipped not in seen_skipped_files:
                         seen_skipped_files.add(skipped)
                         all_skipped_files.append(skipped)
-                total_skipped_count += result.skipped_count
-                # nonfatal_warnings is a newer ScanResult field; read it
-                # defensively so aggregation works with or without it.
-                for warning in getattr(result, "nonfatal_warnings", None) or []:
-                    if warning not in all_nonfatal_warnings:
+                for warning in result.nonfatal_warnings:
+                    if warning not in seen_nonfatal_warnings:
+                        seen_nonfatal_warnings.add(warning)
                         all_nonfatal_warnings.append(warning)
                 if result.warning_message and result.warning_message not in all_warning_messages:
                     all_warning_messages.append(result.warning_message)
@@ -2131,15 +2130,10 @@ class ScanView(Gtk.Box):
                 else:
                     final_status = ScanStatus.CLEAN
 
-            # Compose the aggregated warning: re-derive the single-target
-            # phrasing when files were skipped, otherwise join the distinct
-            # per-target messages (e.g. non-fatal scanner warnings).
-            if total_skipped_count > 0:
-                aggregated_warning = f"{total_skipped_count} file(s) could not be accessed"
-            elif all_warning_messages:
-                aggregated_warning = "; ".join(all_warning_messages)
-            else:
-                aggregated_warning = None
+            # The count must match the deduplicated list: overlapping targets
+            # can report the same skipped file more than once.
+            total_skipped_count = len(all_skipped_files)
+            aggregated_warning = compose_scan_warning(total_skipped_count, all_warning_messages)
 
             # Build aggregated result
             aggregated_result = ScanResult(
@@ -2157,9 +2151,8 @@ class ScanView(Gtk.Box):
                 skipped_files=all_skipped_files,
                 skipped_count=total_skipped_count,
                 warning_message=aggregated_warning,
+                nonfatal_warnings=all_nonfatal_warnings,
             )
-            if hasattr(aggregated_result, "nonfatal_warnings"):
-                aggregated_result.nonfatal_warnings = all_nonfatal_warnings
 
             # Schedule UI update on main thread
             GLib.idle_add(self._on_scan_complete, aggregated_result)
@@ -2275,20 +2268,7 @@ class ScanView(Gtk.Box):
             )
         elif result.status == ScanStatus.CLEAN:
             self._show_view_results(0)
-            if result.skipped_count > 0:
-                # Clean but with warnings about skipped files
-                status_message = _(
-                    "Scan complete - No threats found ({count} file(s) not accessible)"
-                ).format(count=result.skipped_count)
-            elif result.warning_message:
-                # Warnings without a skipped-file count (e.g. non-fatal scanner
-                # warnings) — never render a bare "0 file(s)" message.
-                status_message = _("Scan complete - No threats found ({warning})").format(
-                    warning=result.warning_message
-                )
-            else:
-                status_message = _("Scan complete - No threats found")
-            self._set_status_message(status_message, StatusLevel.SUCCESS)
+            self._set_status_message(clean_scan_status_message(result), StatusLevel.SUCCESS)
         elif result.status == ScanStatus.CANCELLED:
             self._show_view_results(result.infected_count)
             self._set_status_message(_("Scan cancelled"), StatusLevel.WARNING)

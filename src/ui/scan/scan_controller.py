@@ -18,6 +18,7 @@ from enum import Enum
 
 from gi.repository import GLib
 
+from ...core.result_formatters import compose_scan_warning
 from ...core.scanner import Scanner, ScanProgress, ScanResult, ScanStatus
 from ...core.settings_manager import SettingsManager
 
@@ -49,15 +50,7 @@ class AggregatedResult:
     def to_scan_result(self, paths: list[str]) -> ScanResult:
         """Convert to ScanResult for dialog compatibility."""
         exit_code = 1 if self.status == ScanStatus.INFECTED else (2 if self.error_messages else 0)
-        # Re-derive the single-target phrasing when files were skipped,
-        # otherwise join the distinct per-target messages (e.g. non-fatal
-        # scanner warnings) — same composition as the legacy ScanView.
-        if self.skipped_count > 0:
-            warning_message = f"{self.skipped_count} file(s) could not be accessed"
-        elif self.warning_messages:
-            warning_message = "; ".join(self.warning_messages)
-        else:
-            warning_message = None
+        warning_message = compose_scan_warning(self.skipped_count, self.warning_messages)
         return ScanResult(
             status=self.status,
             path=", ".join(paths) if len(paths) > 1 else paths[0] if paths else "",
@@ -232,12 +225,21 @@ class ScanController:
             if not result.error_messages:
                 result.error_messages.append(str(exc))
         finally:
-            self._state = ScanState.IDLE
-            if self._on_state_change:
-                GLib.idle_add(self._on_state_change, self._state)
+            final_result = result.to_scan_result(paths)
 
-            if self._on_complete:
-                GLib.idle_add(self._on_complete, result.to_scan_result(paths))
+            def _finalize():
+                # Runs on the main thread: flipping to IDLE here (rather than
+                # on the worker thread) keeps is_scanning True until callers
+                # of start_scan — which is main-thread-only — can no longer
+                # race a second worker against this one.
+                self._state = ScanState.IDLE
+                if self._on_state_change:
+                    self._on_state_change(self._state)
+                if self._on_complete:
+                    self._on_complete(final_result)
+                return False
+
+            GLib.idle_add(_finalize)
 
     def _aggregate_result(self, agg: AggregatedResult, scan: ScanResult):
         """Add scan result to aggregated total."""
@@ -255,12 +257,18 @@ class ScanController:
         agg.total_infected += scan.infected_count
         agg.infected_files.extend(scan.infected_files)
         agg.threat_details.extend(scan.threat_details)
+        seen_skipped = set(agg.skipped_files)
         for skipped in scan.skipped_files or []:
-            if skipped not in agg.skipped_files:
+            if skipped not in seen_skipped:
+                seen_skipped.add(skipped)
                 agg.skipped_files.append(skipped)
-        agg.skipped_count += scan.skipped_count
+        # Keep the count in sync with the deduplicated list so overlapping
+        # targets never over-report skipped files.
+        agg.skipped_count = len(agg.skipped_files)
+        seen_warnings = set(agg.nonfatal_warnings)
         for warning in scan.nonfatal_warnings or []:
-            if warning not in agg.nonfatal_warnings:
+            if warning not in seen_warnings:
+                seen_warnings.add(warning)
                 agg.nonfatal_warnings.append(warning)
         if scan.warning_message and scan.warning_message not in agg.warning_messages:
             agg.warning_messages.append(scan.warning_message)

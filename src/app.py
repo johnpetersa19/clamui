@@ -83,7 +83,7 @@ class ClamUIApp(Adw.Application):
     - Tray: _on_tray_quick_scan, _on_tray_full_scan, _on_tray_update,
             _on_tray_quit, _on_tray_window_toggle, _on_tray_profile_select
     - Quick scan: _on_statistics_quick_scan, _do_tray_quick_scan
-    - Settings: _get_quick_scan_profile, switch_to_view, set_initial_scan_paths
+    - Settings: _get_quick_scan_profile, set_initial_scan_paths
 
     Collaboration:
     - AppLifecycleManager: Handles shutdown, device monitor, database dir
@@ -863,10 +863,6 @@ class ClamUIApp(Adw.Application):
             win.set_active_view(view_name)
             self._current_view = view_name
 
-    def switch_to_view(self, view_name: str):
-        """Switch the active view by name (e.g. "scan", "logs")."""
-        self._view_coordinator.switch_to_view(view_name, getattr(self, f"{view_name}_view"))
-
     def _show_window_toast(self, message: str) -> None:
         """Show a toast notification on the main window if one is available."""
         win = self.props.active_window
@@ -907,7 +903,7 @@ class ClamUIApp(Adw.Application):
 
         # Surface the scan UI so a second invocation does not start a scan
         # invisibly under whichever view is currently shown.
-        self.switch_to_view("scan")
+        self._view_coordinator.switch_to_view("scan", self.scan_view)
 
         if use_vt:
             # VirusTotal scans a single file per request; only the first

@@ -18,6 +18,8 @@ from unittest import mock
 
 import pytest
 
+from tests.conftest import preserve_displaced_modules
+
 
 def _clear_src_modules():
     """Clear all cached src.* modules to prevent test pollution."""
@@ -36,11 +38,8 @@ def _restore_src_modules_after_module():
     tests/cli/test_scan_cmd.py) would later patch a re-imported module while
     calling stale references bound to the original module's globals.
     """
-    snapshot = {name: module for name, module in sys.modules.items() if name.startswith("src.")}
-    yield
-    for name in [mod for mod in sys.modules if mod.startswith("src.")]:
-        del sys.modules[name]
-    sys.modules.update(snapshot)
+    with preserve_displaced_modules():
+        yield
 
 
 @pytest.fixture
@@ -1296,12 +1295,13 @@ class TestMultiTargetScanning:
             "/root/other.txt",
             "/etc/shadow",
         ]
-        # Sum of per-target skipped counts.
-        assert call_kwargs["skipped_count"] == 4
+        # Count derived from the deduplicated list — the file skipped by both
+        # overlapping targets must not be counted twice.
+        assert call_kwargs["skipped_count"] == 3
         # Summary re-derived with the single-target phrasing.
-        assert call_kwargs["warning_message"] == "4 file(s) could not be accessed"
-        # nonfatal_warnings aggregated (deduplicated) onto the result instance.
-        assert mock_scan_result_class.return_value.nonfatal_warnings == [
+        assert call_kwargs["warning_message"] == "3 file(s) could not be accessed"
+        # nonfatal_warnings aggregated (deduplicated) into the constructor.
+        assert call_kwargs["nonfatal_warnings"] == [
             "LibClamAV Warning: first",
             "LibClamAV Warning: second",
         ]

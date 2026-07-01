@@ -539,7 +539,8 @@ class TestResultAggregation:
         _assert_status(agg, "infected")
 
     def test_aggregate_result_merges_skipped_and_warning_fields(self, controller):
-        """Skipped files dedup across targets; counts sum; messages stay distinct."""
+        """Skipped files dedup across targets; count matches the deduped list;
+        messages stay distinct."""
         from src.ui.scan.scan_controller import AggregatedResult
 
         agg = AggregatedResult()
@@ -567,7 +568,9 @@ class TestResultAggregation:
         controller._aggregate_result(agg, second)
 
         assert agg.skipped_files == ["/a/locked", "/shared/locked", "/b/locked"]
-        assert agg.skipped_count == 4
+        # The count must equal the deduplicated list, not the sum of the
+        # per-target counts (the shared file would otherwise count twice).
+        assert agg.skipped_count == len(agg.skipped_files) == 3
         assert agg.nonfatal_warnings == [
             "LibClamAV Warning: cli_tnef: file truncated, returning CLEAN",
             "LibClamAV Warning: cli_scanxz: decompress file size exceeds limits",
@@ -763,3 +766,64 @@ class TestWorkerExceptionRecovery:
         # Completion must fire exactly once so the UI leaves the scanning state.
         on_complete.assert_called_once()
         _assert_status(on_complete.call_args[0][0], "error")
+
+
+# =============================================================================
+# Finalization ordering (is_scanning race)
+# =============================================================================
+
+
+class TestScanFinalization:
+    """The worker must not flip state to IDLE before the main-loop finalizer.
+
+    Regression: the worker thread set _state = IDLE in its finally block
+    before the queued idle callbacks ran, opening a window where a re-entrant
+    start_scan() on the main thread could spawn a second worker while the
+    first scan's completion callbacks were still pending.
+    """
+
+    def test_state_stays_scanning_until_finalizer_runs(
+        self, mock_gi_for_controller, scanner, settings
+    ):
+        if "src.ui.scan.scan_controller" in sys.modules:
+            del sys.modules["src.ui.scan.scan_controller"]
+        from src.ui.scan.scan_controller import ScanController, ScanState
+
+        # Queue idle callbacks instead of executing them, emulating a busy
+        # main loop that has not dispatched them yet.
+        queued = []
+        mock_gi_for_controller.idle_add.side_effect = lambda fn, *a: queued.append((fn, a)) or 1
+
+        controller = ScanController(scanner, settings)
+        states = []
+        on_complete = MagicMock()
+        controller.set_callbacks(
+            on_state_change=lambda s: states.append(s),
+            on_complete=on_complete,
+        )
+
+        controller.start_scan(["/tmp/target"])
+
+        # Wait for the worker thread to finish and queue the finalizer.
+        deadline = time.monotonic() + 2.0
+        while not queued and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert queued, "worker never queued the finalizer idle callback"
+
+        # Worker is done, but the finalizer has not run: still SCANNING, no
+        # completion delivered, and a re-entrant start is ignored.
+        assert controller.state == ScanState.SCANNING
+        assert controller.is_scanning is True
+        on_complete.assert_not_called()
+        controller.start_scan(["/tmp/second"])
+        assert scanner.scan_sync.call_count == 1
+
+        # Dispatch the queued idles as the main loop would.
+        for fn, args in list(queued):
+            fn(*args)
+
+        assert controller.state == ScanState.IDLE
+        assert controller.is_scanning is False
+        assert states[-1] == ScanState.IDLE
+        on_complete.assert_called_once()
+        _assert_status(on_complete.call_args[0][0], "clean")

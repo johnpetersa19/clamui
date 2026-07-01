@@ -1400,6 +1400,9 @@ class TestClamUIAppInitialScanPaths:
         win.set_active_view.assert_called_once_with("scan")
         assert app._current_view == "scan"
         mock_scan_view._start_scan.assert_called_once_with()
+        # The reflective switch_to_view helper was removed; the coordinator
+        # is called directly instead.
+        assert not hasattr(app, "switch_to_view")
 
     def test_virustotal_multi_select_shows_ignored_toast(self, app, mock_gtk_modules):
         """Selecting several files for a VirusTotal scan (KDE desktop file uses

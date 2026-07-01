@@ -23,6 +23,7 @@ from gi.repository import Adw, Gdk, Gtk
 
 from ...core.i18n import _
 from ...core.quarantine import QuarantineManager
+from ...core.result_formatters import clean_scan_status_message
 from ...core.scanner import Scanner, ScanResult, ScanStatus
 from ...core.settings_manager import SettingsManager
 from ...core.utils import format_scan_path, is_flatpak
@@ -251,19 +252,7 @@ class ScanView(Gtk.Box):
                 StatusLevel.WARNING,
             )
         elif result.status == ScanStatus.CLEAN:
-            if result.skipped_count > 0:
-                msg = _("Scan complete - No threats found ({count} file(s) not accessible)").format(
-                    count=result.skipped_count
-                )
-            elif result.warning_message:
-                # Warnings without a skipped-file count (e.g. non-fatal scanner
-                # warnings) — never render a bare "0 file(s)" message.
-                msg = _("Scan complete - No threats found ({warning})").format(
-                    warning=result.warning_message
-                )
-            else:
-                msg = _("Scan complete - No threats found")
-            self._show_banner(msg, StatusLevel.SUCCESS)
+            self._show_banner(clean_scan_status_message(result), StatusLevel.SUCCESS)
         elif result.status == ScanStatus.CANCELLED:
             self._show_banner(_("Scan cancelled"), StatusLevel.WARNING)
         else:
