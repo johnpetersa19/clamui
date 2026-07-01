@@ -28,7 +28,7 @@ from ..core.file_manager_integration import (
 )
 from ..core.i18n import _
 from .compat import create_switch_row, create_toolbar_view
-from .utils import resolve_icon_name
+from .utils import enable_escape_to_close, resolve_icon_name
 
 if TYPE_CHECKING:
     from ..core.settings_manager import SettingsManager
@@ -88,6 +88,7 @@ class FileManagerIntegrationDialog(Adw.Window):
 
         # Configure as modal dialog
         self.set_modal(True)
+        enable_escape_to_close(self)
         self.set_deletable(True)
 
     def _setup_ui(self):

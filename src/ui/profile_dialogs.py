@@ -23,7 +23,7 @@ from .compat import (
     remove_all_children,
     save_path_dialog,
 )
-from .utils import add_row_icon, resolve_icon_name
+from .utils import add_row_icon, enable_escape_to_close, resolve_icon_name
 
 if TYPE_CHECKING:
     from ..profiles.models import ScanProfile
@@ -107,6 +107,7 @@ class ProfileDialog(Adw.Window):
 
         # Configure as modal dialog
         self.set_modal(True)
+        enable_escape_to_close(self)
         self.set_deletable(True)
 
     def _setup_ui(self):
@@ -706,6 +707,7 @@ class PatternEntryDialog(Adw.Window):
 
         # Configure as modal dialog
         self.set_modal(True)
+        enable_escape_to_close(self)
         self.set_deletable(True)
 
         self._setup_ui()
@@ -826,6 +828,7 @@ class DeleteProfileDialog(Adw.Window):
 
         # Configure as modal dialog
         self.set_modal(True)
+        enable_escape_to_close(self)
         self.set_deletable(True)
 
         self._setup_ui()
@@ -947,6 +950,7 @@ class RestoreDefaultsDialog(Adw.Window):
 
         # Configure as modal dialog
         self.set_modal(True)
+        enable_escape_to_close(self)
         self.set_deletable(True)
 
         self._setup_ui()
@@ -1068,6 +1072,7 @@ class ProfileListDialog(Adw.Window):
 
         # Configure as modal dialog
         self.set_modal(True)
+        enable_escape_to_close(self)
         self.set_deletable(True)
 
     def _setup_ui(self):

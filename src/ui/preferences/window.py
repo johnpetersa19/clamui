@@ -25,7 +25,7 @@ from ...core.flatpak import is_flatpak
 from ...core.i18n import N_, _
 from ...core.scheduler import Scheduler
 from ..compat import create_toolbar_view
-from ..utils import resolve_icon_name
+from ..utils import enable_escape_to_close, resolve_icon_name
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +145,7 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
         self.set_title(_("Preferences"))
         self.set_default_size(850, 600)
         self.set_modal(True)
+        enable_escape_to_close(self)
 
         # Store references to form widgets for later access
         self._freshclam_widgets = {}

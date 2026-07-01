@@ -24,7 +24,7 @@ from .compat import (
 from .file_export import CSV_FILTER, JSON_FILTER, TEXT_FILTER, FileExportHelper
 from .fullscreen_dialog import FullscreenLogDialog
 from .pagination import PaginatedListController
-from .utils import add_row_icon, resolve_icon_name
+from .utils import add_row_icon, enable_escape_to_close, resolve_icon_name
 from .view_helpers import EmptyStateConfig, create_empty_state, create_loading_row
 
 
@@ -63,6 +63,7 @@ class ClearLogsDialog(Adw.Window):
 
         # Configure as modal dialog
         self.set_modal(True)
+        enable_escape_to_close(self)
         self.set_deletable(True)
 
         self._setup_ui()

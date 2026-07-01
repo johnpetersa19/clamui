@@ -22,7 +22,7 @@ from ..core.utils import format_flatpak_portal_path
 from .clipboard_helper import ClipboardHelper
 from .compat import create_toolbar_view, safe_add_suffix
 from .file_export import TEXT_FILTER, FileExportHelper
-from .utils import resolve_icon_name
+from .utils import enable_escape_to_close, resolve_icon_name
 
 if TYPE_CHECKING:
     from ..core.settings_manager import SettingsManager
@@ -103,6 +103,7 @@ class ScanResultsDialog(Adw.Window):
 
         # Configure as modal dialog
         self.set_modal(True)
+        enable_escape_to_close(self)
         self.set_deletable(True)
 
     def _setup_ui(self):
