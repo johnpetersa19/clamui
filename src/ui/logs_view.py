@@ -548,13 +548,16 @@ class LogsView(Gtk.Box):
         self._daemon_text.set_bottom_margin(12)
         self._daemon_text.add_css_class("monospace")
 
-        # Set placeholder text
-        buffer = self._daemon_text.get_buffer()
-        buffer.set_text(
+        # Set placeholder text. Keep a reference so the export handler can
+        # recognize it regardless of locale (string matching on the English
+        # text would fail on translated placeholders).
+        self._daemon_placeholder_text = (
             _("Daemon logs will appear here.")
             + "\n\n"
             + _("Click the play button to start live updates.")
         )
+        buffer = self._daemon_text.get_buffer()
+        buffer.set_text(self._daemon_placeholder_text)
 
         scrolled.set_child(self._daemon_text)
 
@@ -1111,7 +1114,7 @@ class LogsView(Gtk.Box):
         content = buffer.get_text(start, end, False)
 
         # Don't export placeholder text
-        if "will appear here" in content:
+        if not content or content == getattr(self, "_daemon_placeholder_text", None):
             return
 
         helper = FileExportHelper(

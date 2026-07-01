@@ -227,6 +227,7 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
 
         # Load configurations and populate form fields
         self._load_configs()
+        self._notify_load_errors()
 
         # Populate scheduled scan fields from saved settings
         self._populate_scheduled_fields()
@@ -604,6 +605,29 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
                 logger.exception("Unexpected error loading clamd.conf: %s", e)
                 self._clamd_load_error = str(e)
 
+    def _notify_load_errors(self):
+        """
+        Surface config load failures to the user.
+
+        _load_configs()/_reload_*_config() record parse errors in
+        _freshclam_load_error/_clamd_load_error; without a visible signal
+        the user silently edits an empty form and can save wrong values
+        over their real configuration.
+        """
+        if not hasattr(self, "_notified_load_errors"):
+            self._notified_load_errors = set()
+        for filename, error in (
+            ("freshclam.conf", self._freshclam_load_error),
+            ("clamd.conf", self._clamd_load_error),
+        ):
+            if error and (filename, error) not in self._notified_load_errors:
+                self._notified_load_errors.add((filename, error))
+                toast = Adw.Toast.new(
+                    _("Failed to load {file}: {error}").format(file=filename, error=error)
+                )
+                toast.set_timeout(0)  # persistent until dismissed
+                self.add_toast(toast)
+
     def _reload_clamd_config(self):
         """
         Re-parse clamd.conf after the path has changed.
@@ -624,6 +648,7 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
         except Exception as e:
             logger.exception("Unexpected error reloading clamd.conf: %s", e)
             self._clamd_load_error = str(e)
+        self._notify_load_errors()
 
     def _reload_freshclam_config(self):
         """
@@ -644,6 +669,7 @@ class PreferencesWindow(Adw.Window, PreferencesPageMixin):
         except Exception as e:
             logger.exception("Unexpected error reloading freshclam.conf: %s", e)
             self._freshclam_load_error = str(e)
+        self._notify_load_errors()
 
     def _populate_freshclam_fields(self):
         """
