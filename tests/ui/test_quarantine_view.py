@@ -951,9 +951,7 @@ class TestQuarantineViewConfirmations:
         )
 
         mock_quarantine_manager.delete_file_async.assert_called_once()
-        assert (
-            mock_quarantine_manager.delete_file_async.call_args[0][0] == mock_quarantine_entry.id
-        )
+        assert mock_quarantine_manager.delete_file_async.call_args[0][0] == mock_quarantine_entry.id
 
     def test_delete_cancel_response_does_not_delete(
         self, mock_quarantine_view, mock_quarantine_manager, mock_quarantine_entry

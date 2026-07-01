@@ -11,7 +11,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, GObject, Gtk
 
-from ..core.i18n import _
+from ..core.i18n import _, ngettext
 from ..core.log_manager import DaemonStatus, LogEntry, LogManager
 from ..core.statistics_calculator import StatisticsCalculator
 from .clipboard_helper import ClipboardHelper
@@ -611,7 +611,7 @@ class LogsView(Gtk.Box):
             self._all_log_entries = logs
 
             # Use pagination controller to display logs
-            self._pagination.set_entries(logs, entries_label="logs")
+            self._pagination.set_entries(logs, entries_label=_("logs"))
 
             # Handle empty logs - placeholder will be shown automatically
             # by GTK ListBox since we set it with set_placeholder()
@@ -664,12 +664,12 @@ class LogsView(Gtk.Box):
     def _add_load_more_button(self):
         """Add load more button (backward compatibility - delegates to pagination controller)."""
         if hasattr(self, "_pagination"):
-            self._pagination.add_load_more_button(entries_label="logs")
+            self._pagination.add_load_more_button(entries_label=_("logs"))
 
     def _on_load_more_logs_clicked(self, button):
         """Handle load more button click (backward compatibility - delegates to pagination controller)."""
         if hasattr(self, "_pagination"):
-            self._pagination.load_more(entries_label="logs")
+            self._pagination.load_more(entries_label=_("logs"))
 
     def _on_show_all_logs_clicked(self, button):
         """Handle show all button click (backward compatibility - delegates to pagination controller)."""
@@ -887,8 +887,8 @@ class LogsView(Gtk.Box):
         helper = ClipboardHelper(parent_widget=self)
         helper.copy_with_feedback(
             text=content,
-            success_message="Log details copied to clipboard",
-            error_message="Failed to copy to clipboard",
+            success_message=_("Log details copied to clipboard"),
+            error_message=_("Failed to copy to clipboard"),
             on_too_large=lambda: self._on_export_detail_text_clicked(button),
         )
 
@@ -904,7 +904,7 @@ class LogsView(Gtk.Box):
 
         helper = FileExportHelper(
             parent_widget=self,
-            dialog_title="Export Log Details",
+            dialog_title=_("Export Log Details"),
             filename_prefix="clamui_log",
             file_filter=TEXT_FILTER,
             content_generator=self._get_detail_text_content,
@@ -923,7 +923,7 @@ class LogsView(Gtk.Box):
 
         helper = FileExportHelper(
             parent_widget=self,
-            dialog_title="Export Log Details as CSV",
+            dialog_title=_("Export Log Details as CSV"),
             filename_prefix="clamui_log",
             file_filter=CSV_FILTER,
             content_generator=lambda: self._format_log_entry_as_csv(self._selected_log),
@@ -942,7 +942,7 @@ class LogsView(Gtk.Box):
 
         helper = FileExportHelper(
             parent_widget=self,
-            dialog_title="Export Log Details as JSON",
+            dialog_title=_("Export Log Details as JSON"),
             filename_prefix="clamui_log",
             file_filter=JSON_FILTER,
             content_generator=lambda: self._format_log_entry_as_json(self._selected_log),
@@ -1098,7 +1098,7 @@ class LogsView(Gtk.Box):
         content = buffer.get_text(start, end, False)
 
         # Create and present the fullscreen dialog
-        dialog = FullscreenLogDialog(title="Daemon Logs", content=content)
+        dialog = FullscreenLogDialog(title=_("Daemon Logs"), content=content)
         dialog.set_transient_for(self.get_root())
         dialog.present()
 
@@ -1116,11 +1116,11 @@ class LogsView(Gtk.Box):
 
         helper = FileExportHelper(
             parent_widget=self,
-            dialog_title="Export Daemon Logs",
+            dialog_title=_("Export Daemon Logs"),
             filename_prefix="clamd_logs",
             file_filter=TEXT_FILTER,
             content_generator=lambda: content,
-            success_message="Exported daemon logs",
+            success_message=_("Exported daemon logs"),
         )
         helper.show_save_dialog()
 
@@ -1137,11 +1137,13 @@ class LogsView(Gtk.Box):
         count = len(self._all_log_entries)
         helper = FileExportHelper(
             parent_widget=self,
-            dialog_title="Export All Logs to CSV",
+            dialog_title=_("Export All Logs to CSV"),
             filename_prefix="clamui_logs",
             file_filter=CSV_FILTER,
             content_generator=self._format_all_logs_as_csv,
-            success_message=f"Exported {count} logs",
+            success_message=ngettext("Exported {n} log", "Exported {n} logs", count).format(
+                n=count
+            ),
         )
         helper.show_save_dialog()
 
@@ -1158,11 +1160,13 @@ class LogsView(Gtk.Box):
         count = len(self._all_log_entries)
         helper = FileExportHelper(
             parent_widget=self,
-            dialog_title="Export All Logs to JSON",
+            dialog_title=_("Export All Logs to JSON"),
             filename_prefix="clamui_logs",
             file_filter=JSON_FILTER,
             content_generator=self._format_all_logs_as_json,
-            success_message=f"Exported {count} logs",
+            success_message=ngettext("Exported {n} log", "Exported {n} logs", count).format(
+                n=count
+            ),
         )
         helper.show_save_dialog()
 
@@ -1355,7 +1359,7 @@ class LogsView(Gtk.Box):
             # Enable export button when logs are available
             self._export_daemon_button.set_sensitive(True)
         else:
-            buffer.set_text(f"Error loading daemon logs:\n\n{content}")
+            buffer.set_text(_("Error loading daemon logs:") + f"\n\n{content}")
             # Disable export button on error
             self._export_daemon_button.set_sensitive(False)
 

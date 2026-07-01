@@ -237,7 +237,7 @@ class QuarantineView(Gtk.Box):
         # Create the status banner (hidden by default)
         self._status_banner = create_banner()
         self._status_banner.set_revealed(False)
-        self._status_banner.set_button_label("Dismiss")
+        self._status_banner.set_button_label(_("Dismiss"))
         self._status_banner.connect("button-clicked", self._on_status_banner_dismissed)
         self.append(self._status_banner)
 
@@ -440,7 +440,7 @@ class QuarantineView(Gtk.Box):
 
             # Use controller to display entries with pagination
             # Always pass all_entries - controller's entries_to_display override handles filtering
-            entries_label = "filtered entries" if self._search_query else "entries"
+            entries_label = _("filtered entries") if self._search_query else _("entries")
             self._pagination.set_entries(self._all_entries, entries_label)
 
             # Enable clear old button if there are entries
@@ -499,7 +499,7 @@ class QuarantineView(Gtk.Box):
         if hasattr(self, "_pagination"):
             self._pagination.display_batch(start_index, count)
 
-    def _add_load_more_button(self, entries_label: str = "entries"):
+    def _add_load_more_button(self, entries_label: str | None = None):
         """Add load more button (backward compatibility - delegates to pagination controller)."""
         if hasattr(self, "_pagination"):
             self._pagination.add_load_more_button(entries_label)
@@ -627,7 +627,7 @@ class QuarantineView(Gtk.Box):
         # Reset controller and provide all entries
         # Controller's overridden entries_to_display property will return filtered entries
         # This allows controller to maintain full dataset while displaying filtered results
-        entries_label = "filtered entries" if self._search_query else "entries"
+        entries_label = _("filtered entries") if self._search_query else _("entries")
         self._pagination.set_entries(self._all_entries, entries_label)
 
     def _on_cleanup_completed(self, removed_count: int) -> bool:
@@ -838,9 +838,9 @@ class QuarantineView(Gtk.Box):
         """
         dialog = QuarantineConfirmDialog(
             heading=_("Restore Quarantined File?"),
-            body=_(
-                'This file was detected as "{threat}". It will be restored to {path}.'
-            ).format(threat=entry.threat_name or _("Unknown Threat"), path=entry.original_path),
+            body=_('This file was detected as "{threat}". It will be restored to {path}.').format(
+                threat=entry.threat_name or _("Unknown Threat"), path=entry.original_path
+            ),
             confirm_label=_("Restore Anyway"),
             destructive=True,
         )
