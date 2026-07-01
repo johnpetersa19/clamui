@@ -177,6 +177,7 @@ class FreshclamUpdater:
                     capture_output=True,
                     text=True,
                     timeout=5,
+                    env=get_clean_env(),
                 )
 
                 if result.returncode == 0 and result.stdout.strip() == "active":
@@ -187,6 +188,7 @@ class FreshclamUpdater:
                             capture_output=True,
                             text=True,
                             timeout=5,
+                            env=get_clean_env(),
                         )
                         if pid_result.returncode == 0:
                             pid = pid_result.stdout.strip().split()[0]  # Take first PID
@@ -243,6 +245,7 @@ class FreshclamUpdater:
                     capture_output=True,
                     text=True,
                     timeout=5,
+                    env=get_clean_env(),
                 )
                 if pid_result.returncode == 0:
                     pid = pid_result.stdout.strip().split()[0]
@@ -321,6 +324,7 @@ class FreshclamUpdater:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                env=get_clean_env(),
             )
             if pid_result.returncode == 0 and pid_result.stdout.strip():
                 pid = pid_result.stdout.strip().split()[0]
