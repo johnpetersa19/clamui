@@ -82,7 +82,13 @@ def glob_to_regex(pattern: str) -> str:
     # Add anchors to ensure full string match (prevents substring matching)
     if not regex.startswith("^"):
         regex = "^" + regex
-    if not regex.endswith("$"):
+    # A trailing "$" only counts as an anchor when it isn't escaped: a glob
+    # like "backup$" translates to r"backup\$", and skipping the anchor there
+    # would hand ClamAV an end-unanchored ERE that silently widens the
+    # exclusion to every path starting with "backup$".
+    body = regex[:-1] if regex.endswith("$") else None
+    has_unescaped_anchor = body is not None and (len(body) - len(body.rstrip("\\"))) % 2 == 0
+    if not has_unescaped_anchor:
         regex = regex + "$"
     return regex
 
