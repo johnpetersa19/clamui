@@ -1139,8 +1139,14 @@ class ProfileListDialog(Adw.Window):
         scrolled.set_child(preferences_page)
         toolbar_view.set_content(scrolled)
 
-        # Set the toolbar view as the dialog content
-        self.set_content(toolbar_view)
+        # Wrap in a toast overlay so import/export can report their outcome
+        self._toast_overlay = Adw.ToastOverlay()
+        self._toast_overlay.set_child(toolbar_view)
+        self.set_content(self._toast_overlay)
+
+    def _show_toast(self, message: str) -> None:
+        """Show a transient toast message in this dialog."""
+        self._toast_overlay.add_toast(Adw.Toast.new(message))
 
     def _refresh_profile_list(self):
         """Refresh the profile list from the profile manager."""
@@ -1373,6 +1379,9 @@ class ProfileListDialog(Adw.Window):
             self._profile_manager.export_profile(profile_id, Path(file_path))
         except (ValueError, OSError) as e:
             logger.warning("Failed to export profile: %s", e)
+            self._show_toast(_("Failed to export profile: {error}").format(error=e))
+        else:
+            self._show_toast(_("Profile exported"))
 
     def _on_profile_saved(self, profile: "ScanProfile"):
         """
@@ -1421,3 +1430,6 @@ class ProfileListDialog(Adw.Window):
             self._refresh_profile_list()
         except (ValueError, OSError) as e:
             logger.warning("Failed to import profile: %s", e)
+            self._show_toast(_("Failed to import profile: {error}").format(error=e))
+        else:
+            self._show_toast(_("Profile imported"))
