@@ -1219,18 +1219,6 @@ class TestSchedulerCliCommandTokenization:
         assert words[0] == cli
         assert words[1:] == ["--target", "/home/user name/Documents"]
 
-    def test_systemd_bare_string_cli_treated_as_single_token(self, scheduler):
-        """Back-compat: a bare string cli_command is one path, never word-split."""
-        cli = "/home/user name/.local/share/clamui/venv/bin/clamui-scheduled-scan"
-        service = scheduler._generate_service_file(
-            cli_command=cli,
-            targets=["/tmp/x"],
-            skip_on_battery=False,
-            auto_quarantine=False,
-        )
-
-        assert self._exec_start_words(service)[0] == cli
-
     def test_systemd_cli_path_with_quote_roundtrips(self, scheduler):
         """A path containing a single quote must not raise 'No closing quotation'."""
         cli = "/home/user's files/venv/bin/clamui-scheduled-scan"

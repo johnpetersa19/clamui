@@ -749,7 +749,7 @@ class Scheduler:
 
     def _generate_service_file(
         self,
-        cli_command: list[str] | str,
+        cli_command: list[str],
         targets: list[str],
         skip_on_battery: bool,
         auto_quarantine: bool,
@@ -759,9 +759,7 @@ class Scheduler:
 
         Args:
             cli_command: CLI invocation as a list of argv tokens (e.g.
-                ['flatpak', 'run', ...]). A bare string is treated as a
-                single executable path and never word-split, so paths
-                containing spaces or quotes stay intact (issue #150).
+                ['flatpak', 'run', ...]).
             targets: List of paths to scan
             skip_on_battery: Skip scan when on battery power
             auto_quarantine: Automatically quarantine threats
@@ -769,8 +767,6 @@ class Scheduler:
         Returns:
             Service file content as string
         """
-        if isinstance(cli_command, str):
-            cli_command = [cli_command]
         # Quote each argv token separately so multi-token commands (e.g.
         # 'flatpak run ...') stay an executable ExecStart rather than one
         # quoted blob, while shlex.quote() still prevents injection via
@@ -858,11 +854,6 @@ WantedBy=timers.target
             cli_command = self._get_cli_command_path()
             if not cli_command:
                 return (False, "Could not find clamui-scheduled-scan command")
-            if isinstance(cli_command, str):
-                # A bare string is one executable path; never word-split it,
-                # or a path containing spaces would exec the wrong file
-                # (issue #150).
-                cli_command = [cli_command]
 
             # Generate cron time specification
             cron_time = self._generate_crontab_entry(frequency, time, day_of_week, day_of_month)
