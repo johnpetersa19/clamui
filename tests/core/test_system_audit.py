@@ -4,6 +4,7 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
+from src.core.flatpak import get_clean_env
 from src.core.portmaster_client import (
     PortmasterModuleRow,
     PortmasterProbeResult,
@@ -23,6 +24,7 @@ from src.core.system_audit import (
     _get_database_age,
     _parse_cvd_age,
     _parse_sshd_config,
+    _run_command,
     check_auto_updates,
     check_clamav_health,
     check_firewall,
@@ -256,6 +258,63 @@ class TestParseCvdAge:
         days_old, date_str = _parse_cvd_age(str(cvd_file))
         assert days_old == 3
         assert date_str == "24 Jun 2026"
+
+    @patch("src.core.system_audit.subprocess.run")
+    @patch("src.core.system_audit.is_flatpak", return_value=True)
+    def test_flatpak_head_bytes_stdout_with_gzip_payload(self, mock_is_flatpak, mock_run):
+        """Regression for issue #162 (reported on Flatpak): the header is read
+        via ``flatpak-spawn --host head -c 512`` WITHOUT text=True, so stdout
+        is raw BYTES with the gzip payload glued straight onto the stime
+        digits. The bytes path must decode and parse just like direct file I/O.
+        """
+        import time
+
+        build_ts = int(time.time()) - (3 * 86400)
+        header_text = f"ClamAV-VDB:24 Jun 2026:27000:2000000:90:md5:dsig:builder:{build_ts}"
+        # gzip magic then a spread of high and low bytes, appended directly
+        # after the stime digits with no separator; exactly 512 bytes total,
+        # as `head -c 512` returns on a real daily.cld.
+        junk = b"\x1f\x8b\x08\x00" + bytes(range(255, -1, -1)) * 2
+        raw = (header_text.encode("ascii") + junk)[:512]
+        assert len(raw) == 512
+        mock_run.return_value = MagicMock(returncode=0, stdout=raw, stderr=b"")
+
+        days_old, date_str = _parse_cvd_age("/var/lib/clamav/daily.cld")
+
+        assert days_old == 3
+        assert date_str == "24 Jun 2026"
+        mock_is_flatpak.assert_called_once()
+
+    def test_stime_with_no_leading_digits(self, tmp_path):
+        """When the 9th field starts directly with non-digit binary bytes
+        (payload where the stime should be), the digit-run match returns None
+        and the ValueError path must report the timestamp parse error."""
+        header_text = "ClamAV-VDB:24 Jun 2026:27000:2000000:90:md5:dsig:builder:"
+        junk = b"\x1f\x8b\x08\x00\x1e-3<>i\x7f$2Yi\x01*X\x01wvi"
+        cvd_file = tmp_path / "daily.cld"
+        cvd_file.write_bytes(header_text.encode("ascii") + junk)
+
+        days_old, error = _parse_cvd_age(str(cvd_file))
+        assert days_old is None
+        assert error == "Could not parse database timestamp"
+
+
+class TestRunCommand:
+    """Tests for the _run_command helper."""
+
+    @patch.dict("os.environ", {"LD_PRELOAD": "/appimage/bundled/libbogus.so"})
+    @patch("src.core.system_audit.subprocess.run")
+    def test_passes_clean_env_to_subprocess(self, mock_run):
+        """_run_command must pass env=get_clean_env() so AppImage runtime vars
+        never leak into host helpers (issue #155); a refactor dropping the env
+        kwarg would otherwise regress silently."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="active\n", stderr="")
+
+        _run_command(["systemctl", "is-active", "clamav-daemon"])
+
+        env = mock_run.call_args.kwargs["env"]
+        assert env == get_clean_env()
+        assert "LD_PRELOAD" not in env
 
 
 class TestDatabaseAgeDaemonFallback:
