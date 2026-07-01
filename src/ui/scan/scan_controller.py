@@ -216,11 +216,16 @@ class ScanController:
                 result.error_messages.append(str(exc))
         finally:
             self._state = ScanState.IDLE
-            if self._on_state_change:
-                GLib.idle_add(self._on_state_change, self._state)
-
+            # Deliver the result BEFORE the state change: idle callbacks run
+            # FIFO, and state-change consumers (tray status, coordinator) read
+            # the current result — firing IDLE first would hand them the
+            # previous scan's result (or None) and e.g. show a "protected"
+            # tray icon right after threats were found.
             if self._on_complete:
                 GLib.idle_add(self._on_complete, result.to_scan_result(paths))
+
+            if self._on_state_change:
+                GLib.idle_add(self._on_state_change, self._state)
 
     def _aggregate_result(self, agg: AggregatedResult, scan: ScanResult):
         """Add scan result to aggregated total."""

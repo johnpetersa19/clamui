@@ -325,9 +325,12 @@ class FileManagerIntegrationDialog(Adw.Window):
             # is_active + INSTALLED = no-op
             # not is_active + NOT_INSTALLED = no-op
 
-        # Show result summary
+        # Show result summary. On failure keep the dialog open — closing it
+        # immediately would destroy the toast before the user could see that
+        # anything failed (details are only in the log).
         self._show_result_toast(installed_count, removed_count, repaired_count, error_count)
-        self._save_preference_and_close()
+        if error_count == 0:
+            self._save_preference_and_close()
 
     def _show_result_toast(self, installed: int, removed: int, repaired: int, errors: int):
         """Show a summary toast of the apply results."""

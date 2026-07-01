@@ -117,10 +117,11 @@ class ScanResultsDialog(Adw.Window):
         # Create header bar with actions
         header_bar = Adw.HeaderBar()
 
-        # Export button (left side)
+        # Copy-results button (left side). Copies to clipboard; very large
+        # results are redirected to a file-export dialog.
         export_button = Gtk.Button()
-        export_button.set_icon_name(resolve_icon_name("document-save-symbolic"))
-        export_button.set_tooltip_text(_("Export results"))
+        export_button.set_icon_name(resolve_icon_name("edit-copy-symbolic"))
+        export_button.set_tooltip_text(_("Copy results to clipboard"))
         export_button.add_css_class("flat")
         export_button.connect("clicked", self._on_export_clicked)
         header_bar.pack_start(export_button)

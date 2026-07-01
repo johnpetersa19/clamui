@@ -204,11 +204,14 @@ class ScanProgressWidget(Gtk.Box):
             )
             self._stats_row.set_subtitle("")
 
-        # Append new threats
+        # Append new threats. Bump the counter per row so the group title
+        # counts correctly when several threats arrive in one update, then
+        # sync to the authoritative count (infected_files can lag it).
         if progress.infected_count > self._live_threat_count:
             threats = progress.infected_threats or {}
             for file_path in progress.infected_files[self._live_threat_count :]:
                 threat_name = threats.get(file_path, _("Unknown threat"))
+                self._live_threat_count += 1
                 self._append_threat_row(file_path, threat_name)
             self._live_threat_count = progress.infected_count
 
@@ -233,8 +236,8 @@ class ScanProgressWidget(Gtk.Box):
             ngettext(
                 "Threats Detected ({n})",
                 "Threats Detected ({n})",
-                self._live_threat_count + 1,
-            ).format(n=self._live_threat_count + 1)
+                self._live_threat_count,
+            ).format(n=self._live_threat_count)
         )
         self._threat_group.set_visible(True)
 
