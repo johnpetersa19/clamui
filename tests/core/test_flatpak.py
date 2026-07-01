@@ -575,6 +575,7 @@ class TestGetXdgUserDir:
                     capture_output=True,
                     text=True,
                     timeout=5,
+                    env=mock.ANY,
                 )
 
     def test_get_xdg_user_dir_documents(self):
@@ -647,6 +648,7 @@ class TestGetXdgUserDir:
                     capture_output=True,
                     text=True,
                     timeout=5,
+                    env=mock.ANY,
                 )
 
     def test_get_xdg_user_dir_all_valid_types(self):
@@ -1189,6 +1191,23 @@ class TestCleanEnvWiring:
 
         mock_clean.assert_called_once()
         assert mock_run.call_args.args[0] == ["kbuildsycoca6", "--noincremental"]
+        assert mock_run.call_args.kwargs["env"] is clean_env
+
+    def test_get_xdg_user_dir_passes_clean_env(self):
+        """xdg-user-dir is a host helper and must get the sanitized env."""
+        clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
+        with (
+            mock.patch.object(flatpak, "get_clean_env", return_value=clean_env),
+            mock.patch.object(flatpak, "wrap_host_command", side_effect=lambda cmd: cmd),
+            mock.patch(
+                "subprocess.run",
+                return_value=mock.MagicMock(returncode=0, stdout="/home/user/Downloads\n"),
+            ) as mock_run,
+        ):
+            result = flatpak.get_xdg_user_dir("DOWNLOAD")
+
+        assert result == "/home/user/Downloads"
+        assert mock_run.call_args.args[0] == ["xdg-user-dir", "DOWNLOAD"]
         assert mock_run.call_args.kwargs["env"] is clean_env
 
 

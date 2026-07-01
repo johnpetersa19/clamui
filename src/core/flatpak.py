@@ -339,6 +339,7 @@ def get_xdg_user_dir(dir_type: str) -> str | None:
             capture_output=True,
             text=True,
             timeout=5,
+            env=get_clean_env(),
         )
         resolved = result.stdout.strip()
         if result.returncode == 0 and resolved:

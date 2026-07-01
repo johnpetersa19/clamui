@@ -2708,6 +2708,40 @@ class TestProbeSubprocessCleanEnv:
         assert pid == "777"
         assert mock_run.call_args.kwargs["env"] is clean_env
 
+    def test_trigger_service_update_kill_passes_clean_env(self, updater_module):
+        """Both the kill and pkexec-kill signal commands get the clean env."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
+        env_by_cmd = {}
+
+        def mock_run(cmd, *args, **kwargs):
+            env_by_cmd[cmd[0]] = kwargs.get("env")
+            if cmd[0] == "kill":
+                # Regular kill fails so the pkexec fallback runs too
+                return MagicMock(returncode=1, stderr="Operation not permitted")
+            if cmd[0] == "/usr/bin/pkexec":
+                return MagicMock(returncode=0, stderr="")
+            return MagicMock(returncode=1, stdout="")
+
+        updater = FreshclamUpdater(log_manager=MagicMock())
+        with (
+            patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, "123"),
+            ),
+            patch("src.core.updater.get_pkexec_path", return_value="/usr/bin/pkexec"),
+            patch("src.core.updater.get_clean_env", return_value=clean_env),
+            patch("src.core.updater.wrap_host_command", side_effect=lambda x: x),
+            patch("subprocess.run", side_effect=mock_run),
+        ):
+            success, _message = updater.trigger_service_update()
+
+        assert success is True
+        assert env_by_cmd["kill"] is clean_env
+        assert env_by_cmd["/usr/bin/pkexec"] is clean_env
+
 
 # =============================================================================
 # Additional UpdateResult Tests
