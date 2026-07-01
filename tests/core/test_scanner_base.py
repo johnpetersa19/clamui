@@ -228,6 +228,82 @@ class TestStreamProcessOutput:
         assert "/path/file2.txt: OK" in lines
         assert "/path/file3.txt: FOUND" in lines
 
+    def test_stream_output_partial_line_not_duplicated_in_stdout(self):
+        """A trailing partial line must appear exactly once in accumulated stdout.
+
+        The streaming loop appends every raw chunk to the stdout buffer as it
+        arrives, while separately tracking the trailing partial line for the
+        line callback. The exit-drain path used to re-append that partial
+        line, corrupting the final output (e.g. 'Scanned files: 1' +
+        'Scanned files: 123') and breaking result parsing.
+        """
+        mock_process = MagicMock()
+        mock_stdout = MagicMock()
+        mock_stderr = MagicMock()
+
+        # First iteration: process running, chunk ends mid-line.
+        # Second iteration: process exited, drain returns the rest.
+        mock_process.poll.side_effect = [None, 0]
+        mock_process.stdout = mock_stdout
+        mock_process.stderr = mock_stderr
+        mock_stdout.fileno.return_value = 1
+        mock_stderr.fileno.return_value = 2
+
+        lines = []
+
+        with (
+            patch("src.core.scanner_base.select.select", return_value=([1], [], [])),
+            patch(
+                "src.core.scanner_base.os.read",
+                side_effect=[
+                    b"Infected files: 0\nScanned files: 1",  # streaming read (partial line)
+                    b"23\n",  # drain stdout after poll
+                    b"",  # stdout EOF
+                    b"",  # stderr EOF
+                ],
+            ),
+        ):
+            stdout, _stderr, cancelled = stream_process_output(
+                mock_process, lambda: False, lines.append
+            )
+
+        assert cancelled is False
+        assert stdout == "Infected files: 0\nScanned files: 123\n"
+        assert lines == ["Infected files: 0", "Scanned files: 123"]
+
+    def test_stream_output_final_incomplete_line_flushed_once(self):
+        """A final line without trailing newline reaches the callback once and
+        is not duplicated in the accumulated stdout buffer."""
+        mock_process = MagicMock()
+        mock_stdout = MagicMock()
+        mock_stderr = MagicMock()
+
+        mock_process.poll.side_effect = [None, 0]
+        mock_process.stdout = mock_stdout
+        mock_process.stderr = mock_stderr
+        mock_stdout.fileno.return_value = 1
+        mock_stderr.fileno.return_value = 2
+
+        lines = []
+
+        with (
+            patch("src.core.scanner_base.select.select", return_value=([1], [], [])),
+            patch(
+                "src.core.scanner_base.os.read",
+                side_effect=[
+                    b"line1\nno newline at end",  # streaming read
+                    b"",  # drain stdout after poll (EOF, nothing new)
+                    b"",  # stderr EOF
+                ],
+            ),
+        ):
+            stdout, _stderr, _cancelled = stream_process_output(
+                mock_process, lambda: False, lines.append
+            )
+
+        assert stdout == "line1\nno newline at end"
+        assert lines == ["line1", "no newline at end"]
+
     def test_stream_output_does_not_deadlock_on_large_stderr(self):
         """Regression test for issue #146: full scan hanging at ~72%.
 
