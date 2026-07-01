@@ -727,6 +727,8 @@ class PatternEntryDialog(Adw.Window):
         add_button.set_label(_("Add"))
         add_button.add_css_class("suggested-action")
         add_button.connect("clicked", self._on_add_clicked)
+        # Disabled until a pattern is entered (see _on_pattern_changed)
+        add_button.set_sensitive(False)
         self._add_button = add_button
         header_bar.pack_end(add_button)
 

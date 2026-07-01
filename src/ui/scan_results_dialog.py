@@ -369,6 +369,13 @@ class ScanResultsDialog(Adw.Window):
         if self._threats_list is None:
             return
 
+        # Remove the previous "Show more" row first so new rows keep list
+        # order and the button doesn't linger when the final batch exactly
+        # exhausts the list.
+        if self._load_more_row is not None:
+            self._threats_list.remove(self._load_more_row)
+            self._load_more_row = None
+
         start_idx = self._displayed_threat_count
         end_idx = min(start_idx + count, len(self._all_threat_details))
 
@@ -379,9 +386,6 @@ class ScanResultsDialog(Adw.Window):
 
         # Add "Load More" button if there are more threats
         if self._displayed_threat_count < len(self._all_threat_details):
-            if self._load_more_row is not None:
-                self._threats_list.remove(self._load_more_row)
-
             load_more_row = Gtk.ListBoxRow()
             load_more_row.add_css_class("load-more-row")
             load_more_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)

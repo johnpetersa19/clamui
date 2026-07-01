@@ -1084,12 +1084,22 @@ class StatisticsView(Gtk.Box):
             timeframe: The timeframe value associated with the button
         """
         if not button.get_active():
+            # Clicking the already-active toggle deactivates it, which would
+            # leave no timeframe selected; re-activate to behave like a radio
+            # group.
+            if timeframe == self._current_timeframe:
+                button.set_active(True)
             return
 
         # Deactivate other buttons
         for tf, btn in self._timeframe_buttons.items():
             if tf != timeframe:
                 btn.set_active(False)
+
+        if timeframe == self._current_timeframe:
+            # Re-activation of the current selection (initial setup or the
+            # radio-guard above) — nothing new to load.
+            return
 
         # Update current timeframe and reload
         self._current_timeframe = timeframe

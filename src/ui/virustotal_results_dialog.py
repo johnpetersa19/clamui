@@ -312,6 +312,13 @@ class VirusTotalResultsDialog(Adw.Window):
         if self._detections_list is None:
             return
 
+        # Remove the previous "Show more" row first so new rows keep list
+        # order and the button doesn't linger when the final batch exactly
+        # exhausts the list.
+        if self._load_more_row is not None:
+            self._detections_list.remove(self._load_more_row)
+            self._load_more_row = None
+
         start_idx = self._displayed_detection_count
         end_idx = min(start_idx + count, len(self._all_detections))
 
@@ -322,9 +329,6 @@ class VirusTotalResultsDialog(Adw.Window):
 
         # Add "Load More" button if there are more detections
         if self._displayed_detection_count < len(self._all_detections):
-            if self._load_more_row is not None:
-                self._detections_list.remove(self._load_more_row)
-
             load_more_row = Gtk.ListBoxRow()
             load_more_row.add_css_class("load-more-row")
             load_more_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
