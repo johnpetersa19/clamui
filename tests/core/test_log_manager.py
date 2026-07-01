@@ -955,16 +955,37 @@ class TestLogManagerDaemonStatus:
     def test_get_daemon_status_stopped(self, log_manager):
         """Test daemon status when clamd service is installed but not active."""
         with mock.patch("src.core.log_manager.which_host_command", return_value="/usr/bin/clamd"):
-            with mock.patch("subprocess.run") as mock_run:
-                mock_run.side_effect = [
-                    mock.Mock(stdout="failed\n"),
-                    mock.Mock(stdout="unknown\n"),
-                    mock.Mock(stdout="unknown\n"),
-                    mock.Mock(returncode=1),
-                ]
-                status, message = log_manager.get_daemon_status()
-                assert status == DaemonStatus.STOPPED
-                assert "not active" in message.lower()
+            with mock.patch(
+                "src.core.clamav_detection.systemd_unit_exists", return_value=True
+            ) as mock_exists:
+                with mock.patch("subprocess.run") as mock_run:
+                    mock_run.side_effect = [
+                        mock.Mock(stdout="failed\n"),
+                        mock.Mock(stdout="unknown\n"),
+                        mock.Mock(stdout="unknown\n"),
+                        mock.Mock(returncode=1),
+                    ]
+                    status, message = log_manager.get_daemon_status()
+                    assert status == DaemonStatus.STOPPED
+                    assert "not active" in message.lower()
+                    mock_exists.assert_called_once_with("clamav-daemon.service")
+
+    def test_get_daemon_status_not_installed_when_units_unknown(self, log_manager):
+        """systemd reports 'inactive' even for unknown units; without a clamd
+        binary and with no real unit, the status must be NOT_INSTALLED rather
+        than 'installed but not active'."""
+        with mock.patch("src.core.log_manager.which_host_command", return_value=None):
+            with mock.patch("src.core.clamav_detection.systemd_unit_exists", return_value=False):
+                with mock.patch("subprocess.run") as mock_run:
+                    mock_run.side_effect = [
+                        mock.Mock(stdout="inactive\n"),
+                        mock.Mock(stdout="inactive\n"),
+                        mock.Mock(stdout="inactive\n"),
+                        mock.Mock(returncode=1),
+                    ]
+                    status, message = log_manager.get_daemon_status()
+                    assert status == DaemonStatus.NOT_INSTALLED
+                    assert "not installed" in message.lower()
 
     def test_get_daemon_status_falls_back_to_process_when_systemctl_fails(self, log_manager):
         """Test daemon status falls back to pgrep when systemctl calls fail."""

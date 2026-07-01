@@ -28,6 +28,7 @@ from .utils import (
     check_freshclam_installed,
     get_clean_env,
     get_freshclam_path,
+    systemd_unit_exists,
     wrap_host_command,
 )
 
@@ -180,7 +181,8 @@ class FreshclamUpdater:
                     env=get_clean_env(),
                 )
 
-                if result.returncode == 0 and result.stdout.strip() == "active":
+                state = result.stdout.strip().lower()
+                if result.returncode == 0 and state == "active":
                     # Service is active, get the PID
                     try:
                         pid_result = subprocess.run(
@@ -200,13 +202,18 @@ class FreshclamUpdater:
                             return FreshclamServiceStatus.RUNNING, pid
                     except (subprocess.TimeoutExpired, OSError) as e:
                         logger.warning("Failed to get freshclam PID: %s", e)
-                        # Service is active but couldn't get PID
-                        return FreshclamServiceStatus.RUNNING, None
+                    # Service is active even if the PID lookup failed
+                    return FreshclamServiceStatus.RUNNING, None
 
-                elif result.returncode == 0 or "inactive" in result.stdout.strip().lower():
-                    # Service exists but is stopped
-                    logger.debug("Service %s exists but is not running", service_name)
-                    return FreshclamServiceStatus.STOPPED, None
+                elif state in ("inactive", "failed", "activating", "deactivating"):
+                    # systemd prints "inactive" even for units it has never
+                    # heard of, so confirm the unit actually exists before
+                    # concluding installed-but-stopped — otherwise a distro
+                    # using the other unit name (openSUSE's freshclam.service)
+                    # would short-circuit here and never be probed.
+                    if systemd_unit_exists(service_name):
+                        logger.debug("Service %s exists but is not running", service_name)
+                        return FreshclamServiceStatus.STOPPED, None
 
             except subprocess.TimeoutExpired:
                 logger.warning("Timeout checking service %s", service_name)

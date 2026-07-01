@@ -1952,7 +1952,14 @@ class LogManager:
                 if status_text == "active":
                     return (DaemonStatus.RUNNING, f"{service_name} is active")
                 if status_text in {"inactive", "failed", "activating", "deactivating"}:
-                    saw_installed_service = True
+                    # "inactive" alone doesn't prove the unit exists: systemd
+                    # prints it for units it has never heard of, which would
+                    # misreport a machine with no clamd at all as
+                    # "installed but not active". Confirm via LoadState.
+                    from .clamav_detection import systemd_unit_exists
+
+                    if systemd_unit_exists(service_name):
+                        saw_installed_service = True
             except (subprocess.SubprocessError, FileNotFoundError, OSError):
                 logger.debug("systemctl is-active failed for %s", service_name, exc_info=True)
 

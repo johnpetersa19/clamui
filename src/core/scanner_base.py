@@ -313,17 +313,21 @@ def stream_process_output(
                 remaining_stderr = "".join(remaining_stderr_chunks)
 
                 if remaining_stdout:
-                    # Process remaining data including incomplete line
+                    # Line callbacks get the buffered partial line rejoined with
+                    # the drained data; the accumulated buffer must only receive
+                    # the newly drained bytes — incomplete_line was already
+                    # appended as part of the chunk it arrived in, and appending
+                    # it again would corrupt the final output parsed for results.
                     data = incomplete_line + remaining_stdout
                     lines = data.split("\n")
                     for line in lines:
                         if line:  # Skip empty lines from split
                             on_line(line)
-                    stdout_total = _append(stdout_parts, stdout_total, data, "stdout")
+                    stdout_total = _append(stdout_parts, stdout_total, remaining_stdout, "stdout")
                 elif incomplete_line:
-                    # Process the final incomplete line
+                    # Flush the final incomplete line to the callback only; its
+                    # bytes are already in stdout_parts.
                     on_line(incomplete_line)
-                    stdout_total = _append(stdout_parts, stdout_total, incomplete_line, "stdout")
                 if remaining_stderr:
                     stderr_total = _append(stderr_parts, stderr_total, remaining_stderr, "stderr")
                 break

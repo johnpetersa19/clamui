@@ -74,8 +74,8 @@ class ScanView(Gtk.Box):
         self._eicar_temp_path = ""
 
         self._setup_css()
-        # The controller creates the Scanner that _setup_ui's backend
-        # indicator reads, so it must be wired first.
+        # The controller must exist before the UI: _setup_ui() builds the
+        # backend indicator from self._scanner.
         self._setup_controller()
         self._setup_ui()
 
@@ -282,7 +282,13 @@ class ScanView(Gtk.Box):
         self._cancel_btn.set_visible(True)
         self._status_banner.set_revealed(False)
         self._results_widget.hide()
-        self._progress_widget.start()
+        # Match the controller: with live progress off it creates no progress
+        # callback, so the file/stats rows would sit on "Waiting for scan
+        # data..." forever if shown.
+        show_live = True
+        if self._settings_manager:
+            show_live = self._settings_manager.get("show_live_progress", True)
+        self._progress_widget.start(show_live_progress=show_live)
         self._progress_widget.set_status(_("Scanning..."))
 
         self._controller.start_scan(

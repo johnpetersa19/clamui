@@ -231,12 +231,17 @@ class ScanController:
                 # Runs on the main thread: flipping to IDLE here (rather than
                 # on the worker thread) keeps is_scanning True until callers
                 # of start_scan — which is main-thread-only — can no longer
-                # race a second worker against this one.
+                # race a second worker against this one. Completion is
+                # delivered BEFORE the state change: state-change consumers
+                # (tray status, coordinator) read the current result, and
+                # firing IDLE first would hand them the previous scan's
+                # result (or None) — e.g. a "protected" tray icon right
+                # after threats were found.
                 self._state = ScanState.IDLE
-                if self._on_state_change:
-                    self._on_state_change(self._state)
                 if self._on_complete:
                     self._on_complete(final_result)
+                if self._on_state_change:
+                    self._on_state_change(self._state)
                 return False
 
             GLib.idle_add(_finalize)

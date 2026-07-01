@@ -1884,11 +1884,18 @@ class TestCheckFreshclamService:
 
         def mock_run(cmd, *args, **kwargs):
             calls.append(cmd)
+            if "show" in cmd:
+                # LoadState probe confirming the unit exists
+                return MagicMock(returncode=0, stdout="loaded\n")
             return MagicMock(returncode=3, stdout="inactive")
 
         with (
             patch(
                 "src.core.updater.wrap_host_command",
+                side_effect=lambda cmd: ["flatpak-spawn", "--host", *cmd],
+            ),
+            patch(
+                "src.core.clamav_detection.wrap_host_command",
                 side_effect=lambda cmd: ["flatpak-spawn", "--host", *cmd],
             ),
             patch("subprocess.run", side_effect=mock_run),
@@ -1939,18 +1946,49 @@ class TestCheckFreshclamService:
 
         mock_log_manager = MagicMock()
 
-        # Mock systemctl is-active returning inactive
-        mock_systemctl = MagicMock()
-        mock_systemctl.returncode = 0
-        mock_systemctl.stdout = "inactive"
+        # Mock systemctl is-active returning inactive for a unit that exists
+        def mock_run(cmd, *args, **kwargs):
+            if "show" in cmd:
+                # LoadState probe confirming the unit exists
+                return MagicMock(returncode=0, stdout="loaded\n")
+            return MagicMock(returncode=3, stdout="inactive")
 
         with patch("src.core.updater.is_flatpak", return_value=False):
-            with patch("subprocess.run", return_value=mock_systemctl):
+            with patch("subprocess.run", side_effect=mock_run):
                 with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
-                    updater = FreshclamUpdater(log_manager=mock_log_manager)
-                    status, pid = updater.check_freshclam_service()
+                    with patch(
+                        "src.core.clamav_detection.wrap_host_command", side_effect=lambda x: x
+                    ):
+                        updater = FreshclamUpdater(log_manager=mock_log_manager)
+                        status, pid = updater.check_freshclam_service()
 
         assert status == FreshclamServiceStatus.STOPPED
+        assert pid is None
+
+    def test_returns_not_found_when_unit_unknown_but_reported_inactive(self, updater_module):
+        """systemd prints 'inactive' for units it has never heard of; that
+        must not be classified as installed-but-stopped, or the second
+        candidate unit name (openSUSE's freshclam.service) is never probed."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        mock_log_manager = MagicMock()
+
+        def mock_run(cmd, *args, **kwargs):
+            if "show" in cmd:
+                # LoadState probe: unit is unknown to systemd
+                return MagicMock(returncode=0, stdout="not-found\n")
+            return MagicMock(returncode=3, stdout="inactive")
+
+        with patch("src.core.updater.is_flatpak", return_value=False):
+            with patch("subprocess.run", side_effect=mock_run):
+                with patch("src.core.updater.wrap_host_command", side_effect=lambda x: x):
+                    with patch(
+                        "src.core.clamav_detection.wrap_host_command", side_effect=lambda x: x
+                    ):
+                        updater = FreshclamUpdater(log_manager=mock_log_manager)
+                        status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.NOT_FOUND
         assert pid is None
 
     def test_returns_not_found_when_no_service_exists(self, updater_module):

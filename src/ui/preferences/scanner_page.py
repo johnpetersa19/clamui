@@ -785,7 +785,10 @@ class ScannerPage(PreferencesPageMixin):
         if not config:
             return
 
-        # Populate file type scanning switches
+        # Populate file type scanning switches. ClamAV enables all of these
+        # by default when the key is absent from clamd.conf, so a missing key
+        # must show as ON — defaulting to off would write "ScanPE no" etc. on
+        # the next save and silently disable executable/document scanning.
         for key in (
             "ScanPE",
             "ScanELF",
@@ -794,7 +797,7 @@ class ScannerPage(PreferencesPageMixin):
             "ScanHTML",
             "ScanArchive",
         ):
-            populate_bool_field(config, widgets_dict, key)
+            populate_bool_field(config, widgets_dict, key, default=True)
 
         # Populate performance settings
         for key in ("MaxFileSize", "MaxScanSize"):
