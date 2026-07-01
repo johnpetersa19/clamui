@@ -16,7 +16,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, GLib, Gtk, Pango
+from gi.repository import Adw, GLib, GObject, Gtk, Pango
 
 from ..core.i18n import _, ngettext
 from ..core.quarantine import (
@@ -25,10 +25,107 @@ from ..core.quarantine import (
     QuarantineResult,
     QuarantineStatus,
 )
-from .compat import create_banner, safe_set_placeholder_text
+from .compat import create_banner, create_toolbar_view, safe_set_placeholder_text
 from .pagination import PaginatedListController
-from .utils import add_row_icon, resolve_icon_name
+from .utils import add_row_icon, enable_escape_to_close, resolve_icon_name
 from .view_helpers import EmptyStateConfig, create_empty_state, create_loading_row
+
+
+class QuarantineConfirmDialog(Adw.Window):
+    """
+    Confirmation dialog for irreversible or risky quarantine actions.
+
+    Uses Adw.Window instead of Adw.MessageDialog for compatibility with
+    libadwaita < 1.5 (Ubuntu 22.04, Pop!_OS 22.04).
+
+    Usage:
+        dialog = QuarantineConfirmDialog(
+            heading=_("Delete File?"),
+            body=_("This cannot be undone."),
+            confirm_label=_("Delete"),
+            destructive=True,
+        )
+        dialog.connect("response", on_response)  # "confirm" or "cancel"
+        dialog.set_transient_for(parent_window)
+        dialog.present()
+    """
+
+    __gsignals__ = {"response": (GObject.SignalFlags.RUN_LAST, None, (str,))}
+
+    def __init__(
+        self,
+        heading: str,
+        body: str,
+        confirm_label: str,
+        destructive: bool = True,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self._heading = heading
+        self._body = body
+
+        self.set_title(heading)
+        self.set_default_size(400, -1)  # Natural height
+        self.set_modal(True)
+        enable_escape_to_close(self)
+        self.set_deletable(True)
+
+        toolbar_view = create_toolbar_view()
+        toolbar_view.add_top_bar(Adw.HeaderBar())
+
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        content_box.set_margin_top(12)
+        content_box.set_margin_bottom(24)
+
+        warning_icon = Gtk.Image.new_from_icon_name(resolve_icon_name("dialog-warning-symbolic"))
+        warning_icon.set_pixel_size(48)
+        warning_icon.add_css_class("warning")
+        warning_icon.set_halign(Gtk.Align.CENTER)
+        content_box.append(warning_icon)
+
+        body_label = Gtk.Label()
+        body_label.set_text(body)
+        body_label.set_wrap(True)
+        body_label.set_xalign(0.5)
+        body_label.set_justify(Gtk.Justification.CENTER)
+        content_box.append(body_label)
+
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        button_box.set_halign(Gtk.Align.CENTER)
+        button_box.set_margin_top(12)
+
+        cancel_button = Gtk.Button(label=_("Cancel"))
+        cancel_button.connect("clicked", self._on_cancel_clicked)
+        button_box.append(cancel_button)
+
+        confirm_button = Gtk.Button(label=confirm_label)
+        confirm_button.add_css_class("destructive-action" if destructive else "suggested-action")
+        confirm_button.connect("clicked", self._on_confirm_clicked)
+        button_box.append(confirm_button)
+
+        content_box.append(button_box)
+
+        toolbar_view.set_content(content_box)
+        self.set_content(toolbar_view)
+
+    def _on_cancel_clicked(self, button):
+        self.emit("response", "cancel")
+        self.close()
+
+    def _on_confirm_clicked(self, button):
+        self.emit("response", "confirm")
+        self.close()
+
+    def get_heading(self) -> str:
+        """Get the dialog heading/title (for test compatibility)."""
+        return self._heading
+
+    def get_body(self) -> str:
+        """Get the dialog body text (for test compatibility)."""
+        return self._body
 
 
 class _QuarantinePaginationController(PaginatedListController):
@@ -732,11 +829,31 @@ class QuarantineView(Gtk.Box):
         """
         Handle restore button click for a quarantine entry.
 
+        Asks for confirmation first: restoring puts a detected threat back
+        on disk at its original location.
+
         Args:
             button: The button that was clicked
             entry: The QuarantineEntry to restore
         """
-        self._manager.restore_file_async(entry.id, callback=self._on_restore_completed)
+        dialog = QuarantineConfirmDialog(
+            heading=_("Restore Quarantined File?"),
+            body=_(
+                'This file was detected as "{threat}". It will be restored to {path}.'
+            ).format(threat=entry.threat_name or _("Unknown Threat"), path=entry.original_path),
+            confirm_label=_("Restore Anyway"),
+            destructive=True,
+        )
+        dialog.connect("response", self._on_restore_confirm_response, entry)
+        root = self.get_root()
+        if isinstance(root, Gtk.Window):
+            dialog.set_transient_for(root)
+        dialog.present()
+
+    def _on_restore_confirm_response(self, dialog, response: str, entry: QuarantineEntry):
+        """Start the restore once the user confirms."""
+        if response == "confirm":
+            self._manager.restore_file_async(entry.id, callback=self._on_restore_completed)
 
     def _on_restore_completed(self, result: QuarantineResult) -> bool:
         """
@@ -763,11 +880,32 @@ class QuarantineView(Gtk.Box):
         """
         Handle delete button click for a quarantine entry.
 
+        Asks for confirmation first: deletion permanently destroys the file
+        with no way to recover it.
+
         Args:
             button: The button that was clicked
             entry: The QuarantineEntry to delete
         """
-        self._manager.delete_file_async(entry.id, callback=self._on_delete_completed)
+        dialog = QuarantineConfirmDialog(
+            heading=_("Permanently Delete File?"),
+            body=_(
+                'The quarantined file from {path} ("{threat}") will be permanently '
+                "deleted. This action cannot be undone."
+            ).format(path=entry.original_path, threat=entry.threat_name or _("Unknown Threat")),
+            confirm_label=_("Delete"),
+            destructive=True,
+        )
+        dialog.connect("response", self._on_delete_confirm_response, entry)
+        root = self.get_root()
+        if isinstance(root, Gtk.Window):
+            dialog.set_transient_for(root)
+        dialog.present()
+
+    def _on_delete_confirm_response(self, dialog, response: str, entry: QuarantineEntry):
+        """Start the delete once the user confirms."""
+        if response == "confirm":
+            self._manager.delete_file_async(entry.id, callback=self._on_delete_completed)
 
     def _on_delete_completed(self, result: QuarantineResult) -> bool:
         """
