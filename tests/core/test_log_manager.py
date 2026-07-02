@@ -1090,6 +1090,41 @@ class TestLogManagerDaemonLogs:
         finally:
             os.unlink(temp_log_path)
 
+    def test_read_daemon_logs_tail_passes_clean_env(self, log_manager):
+        """The tail host helper receives the sanitized environment."""
+        clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
+        with (
+            mock.patch.object(log_manager, "get_daemon_log_path", return_value="/var/log/clamd.log"),
+            mock.patch("src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd),
+            mock.patch("src.core.log_manager.get_clean_env", return_value=clean_env),
+            mock.patch(
+                "subprocess.run",
+                return_value=mock.MagicMock(returncode=0, stdout="Line 1\n"),
+            ) as mock_run,
+        ):
+            success, content = log_manager.read_daemon_logs(num_lines=5)
+
+        assert success is True
+        assert mock_run.call_args.args[0][0] == "tail"
+        assert mock_run.call_args.kwargs["env"] is clean_env
+
+    def test_read_daemon_logs_journalctl_passes_clean_env(self, log_manager):
+        """The journalctl host helper receives the sanitized environment."""
+        clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
+        with (
+            mock.patch("src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd),
+            mock.patch("src.core.log_manager.get_clean_env", return_value=clean_env),
+            mock.patch(
+                "subprocess.run",
+                return_value=mock.MagicMock(returncode=0, stdout="journal line\n"),
+            ) as mock_run,
+        ):
+            success, content = log_manager._read_daemon_logs_journalctl(num_lines=5)
+
+        assert success is True
+        assert mock_run.call_args.args[0][0] == "journalctl"
+        assert mock_run.call_args.kwargs["env"] is clean_env
+
 
 class TestLogType:
     """Tests for the LogType enum."""

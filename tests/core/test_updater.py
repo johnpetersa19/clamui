@@ -2658,6 +2658,130 @@ class TestTriggerServiceUpdateAdditional:
 
 
 # =============================================================================
+# Clean-Env Wiring Tests (issue #155 residuals)
+# =============================================================================
+
+
+class TestProbeSubprocessCleanEnv:
+    """Host-state probes (systemctl is-active, pidof) must receive the
+    sanitized environment so leaked AppImage vars don't break them."""
+
+    def test_check_freshclam_service_passes_clean_env(self, updater_module):
+        """systemctl is-active and pidof both receive env=get_clean_env()."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
+        env_by_cmd = {}
+
+        def mock_run(cmd, *args, **kwargs):
+            env_by_cmd[cmd[0]] = kwargs.get("env")
+            if "is-active" in cmd:
+                return MagicMock(returncode=0, stdout="active")
+            if "pidof" in cmd:
+                return MagicMock(returncode=0, stdout="12345")
+            return MagicMock(returncode=1, stdout="")
+
+        with (
+            patch("src.core.updater.get_clean_env", return_value=clean_env),
+            patch("src.core.updater.wrap_host_command", side_effect=lambda x: x),
+            patch("subprocess.run", side_effect=mock_run),
+        ):
+            updater = FreshclamUpdater(log_manager=MagicMock())
+            status, pid = updater.check_freshclam_service()
+
+        assert status == FreshclamServiceStatus.RUNNING
+        assert pid == "12345"
+        assert env_by_cmd["systemctl"] is clean_env
+        assert env_by_cmd["pidof"] is clean_env
+
+    def test_trigger_service_update_pid_probe_passes_clean_env(self, updater_module):
+        """The pidof retry inside trigger_service_update() gets the clean env."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
+        env_by_cmd = {}
+
+        def mock_run(cmd, *args, **kwargs):
+            env_by_cmd[cmd[0]] = kwargs.get("env")
+            if "pidof" in cmd:
+                return MagicMock(returncode=0, stdout="54321")
+            if "kill" in cmd:
+                return MagicMock(returncode=0, stderr="")
+            return MagicMock(returncode=1, stdout="")
+
+        updater = FreshclamUpdater(log_manager=MagicMock())
+        with (
+            patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, None),
+            ),
+            patch("src.core.updater.get_clean_env", return_value=clean_env),
+            patch("src.core.updater.wrap_host_command", side_effect=lambda x: x),
+            patch("subprocess.run", side_effect=mock_run),
+        ):
+            success, _message = updater.trigger_service_update()
+
+        assert success is True
+        assert env_by_cmd["pidof"] is clean_env
+
+    def test_check_freshclam_running_passes_clean_env(self, updater_module):
+        """_check_freshclam_running's pidof probe gets the clean env."""
+        from src.core.updater import FreshclamUpdater
+
+        clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
+
+        with (
+            patch("src.core.updater.get_clean_env", return_value=clean_env),
+            patch("src.core.updater.wrap_host_command", side_effect=lambda x: x),
+            patch(
+                "subprocess.run",
+                return_value=MagicMock(returncode=0, stdout="777"),
+            ) as mock_run,
+        ):
+            updater = FreshclamUpdater(log_manager=MagicMock())
+            is_running, pid = updater._check_freshclam_running()
+
+        assert is_running is True
+        assert pid == "777"
+        assert mock_run.call_args.kwargs["env"] is clean_env
+
+    def test_trigger_service_update_kill_passes_clean_env(self, updater_module):
+        """Both the kill and pkexec-kill signal commands get the clean env."""
+        from src.core.updater import FreshclamServiceStatus, FreshclamUpdater
+
+        clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
+        env_by_cmd = {}
+
+        def mock_run(cmd, *args, **kwargs):
+            env_by_cmd[cmd[0]] = kwargs.get("env")
+            if cmd[0] == "kill":
+                # Regular kill fails so the pkexec fallback runs too
+                return MagicMock(returncode=1, stderr="Operation not permitted")
+            if cmd[0] == "/usr/bin/pkexec":
+                return MagicMock(returncode=0, stderr="")
+            return MagicMock(returncode=1, stdout="")
+
+        updater = FreshclamUpdater(log_manager=MagicMock())
+        with (
+            patch.object(
+                updater,
+                "check_freshclam_service",
+                return_value=(FreshclamServiceStatus.RUNNING, "123"),
+            ),
+            patch("src.core.updater.get_pkexec_path", return_value="/usr/bin/pkexec"),
+            patch("src.core.updater.get_clean_env", return_value=clean_env),
+            patch("src.core.updater.wrap_host_command", side_effect=lambda x: x),
+            patch("subprocess.run", side_effect=mock_run),
+        ):
+            success, _message = updater.trigger_service_update()
+
+        assert success is True
+        assert env_by_cmd["kill"] is clean_env
+        assert env_by_cmd["/usr/bin/pkexec"] is clean_env
+
+
+# =============================================================================
 # Additional UpdateResult Tests
 # =============================================================================
 

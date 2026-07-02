@@ -545,7 +545,7 @@ class PreferencesPageMixin:
             )
             return
 
-        from ...core.flatpak import is_flatpak
+        from ...core.flatpak import get_clean_env, is_flatpak
 
         if is_flatpak():
             try:
@@ -586,6 +586,7 @@ class PreferencesPageMixin:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
+                    env=get_clean_env(),
                 )
             except Exception as e:
                 self._show_simple_dialog(

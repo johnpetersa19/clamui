@@ -28,6 +28,7 @@ from ...core.clamav_config import megabytes_to_size_value, size_value_to_megabyt
 from ...core.clamav_detection import detect_clamd_conf_path
 from ...core.flatpak import (
     format_flatpak_portal_path,
+    get_clean_env,
     is_flatpak,
     is_portal_path,
     resolve_portal_path,
@@ -524,6 +525,7 @@ class ScannerPage(PreferencesPageMixin):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
+                env=get_clean_env(),
             )
         except Exception as e:
             # Show error dialog if opening fails

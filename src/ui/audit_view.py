@@ -819,7 +819,7 @@ class AuditView(Gtk.Box):
         """
         import subprocess
 
-        from ..core.flatpak import is_flatpak
+        from ..core.flatpak import get_clean_env, is_flatpak
 
         # Sentinel: instead of spawning a subprocess, kick off Portmaster's
         # third-party authorization flow. Handled here (rather than in a
@@ -830,11 +830,15 @@ class AuditView(Gtk.Box):
 
         try:
             cmd = ["flatpak-spawn", "--host", command] if is_flatpak() else [command]
+            # env: gufw/firewall-config are host Python/GTK scripts; a leaked
+            # AppImage PYTHONHOME kills them instantly and stderr is DEVNULL
+            # (issue #155 residual).
             subprocess.Popen(
                 cmd,
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                env=get_clean_env(),
             )
         except FileNotFoundError:
             logger.warning("Could not launch: %s (not found)", command)

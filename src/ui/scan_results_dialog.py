@@ -185,10 +185,18 @@ class ScanResultsDialog(Adw.Window):
         # Set title based on result status
         if self._scan_result.status == ScanStatus.CLEAN:
             expander.set_title(_("Scan Complete"))
-            if self._scan_result.has_warnings:
+            if self._scan_result.skipped_count > 0:
                 expander.set_subtitle(
                     _("No threats found ({count} file(s) not accessible)").format(
                         count=self._scan_result.skipped_count
+                    )
+                )
+            elif self._scan_result.warning_message:
+                # Warnings without a skipped-file count (e.g. non-fatal scanner
+                # warnings) — never render a bare "0 file(s)" subtitle.
+                expander.set_subtitle(
+                    _("No threats found ({warning})").format(
+                        warning=GLib.markup_escape_text(self._scan_result.warning_message)
                     )
                 )
             else:

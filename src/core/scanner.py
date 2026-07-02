@@ -24,6 +24,7 @@ from .scanner_base import (
     communicate_with_cancel_check,
     create_cancelled_result,
     create_error_result,
+    resolve_exit2_status,
     save_scan_log,
     stream_process_output,
     terminate_process_gracefully,
@@ -252,7 +253,7 @@ class Scanner:
         ):
             return Scanner._daemon_cache[1]
 
-        is_available, _ = check_clamd_connection(config_path=self._get_clamd_config_path())
+        is_available, _msg = check_clamd_connection(config_path=self._get_clamd_config_path())
         Scanner._daemon_cache = (now, is_available)
         return is_available
 
@@ -267,7 +268,7 @@ class Scanner:
         if backend == "clamscan":
             return "clamscan"
         elif backend == "daemon":
-            is_available, _ = self._get_daemon_scanner().check_available()
+            is_available, _msg = self._get_daemon_scanner().check_available()
             return "daemon" if is_available else "unavailable"
         else:  # auto
             is_available = self._is_daemon_available_cached()
@@ -934,6 +935,7 @@ class Scanner:
 
         # Determine overall status based on exit code
         warning_message = None
+        exit2_error_message = None
         if infected_count > 0:
             # Detections are authoritative: clamscan returns exit code 2 when it
             # both finds a virus and hits an error (e.g. an unreadable file), so
@@ -946,23 +948,19 @@ class Scanner:
         elif exit_code == 1:
             status = ScanStatus.INFECTED
         elif exit_code == 2:
-            # Exit code 2 = warnings/errors. clamscan reports 2 even for benign,
-            # by-design situations (unreadable files, files exceeding scan limits,
-            # truncated archives). Treat as CLEAN only when we positively identified
-            # the cause as non-fatal (a skipped file or a limit/truncation warning)
-            # and nothing looked like a hard error. Unrecognized stderr stays ERROR.
-            if not hard_error_lines and (skipped_files or nonfatal_warnings):
-                status = ScanStatus.CLEAN
-                if skipped_files:
-                    warning_message = f"{len(skipped_files)} file(s) could not be accessed"
-            else:
-                status = ScanStatus.ERROR
+            status, warning_message, exit2_error_message = resolve_exit2_status(
+                stdout, scanned_files, hard_error_lines, skipped_files, nonfatal_warnings
+            )
         else:
             status = ScanStatus.ERROR
 
         error_message = None
         if status == ScanStatus.ERROR:
-            error_message = stderr.strip() or (hard_error_lines[0] if hard_error_lines else None)
+            error_message = (
+                exit2_error_message
+                or stderr.strip()
+                or (hard_error_lines[0] if hard_error_lines else None)
+            )
 
         return ScanResult(
             status=status,
@@ -979,6 +977,7 @@ class Scanner:
             skipped_files=skipped_files,
             skipped_count=len(skipped_files),
             warning_message=warning_message,
+            nonfatal_warnings=nonfatal_warnings,
         )
 
     def _save_scan_log(self, result: ScanResult, duration: float) -> None:
