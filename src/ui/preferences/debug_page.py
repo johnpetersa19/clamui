@@ -70,6 +70,7 @@ class DebugPage(PreferencesPageMixin):
         self._export_button = None
         self._clear_button = None
         self._install_type_row = None
+        self._installation_type = None
 
     def create_page(self) -> Adw.PreferencesPage:
         """
@@ -390,6 +391,7 @@ class DebugPage(PreferencesPageMixin):
         Returns:
             False to remove from GLib.idle_add
         """
+        self._installation_type = install_type
         if self._install_type_row is not None:
             try:
                 self._install_type_row.set_subtitle(install_type)
@@ -478,11 +480,44 @@ class DebugPage(PreferencesPageMixin):
         return f"GTK {gtk_version}, libadwaita {adw_version}"
 
     def _on_copy_system_info_clicked(self, _button):
-        """Handle Copy System Info button click."""
+        """Handle Copy System Info button click.
+
+        Reuses the cached installation type when available so the
+        subprocess-based detection never runs synchronously on the GTK
+        main loop. If the cache is not yet populated, the detection runs
+        on a background thread and the clipboard is updated from the
+        main thread via GLib.idle_add.
+        """
+        if self._installation_type is not None:
+            self._copy_system_info_to_clipboard(self._installation_type)
+            return
+
+        # Cache not populated yet: detect off-thread, then finish on the
+        # main thread to keep GTK/clipboard access off the worker thread.
+        thread = threading.Thread(target=self._detect_installation_type_for_copy, daemon=True)
+        thread.start()
+
+    def _detect_installation_type_for_copy(self):
+        """Detect installation type off-thread for the copy action."""
+        install_type = self._get_installation_type()
+        GLib.idle_add(self._finish_copy_system_info, install_type)
+
+    def _finish_copy_system_info(self, install_type: str) -> bool:
+        """Finish the copy action on the main thread after off-thread detection.
+
+        Returns:
+            False to remove from GLib.idle_add
+        """
+        self._installation_type = install_type
+        self._copy_system_info_to_clipboard(install_type)
+        return False
+
+    def _copy_system_info_to_clipboard(self, install_type: str):
+        """Build the system info text and copy it to the clipboard (main thread)."""
         info_lines = [
             _("ClamUI System Information"),
             "=" * 40,
-            _("Installation Type: {value}").format(value=self._get_installation_type()),
+            _("Installation Type: {value}").format(value=install_type),
             _("Distribution: {value}").format(value=self._get_distro_info()),
             _("Desktop Environment: {value}").format(value=self._get_desktop_environment()),
             _("Python Version: {value}").format(value=platform.python_version()),

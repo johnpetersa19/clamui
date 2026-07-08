@@ -870,6 +870,14 @@ class QuarantineView(Gtk.Box):
             self._status_banner.set_revealed(True)
             # Refresh the list after successful restore
             GLib.timeout_add(500, self._load_entries_async)
+        elif result.status == QuarantineStatus.DATABASE_ERROR:
+            # File operation succeeded but the DB row lingers; warn and still refresh
+            self._status_banner.set_title(
+                result.error_message
+                or _("File restored, but the database entry could not be removed")
+            )
+            self._status_banner.set_revealed(True)
+            GLib.timeout_add(500, self._load_entries_async)
         else:
             self._status_banner.set_title(result.error_message or _("Failed to restore file"))
             self._status_banner.set_revealed(True)
@@ -921,6 +929,14 @@ class QuarantineView(Gtk.Box):
             self._status_banner.set_title(_("File deleted successfully"))
             self._status_banner.set_revealed(True)
             # Refresh the list after successful delete
+            GLib.timeout_add(500, self._load_entries_async)
+        elif result.status == QuarantineStatus.DATABASE_ERROR:
+            # File operation succeeded but the DB row lingers; warn and still refresh
+            self._status_banner.set_title(
+                result.error_message
+                or _("File deleted, but the database entry could not be removed")
+            )
+            self._status_banner.set_revealed(True)
             GLib.timeout_add(500, self._load_entries_async)
         else:
             self._status_banner.set_title(result.error_message or _("Failed to delete file"))

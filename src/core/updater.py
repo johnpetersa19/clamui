@@ -373,7 +373,18 @@ class FreshclamUpdater:
     ) -> UpdateResult:
         """Persist the update log, optionally restore backups, and return the result."""
         if restore_backup:
-            self._restore_databases_from_backup()
+            restore_success, restore_error = self._restore_databases_from_backup()
+            if not restore_success:
+                if restore_error:
+                    note = _("previous database could not be restored: {error}").format(
+                        error=restore_error
+                    )
+                else:
+                    note = _("previous database could not be restored")
+                if result.error_message:
+                    result.error_message = f"{result.error_message} ({note})"
+                else:
+                    result.error_message = note
 
         duration = time.monotonic() - start_time
         self._save_update_log(result, duration)
@@ -446,6 +457,7 @@ class FreshclamUpdater:
                 "(expected for root-owned directories): %s",
                 error,
             )
+            self._force_update_backup_dir = None
             self._cleanup_backup()
             return None
 
@@ -746,16 +758,19 @@ class FreshclamUpdater:
         pkexec = get_pkexec_path()
         if pkexec:
             if force:
-                # Force update: Delete databases first, then run freshclam.
-                # This all happens via pkexec with root privileges.
+                # Force update: move existing databases aside as root, run
+                # freshclam, delete the moved-aside backups on success — or
+                # restore them on failure so a failed force update never
+                # leaves the system without a database. Runs via pkexec.
                 # freshclam is passed as $1 (positional arg) to avoid
                 # shell injection — the script string is a constant.
                 cmd = [
                     pkexec,
                     "sh",
                     "-c",
-                    # Delete all ClamAV database files, then run freshclam
-                    'rm -f /var/lib/clamav/*.cvd /var/lib/clamav/*.cld /var/lib/clamav/*.cud 2>/dev/null; "$1" --verbose',
+                    # Move DB files aside (.forceupd.bak), run freshclam,
+                    # then delete backups on success or restore on failure.
+                    'd=/var/lib/clamav; moved=""; for f in "$d"/*.cvd "$d"/*.cld "$d"/*.cud; do [ -e "$f" ] || continue; if mv -f "$f" "$f.forceupd.bak"; then moved="$moved $f"; fi; done; if "$1" --verbose; then for f in $moved; do rm -f "$f.forceupd.bak"; done; else rc=$?; for f in $moved; do mv -f "$f.forceupd.bak" "$f"; done; exit $rc; fi',
                     "clamui-force-update",  # $0 (script name for error messages)
                     freshclam,  # $1 (safe — not interpreted as shell syntax)
                 ]
