@@ -961,6 +961,11 @@ def _get_privileged_writer_path() -> str | None:
     return shutil.which(helper_name)
 
 
+def privileged_writer_available() -> bool:
+    """Return whether the privileged configuration writer can be resolved."""
+    return _get_privileged_writer_path() is not None
+
+
 def _make_staging_dir() -> Path:
     """
     Create a per-invocation staging directory with mode 0o700.
@@ -1045,6 +1050,17 @@ def write_configs_with_elevation(configs: list[ClamAVConfig]) -> tuple[bool, str
 
         helper_path = _get_privileged_writer_path()
         if helper_path is None:
+            if _running_in_flatpak():
+                return (
+                    False,
+                    _(
+                        "ClamUI privileged helper not installed on the host. "
+                        "The Flatpak sandbox cannot write system ClamAV configuration "
+                        "files such as /etc/clamav/*.conf directly; install the host "
+                        "'clamui' package or run 'sudo clamui install-privileged-helper' "
+                        "on the host to apply these settings."
+                    ),
+                )
             return (
                 False,
                 _(

@@ -1194,6 +1194,8 @@ class TestFlatpakElevationRouting:
         assert success is False
         assert error is not None
         assert "helper not installed" in error.lower()
+        assert "flatpak sandbox" in error.lower()
+        assert "/etc/clamav" in error
 
     def test_flatpak_system_write_uses_host_helper_via_flatpak_spawn(self, monkeypatch, tmp_path):
         """End-to-end: a Flatpak /etc write invokes the HOST helper through
