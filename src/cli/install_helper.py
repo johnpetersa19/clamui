@@ -38,8 +38,11 @@ import stat
 import sys
 import tempfile
 from importlib.resources import files
-from importlib.resources.abc import Traversable
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from importlib.resources.abc import Traversable
 
 from ..core.flatpak import is_flatpak
 from ..core.i18n import _
