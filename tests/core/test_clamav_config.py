@@ -2,6 +2,7 @@
 """Unit tests for the ClamAV configuration module."""
 
 import contextlib
+import os
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -1179,6 +1180,51 @@ class TestFlatpakElevationRouting:
             == "/usr/bin/clamui-apply-preferences"
         )
 
+    def test_writer_rejects_noncanonical_host_path_in_flatpak(self, monkeypatch):
+        monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: True)
+        monkeypatch.setattr(
+            "src.core.flatpak.which_host_command",
+            lambda _name: "/home/user/.local/bin/clamui-apply-preferences",
+        )
+
+        assert clamav_config_module._get_privileged_writer_path() is None
+
+    def test_writer_ignores_user_writable_venv_binary(self, monkeypatch, tmp_path):
+        bin_dir = tmp_path / "venv/bin"
+        bin_dir.mkdir(parents=True)
+        wrapper = bin_dir / "clamui-apply-preferences"
+        wrapper.touch(mode=0o755)
+
+        monkeypatch.setattr("src.core.flatpak.is_flatpak", lambda: False)
+        monkeypatch.setenv("PATH", str(bin_dir))
+        monkeypatch.setattr(Path, "is_file", lambda self: self == wrapper)
+        monkeypatch.setattr(clamav_config_module.os, "access", lambda _path, _mode: True)
+
+        assert clamav_config_module._get_privileged_writer_path() is None
+
+    @pytest.mark.skipif(
+        os.geteuid() == 0,
+        reason="requires a non-root runner so the executable file is not root-owned",
+    )
+    def test_writer_rejects_non_root_owned_executable_in_native_mode(self, monkeypatch, tmp_path):
+        """Native mode must refuse the canonical path when the file there is
+        executable but not root-owned: a user-writable binary at
+        ``/usr/bin/clamui-apply-preferences`` would otherwise let an
+        unprivileged user run arbitrary code as root through pkexec."""
+        helper = tmp_path / "clamui-apply-preferences"
+        helper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        helper.chmod(0o755)
+
+        # Real file, really executable, but owned by the current non-root user.
+        assert helper.is_file()
+        assert clamav_config_module.os.access(helper, os.X_OK)
+        assert os.stat(helper).st_uid != 0
+
+        monkeypatch.setattr(clamav_config_module, "_running_in_flatpak", lambda: False)
+        monkeypatch.setattr(clamav_config_module, "_PRIVILEGED_HELPER_PATH", str(helper))
+
+        assert clamav_config_module._get_privileged_writer_path() is None
+
     def test_missing_host_helper_in_flatpak_gives_clear_error(self, monkeypatch):
         """When the host helper is absent, the save fails with an actionable message
         rather than silently resetting or showing 'Authorization failed'."""
@@ -1535,6 +1581,11 @@ class TestWriteConfigsFlatpak:
 
         monkeypatch.setattr(clamav_config_module, "_path_needs_elevation", lambda _: True)
         monkeypatch.setattr(clamav_config_module, "_running_in_flatpak", lambda: True)
+        monkeypatch.setattr(
+            clamav_config_module,
+            "_get_privileged_writer_path",
+            lambda: "/usr/bin/clamui-apply-preferences",
+        )
 
         run_calls = []
 
@@ -1688,6 +1739,68 @@ class TestWriteConfigsFlatpak:
         # The staging-dir cleanup in the finally block runs after subprocess.run
         # returns; the staged file should already be removed by now.
         assert not staged.exists()
+
+    def test_success_reports_staging_cleanup_failure(self, monkeypatch, tmp_path):
+        config = ClamAVConfig(file_path=Path("/etc/clamav/clamd.conf"))
+        staging_dir = tmp_path / "staging"
+        staging_dir.mkdir()
+
+        monkeypatch.setattr(clamav_config_module, "_path_needs_elevation", lambda _: True)
+        monkeypatch.setattr(clamav_config_module, "_running_in_flatpak", lambda: False)
+        monkeypatch.setattr(
+            clamav_config_module,
+            "_get_privileged_writer_path",
+            lambda: "/usr/bin/clamui-apply-preferences",
+        )
+        monkeypatch.setattr(clamav_config_module, "_make_staging_dir", lambda: staging_dir)
+        monkeypatch.setattr(
+            clamav_config_module.subprocess,
+            "run",
+            lambda *_args, **_kwargs: mock.Mock(returncode=0, stderr="", stdout=""),
+        )
+
+        def _fail_explicit_cleanup(path, ignore_errors=False):
+            if not ignore_errors:
+                raise OSError("cleanup failed")
+
+        monkeypatch.setattr(clamav_config_module.shutil, "rmtree", _fail_explicit_cleanup)
+
+        success, error = write_configs_with_elevation([config])
+
+        assert success is False
+        assert "configuration was applied" in error.lower()
+        assert str(staging_dir) in error
+
+
+class TestMakeStagingDirSingleRoot:
+    """_make_staging_dir stages under the single passwd-home-derived root.
+
+    After the two-root design was dropped, native and Flatpak share one
+    canonical root -- ``<passwd-home>/.cache/clamui/privileged-staging`` --
+    so the privileged helper (which independently recomputes the same root
+    via ``staging_root_for_uid``) always reads staged files from the exact
+    directory the caller wrote them to.  ``_make_staging_dir`` follows that
+    root directly with no ``_running_in_flatpak`` branch, and the root is
+    derived from the passwd database, never from ``$HOME``.
+    """
+
+    def test_make_staging_dir_uses_passwd_home_root(self, monkeypatch, tmp_path):
+        fake_home = tmp_path / "home"
+        expected_root = fake_home / ".cache" / "clamui" / "privileged-staging"
+
+        # The root comes from the passwd database (pwd.getpwuid), never $HOME.
+        monkeypatch.setattr("pwd.getpwuid", lambda _uid: mock.Mock(pw_dir=str(fake_home)))
+        monkeypatch.setenv("HOME", str(tmp_path / "wrong-home"))
+
+        # Keep mkdir/chmod inert so the current /run-based path never touches
+        # the real filesystem; this asserts root *selection*, not creation.
+        monkeypatch.setattr(Path, "mkdir", lambda self, **_kw: None)
+        monkeypatch.setattr(clamav_config_module.os, "chmod", lambda *_a, **_kw: None)
+
+        staging = clamav_config_module._make_staging_dir()
+
+        assert staging.parent == expected_root
+        assert "/run/user" not in str(staging)
 
 
 class TestBackupConfigFlatpak:

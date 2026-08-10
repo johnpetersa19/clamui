@@ -1285,10 +1285,21 @@ Auto-saved settings include:
 3. Wait for confirmation: "Configuration Saved" dialog
 4. Click "OK" to dismiss confirmation
 
-> **Privileged helper (optional):** Saving `freshclam.conf`/`clamd.conf` uses `pkexec` to elevate just the
-> configuration write, so you are prompted for your administrator password each time. For a one-time setup that
-> registers a dedicated polkit action instead, run `clamui install-privileged-helper` (needs `sudo`). This installs
-> the `clamui-apply-preferences` helper and its polkit policy used for elevated config writes.
+> **Privileged helper:** Saving `freshclam.conf`/`clamd.conf` requires the
+> `clamui-apply-preferences` privileged helper and its polkit policy, which
+> authorize saving system ClamAV configuration (polkit keeps authorization
+> briefly after you authenticate, so you are not prompted on every write).
+> Without it, ClamUI **cannot** save system settings.
+>
+> - **Native install:** Run `sudo clamui install-privileged-helper` on the host
+>   (or install the `clamui-privileged-helper` package) to install the helper
+>   and its polkit policy.
+> - **Flatpak:** The command is native-host-only and **cannot** be run from the
+>   sandbox (`sudo flatpak run ... install-privileged-helper` is unsupported).
+>   Download the matching `clamui-privileged-helper_<version>_all.deb` release
+>   asset and install it on the host with
+>   `sudo apt install ./clamui-privileged-helper_<version>_all.deb` (use the
+>   same version as your Flatpak).
 
 **What Gets Saved:**
 
