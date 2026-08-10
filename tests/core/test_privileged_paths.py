@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -47,16 +48,32 @@ class TestAllowlistShape:
 
 
 class TestStagingRootForUid:
-    """staging_root_for_uid() returns the per-user runtime path."""
+    """staging_root_for_uid() returns the passwd-home-derived staging root.
 
-    def test_returns_per_user_runtime_path(self):
-        assert staging_root_for_uid(1000) == Path("/run/user/1000/clamui-staging")
+    The canonical root is ``<passwd-home>/.cache/clamui/privileged-staging``:
+    a host-visible path inside a Flatpak sandbox, derived from the passwd
+    database (``pwd.getpwuid``) and never from ``$HOME`` or ``/run/user``.
+    Native and Flatpak share this single root so the privileged helper can
+    read the staged files on the host.
+    """
 
-    def test_does_not_create_directory(self, tmp_path, monkeypatch):
-        """The function is pure; it must not have I/O side effects."""
-        # Implementation hard-codes /run/user/<uid>; just confirm no exception.
-        result = staging_root_for_uid(424242)
-        assert not result.exists()
+    def test_returns_passwd_home_cache_root(self, monkeypatch, tmp_path):
+        fake_home = tmp_path / "home"
+        monkeypatch.setattr("pwd.getpwuid", lambda _uid: mock.Mock(pw_dir=str(fake_home)))
+
+        assert staging_root_for_uid(1000) == (
+            fake_home / ".cache" / "clamui" / "privileged-staging"
+        )
+
+    def test_ignores_HOME_env_var(self, monkeypatch, tmp_path):
+        """The root must come from the passwd database, not ``$HOME``."""
+        fake_home = tmp_path / "home"
+        monkeypatch.setattr("pwd.getpwuid", lambda _uid: mock.Mock(pw_dir=str(fake_home)))
+        monkeypatch.setenv("HOME", str(tmp_path / "wrong-home"))
+
+        assert staging_root_for_uid(1000) == (
+            fake_home / ".cache" / "clamui" / "privileged-staging"
+        )
 
 
 class TestValidateDestination:
