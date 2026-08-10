@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: ClamUI 0.1.6\n"
 "Report-Msgid-Bugs-To: https://github.com/linx-systems/clamui/issues\n"
 "POT-Creation-Date: 2026-04-21 13:24+0200\n"
-"PO-Revision-Date: 2026-04-19 15:02+0800\n"
+"PO-Revision-Date: 2026-07-22 21:29+0800\n"
 "Last-Translator: Markson Hosben <marksonhosben@proton.me>\n"
 "Language-Team: Chinese <>\n"
 "Language: zh_CN\n"
@@ -1025,12 +1025,12 @@ msgstr "未找到 clamd 套接字。是否已安装 clamav-daemon？"
 msgid ""
 "Daemon socket permission denied. Check LocalSocketMode or LocalSocketGroup "
 "in {path}: {error}"
-msgstr ""
+msgstr "守护进程套接字权限被拒绝。请检查 {path} 中的 LocalSocketMode 或 LocalSocketGroup：{error}"
 
 #: src/core/clamav_detection.py:319
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Daemon socket permission denied: {error}"
-msgstr "权限不够：{error}"
+msgstr "守护进程套接字权限不够：{error}"
 
 #: src/core/clamav_detection.py:321
 #, python-brace-format
@@ -1074,92 +1074,82 @@ msgid "No virus database files found. Please download the database first."
 msgstr "未找到病毒数据库文件。请先下载数据库。"
 
 #: src/core/system_audit.py:246
-#, fuzzy
 msgid "Database file not found"
-msgstr "未找到文件"
+msgstr "未找到数据库文件"
 
 #: src/core/system_audit.py:248
-#, fuzzy
 msgid "Permission denied reading database"
-msgstr "无权限访问：{path}"
+msgstr "读取数据库时权限被拒绝"
 
 #: src/core/system_audit.py:254
-#, fuzzy
 msgid "Invalid database file format"
-msgstr "无效 API 密钥格式"
+msgstr "无效数据库文件格式"
 
 #: src/core/system_audit.py:264
-#, fuzzy
 msgid "Could not parse database timestamp"
-msgstr "无法确定 Flatpak 数据库所在目录"
+msgstr "无法解析数据库时间戳"
 
 #: src/core/system_audit.py:293 src/ui/audit_view.py:189
-#, fuzzy
 msgid "ClamAV Health"
-msgstr "ClamAV"
+msgstr "ClamAV 状态"
 
 #: src/core/system_audit.py:302 src/core/system_audit.py:311
-#, fuzzy
 msgid "ClamAV Installation"
-msgstr "clamscan 安装"
+msgstr "ClamAV 安装"
 
 #: src/core/system_audit.py:304
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Installed: {version}"
-msgstr "freshclam：{version}"
+msgstr "已安装：{version}"
 
 #: src/core/system_audit.py:313
-#, fuzzy
 msgid "ClamAV is not installed"
-msgstr "未安装 freshclam"
+msgstr "未安装 ClamAV"
 
 #: src/core/system_audit.py:314
 msgid "Install ClamAV to enable virus scanning"
-msgstr ""
+msgstr "安装 ClamAV 以启用病毒扫描"
 
 #: src/core/system_audit.py:329 src/core/system_audit.py:340
 #: src/core/system_audit.py:353 src/core/system_audit.py:366
 #: src/core/system_audit.py:377 src/core/system_audit.py:388
-#, fuzzy
 msgid "Virus Database"
-msgstr "需要病毒数据库"
+msgstr "病毒数据库"
 
 #: src/core/system_audit.py:331
 #, python-brace-format
 msgid "Up to date ({days} days old, built {date})"
-msgstr ""
+msgstr "已是最新（{days} 天前，构建于 {date}）"
 
 #: src/core/system_audit.py:342 src/core/system_audit.py:355
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Database is {days} days old (built {date})"
-msgstr "数据库已是最新"
+msgstr "数据库已过期 {days} 天（构建于 {date}）"
 
 #: src/core/system_audit.py:345
 msgid "Update virus database to ensure protection"
-msgstr ""
+msgstr "更新病毒库以确保防护"
 
 #: src/core/system_audit.py:358
 msgid "Database is critically outdated. Update immediately."
-msgstr ""
+msgstr "数据库严重过时。请立即更新。"
 
 #: src/core/system_audit.py:368
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Could not determine database age: {error}"
-msgstr "无法确定 Flatpak 数据库所在目录"
+msgstr "无法确定数据库的存续时间：{error}"
 
 #: src/core/system_audit.py:379
-#, fuzzy
 msgid "No virus database found"
-msgstr "未发现威胁"
+msgstr "未找到病毒数据库"
 
 #: src/core/system_audit.py:380
-#, fuzzy
 msgid "Download virus database"
-msgstr "正在更新病毒数据库……"
+msgstr "下载病毒数据库"
 
 #: src/core/system_audit.py:390
 msgid "Database files exist but age could not be determined"
-msgstr ""
+msgstr "数据库文件存在，但无法确定其时效"
 
 #: src/core/system_audit.py:401 src/core/system_audit.py:414
 #: src/core/system_audit.py:423 src/ui/logs_view.py:266
@@ -1167,505 +1157,474 @@ msgid "ClamAV Daemon"
 msgstr "ClamAV 守护进程"
 
 #: src/core/system_audit.py:403
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Service {name} is running"
-msgstr "守护进程正在运行"
+msgstr "服务 {name} 正在运行"
 
 #: src/core/system_audit.py:416
-#, fuzzy
 msgid "Daemon is responding"
-msgstr "守护进程正在运行"
+msgstr "守护进程正在响应"
 
 #: src/core/system_audit.py:425
-#, fuzzy
 msgid "ClamAV daemon is not running"
-msgstr "守护进程正在运行"
+msgstr "ClamAV 守护进程未在运行"
 
 #: src/core/system_audit.py:426
-#, fuzzy
 msgid "Start the daemon for faster scanning"
-msgstr "clamd 是 ClamAV 的守护进程，它可以提供更快的扫描。"
+msgstr "启动守护进程以加快扫描速度"
 
 #: src/core/system_audit.py:438 src/core/system_audit.py:448
 #: src/core/system_audit.py:789 src/core/system_audit.py:859
 #: src/ui/audit_view.py:198
-#, fuzzy
 msgid "Automatic Updates"
-msgstr "自动（跟随系统）"
+msgstr "自动更新"
 
 #: src/core/system_audit.py:440
-#, fuzzy
 msgid "Freshclam service is active"
-msgstr "Freshclam 服务未运行（状态：{status}）"
+msgstr "Freshclam 服务正在运行"
 
 #: src/core/system_audit.py:450
 msgid "Freshclam automatic update service is not running"
-msgstr ""
+msgstr "Freshclam 自动更新服务未在运行"
 
 #: src/core/system_audit.py:451
-#, fuzzy
 msgid "Enable automatic database updates"
-msgstr "为数据库更新启用详细的日志记录"
+msgstr "启用自动数据库更新"
 
 #: src/core/system_audit.py:464 src/core/system_audit.py:542
 #: src/ui/audit_view.py:190
 msgid "Firewall"
-msgstr ""
+msgstr "防火墙"
 
 #: src/core/system_audit.py:479 src/core/system_audit.py:489
 msgid "UFW Firewall"
-msgstr ""
+msgstr "UFW 防火墙"
 
 #: src/core/system_audit.py:481
 msgid "UFW is active and enabled"
-msgstr ""
+msgstr "UFW 已启用并正在运行"
 
 #: src/core/system_audit.py:491
 msgid "UFW service is running but firewall may be disabled"
-msgstr ""
+msgstr "UFW 正在运行，但防火墙可能已禁用"
 
 #: src/core/system_audit.py:492
 msgid "Enable the firewall"
-msgstr ""
+msgstr "启用防火墙"
 
 #: src/core/system_audit.py:505 src/core/system_audit.py:515
 msgid "Firewalld"
-msgstr ""
+msgstr "Firewalld"
 
 #: src/core/system_audit.py:507
-#, fuzzy
 msgid "Firewalld is running"
-msgstr "守护进程正在运行"
+msgstr "Firewalld 正在运行"
 
 #: src/core/system_audit.py:517
-#, fuzzy
 msgid "Firewalld is installed but not running"
-msgstr "守护进程已安装，但没在运行"
+msgstr "Firewalld 已安装，但没在运行"
 
 #: src/core/system_audit.py:518
 msgid "Start the firewall"
-msgstr ""
+msgstr "启动防火墙"
 
 #: src/core/system_audit.py:531
 msgid "nftables"
-msgstr ""
+msgstr "nftables"
 
 #: src/core/system_audit.py:533
 msgid "nftables service is active"
-msgstr ""
+msgstr "nftables 服务正在运行"
 
 #: src/core/system_audit.py:544
-#, fuzzy
 msgid "No active firewall detected"
-msgstr "未检测到威胁"
+msgstr "未检测到正在运行的防火墙"
 
 #: src/core/system_audit.py:545
 msgid "Install and enable a firewall for network protection"
-msgstr ""
+msgstr "安装并启用防火墙以保护网络"
 
 #: src/core/system_audit.py:573 src/core/system_audit.py:585
-#, fuzzy
 msgid "Firewall Manager"
-msgstr "可用的文件管理器"
+msgstr "防火墙管理器"
 
 #: src/core/system_audit.py:575
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{name} is available"
-msgstr "守护进程可用"
+msgstr "{name} 可用"
 
 #: src/core/system_audit.py:577
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Open {name}"
-msgstr "后端：{name}"
+msgstr "打开 {name}"
 
 #: src/core/system_audit.py:587
-#, fuzzy
 msgid "No graphical firewall manager detected"
-msgstr "未检测到支持的文件管理器"
+msgstr "未检测到带有图形用户界面的防火墙管理器"
 
 #: src/core/system_audit.py:588
 msgid "Install a GUI for easier firewall management"
-msgstr ""
+msgstr "安装图形用户界面（GUI），以便更轻松地管理防火墙"
 
 #: src/core/system_audit.py:653 src/core/system_audit.py:665
 #: src/core/system_audit.py:675
-#, fuzzy
 msgid "Open Ports"
-msgstr "打开文件夹"
+msgstr "打开端口"
 
 #: src/core/system_audit.py:655
 #, python-brace-format
 msgid "{count} ports listening, risky ports: {ports}"
-msgstr ""
+msgstr "{count} 个端口正在监听，高风险端口：{ports}"
 
 #: src/core/system_audit.py:658
 msgid "Review if these services need to be exposed"
-msgstr ""
+msgstr "审核这些服务是否需要对外暴露"
 
 #: src/core/system_audit.py:667
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{count} ports listening"
-msgstr "{count} 项"
+msgstr "{count} 个端口正在监听"
 
 #: src/core/system_audit.py:668
 msgid "Review open ports and close unnecessary services"
-msgstr ""
+msgstr "审查开放的端口，并关闭不必要的服务"
 
 #: src/core/system_audit.py:677
-#, fuzzy
 msgid "No open ports detected"
-msgstr "未检测到威胁"
+msgstr "未检测到打开的端口"
 
 #: src/core/system_audit.py:687 src/ui/audit_view.py:193
-#, fuzzy
 msgid "Access Control"
-msgstr "实时扫描配置"
+msgstr "访问控制"
 
 #: src/core/system_audit.py:708
 msgid "MAC Framework"
-msgstr ""
+msgstr "MAC 框架"
 
 #: src/core/system_audit.py:710
 msgid "No mandatory access control framework detected"
-msgstr ""
+msgstr "未检测到强制性访问控制框架"
 
 #: src/core/system_audit.py:711
 msgid "Consider enabling AppArmor or SELinux"
-msgstr ""
+msgstr "考虑启用 AppArmor 或 SELinux"
 
 #: src/core/system_audit.py:735 src/core/system_audit.py:742
 msgid "AppArmor"
-msgstr ""
+msgstr "AppArmor"
 
 #: src/core/system_audit.py:737
 msgid "AppArmor is enabled"
-msgstr ""
+msgstr "AppArmor 已启用"
 
 #: src/core/system_audit.py:744
 msgid "AppArmor module is loaded but not enabled"
-msgstr ""
+msgstr "AppArmor 模块已加载但未启用"
 
 #: src/core/system_audit.py:745
 msgid "Enable AppArmor for application sandboxing"
-msgstr ""
+msgstr "启用 AppArmor 以实现应用程序沙箱隔离"
 
 #: src/core/system_audit.py:761 src/core/system_audit.py:768
 #: src/core/system_audit.py:776
 msgid "SELinux"
-msgstr ""
+msgstr "SELinux"
 
 #: src/core/system_audit.py:763
 msgid "SELinux is enforcing"
-msgstr ""
+msgstr "SELinux 正处于强制模式"
 
 #: src/core/system_audit.py:770
 msgid "SELinux is in permissive mode"
-msgstr ""
+msgstr "SELinux 正处于宽容模式"
 
 #: src/core/system_audit.py:771
 msgid "Consider switching to enforcing mode for stronger protection"
-msgstr ""
+msgstr "考虑切换到强制模式以获得更强的保护"
 
 #: src/core/system_audit.py:778
 msgid "SELinux is disabled"
-msgstr ""
+msgstr "SELinux 已禁用"
 
 #: src/core/system_audit.py:779
 msgid "Enable SELinux for mandatory access control"
-msgstr ""
+msgstr "启用 SELinux 以进行强制访问控制"
 
 #: src/core/system_audit.py:802 src/core/system_audit.py:812
 msgid "Unattended Upgrades"
-msgstr ""
+msgstr "无人值守升级"
 
 #: src/core/system_audit.py:804
 msgid "Automatic security updates are enabled"
-msgstr ""
+msgstr "已启用自动安全更新"
 
 #: src/core/system_audit.py:814
 msgid "Unattended upgrades is installed but disabled"
-msgstr ""
+msgstr "已安装无人值守升级功能，但已禁用"
 
 #: src/core/system_audit.py:815
 msgid "Enable automatic security updates"
-msgstr ""
+msgstr "启用自动安全更新"
 
 #: src/core/system_audit.py:828 src/core/system_audit.py:839
 msgid "DNF Automatic"
-msgstr ""
+msgstr "DNF 自动"
 
 #: src/core/system_audit.py:830
 msgid "DNF automatic updates are enabled"
-msgstr ""
+msgstr "DNF 自动更新已启用"
 
 #: src/core/system_audit.py:841
-#, fuzzy
 msgid "DNF automatic is installed but timer is not active"
-msgstr "守护进程已安装，但没在运行"
+msgstr "DNF自动功能已安装，但计时器未激活"
 
 #: src/core/system_audit.py:842
 msgid "Enable automatic updates"
-msgstr ""
+msgstr "启用自动更新"
 
 #: src/core/system_audit.py:861
-#, fuzzy
 msgid "Could not determine automatic update status"
-msgstr "无法确定 Flatpak 数据库所在目录"
+msgstr "无法确定自动更新状态"
 
 #: src/core/system_audit.py:862
 msgid "Configure automatic security updates"
-msgstr ""
+msgstr "配置自动安全更新"
 
 #: src/core/system_audit.py:885
 msgid "Pending Reboot"
-msgstr ""
+msgstr "等待重启"
 
 #: src/core/system_audit.py:887
 msgid "System reboot required to apply updates"
-msgstr ""
+msgstr "应用更新需要重启系统"
 
 #: src/core/system_audit.py:888
 msgid "Reboot the system to apply pending security updates"
-msgstr ""
+msgstr "重启系统以应用待处理的安全更新"
 
 #: src/core/system_audit.py:897 src/ui/audit_view.py:203
 msgid "Intrusion Detection"
-msgstr ""
+msgstr "入侵检测"
 
 #: src/core/system_audit.py:908 src/core/system_audit.py:919
 msgid "fail2ban"
-msgstr ""
+msgstr "fail2ban"
 
 #: src/core/system_audit.py:910
 msgid "fail2ban is active and protecting services"
-msgstr ""
+msgstr "fail2ban 已激活并正在保护服务"
 
 #: src/core/system_audit.py:921
-#, fuzzy
 msgid "fail2ban is installed but not running"
-msgstr "守护进程已安装，但没在运行"
+msgstr "fail2ban 已安装但未运行"
 
 #: src/core/system_audit.py:922
 msgid "Start fail2ban to protect against brute force attacks"
-msgstr ""
+msgstr "启动 fail2ban 以防范暴力破解攻击"
 
 #: src/core/system_audit.py:934 src/core/system_audit.py:945
 msgid "CrowdSec"
-msgstr ""
+msgstr "CrowdSec"
 
 #: src/core/system_audit.py:936
 msgid "CrowdSec is active with community threat intelligence"
-msgstr ""
+msgstr "CrowdSec 已激活，并启用了社区威胁情报"
 
 #: src/core/system_audit.py:947
-#, fuzzy
 msgid "CrowdSec is installed but not running"
-msgstr "守护进程已安装，但没在运行"
+msgstr "CrowdSec 已安装，但没在运行"
 
 #: src/core/system_audit.py:948
 msgid "Start CrowdSec for collaborative intrusion prevention"
-msgstr ""
+msgstr "启动 CrowdSec 以实现协同入侵防御"
 
 #: src/core/system_audit.py:964
-#, fuzzy
 msgid "Intrusion Prevention"
-msgstr "扫描循环预防"
+msgstr "入侵防御"
 
 #: src/core/system_audit.py:966
 msgid "No intrusion detection system found"
-msgstr ""
+msgstr "未找到入侵检测系统"
 
 #: src/core/system_audit.py:967
 msgid "Install fail2ban or CrowdSec to protect against attacks"
-msgstr ""
+msgstr "安装 fail2ban 或 CrowdSec 以防范攻击"
 
 #: src/core/system_audit.py:980 src/ui/audit_view.py:206
-#, fuzzy
 msgid "SSH Security"
-msgstr "严重性"
+msgstr "SSH 安全"
 
 #: src/core/system_audit.py:995 src/core/system_audit.py:1005
-#, fuzzy
 msgid "SSH Server"
-msgstr "代理服务器"
+msgstr "SSH 服务器"
 
 #: src/core/system_audit.py:997
 msgid "SSH server is not running (no remote attack surface)"
-msgstr ""
+msgstr "SSH 服务器未运行（无远程攻击面）"
 
 #: src/core/system_audit.py:1007
-#, fuzzy
 msgid "SSH server is running"
-msgstr "守护进程正在运行"
+msgstr "SSH 服务器正在运行"
 
 #: src/core/system_audit.py:1017
-#, fuzzy
 msgid "SSH Configuration"
-msgstr "保存配置"
+msgstr "SSH 配置"
 
 #: src/core/system_audit.py:1019
-#, fuzzy
 msgid "Could not read SSH configuration"
-msgstr "必要配置"
+msgstr "无法读取 SSH 配置"
 
 #: src/core/system_audit.py:1030 src/core/system_audit.py:1039
 msgid "Root Login"
-msgstr ""
+msgstr "以 root 身份登录"
 
 #: src/core/system_audit.py:1032
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Root login: {value}"
-msgstr "Python Version: {value}"
+msgstr "以 root 身份登录：{value}"
 
 #: src/core/system_audit.py:1041
 #, python-brace-format
 msgid "Root login is allowed ({value})"
-msgstr ""
+msgstr "已允许以 root 身份登录（{value}）"
 
 #: src/core/system_audit.py:1042
 msgid "Disable root SSH login for security"
-msgstr ""
+msgstr "出于安全考虑，禁用 root SSH 登录"
 
 #: src/core/system_audit.py:1052 src/core/system_audit.py:1061
 msgid "Password Auth"
-msgstr ""
+msgstr "密码认证"
 
 #: src/core/system_audit.py:1054
 msgid "Password authentication is disabled (key-only)"
-msgstr ""
+msgstr "已禁用密码认证（仅密钥）"
 
 #: src/core/system_audit.py:1063
 msgid "Password authentication is enabled"
-msgstr ""
+msgstr "已启用密码认证"
 
 #: src/core/system_audit.py:1064
 msgid "Consider disabling password auth in favor of SSH keys"
-msgstr ""
+msgstr "考虑禁用密码认证，改用 SSH 密钥"
 
 #: src/core/system_audit.py:1074 src/core/system_audit.py:1083
 msgid "X11 Forwarding"
-msgstr ""
+msgstr "X11 转发"
 
 #: src/core/system_audit.py:1076
 msgid "X11 forwarding is disabled"
-msgstr ""
+msgstr "已禁用 X11 转发"
 
 #: src/core/system_audit.py:1085
 msgid "X11 forwarding is enabled"
-msgstr ""
+msgstr "已启用 X11 转发"
 
 #: src/core/system_audit.py:1086
 msgid "Disable X11 forwarding to reduce attack surface"
-msgstr ""
+msgstr "禁用 X11 转发以减小攻击面"
 
 #: src/core/system_audit.py:1140 src/ui/audit_view.py:253
 #: src/ui/audit_view.py:288
 msgid "Lynis Security Audit"
-msgstr ""
+msgstr "Lynis 安全审计"
 
 #: src/core/system_audit.py:1149
 msgid "Lynis"
-msgstr ""
+msgstr "Lynis"
 
 #: src/core/system_audit.py:1151
-#, fuzzy
 msgid "Lynis is not installed"
-msgstr "未安装"
+msgstr "未安装 Lynis"
 
 #: src/core/system_audit.py:1152
 msgid "Install Lynis for comprehensive security auditing"
-msgstr ""
+msgstr "安装 Lynis 以进行全面的安全审计"
 
 #: src/core/system_audit.py:1180 src/core/system_audit.py:1190
 #: src/core/system_audit.py:1202 src/core/system_audit.py:1234
 msgid "Lynis Audit"
-msgstr ""
+msgstr "Lynis 审计"
 
 #: src/core/system_audit.py:1182
-#, fuzzy
 msgid "Lynis audit timed out after 5 minutes"
-msgstr "更新超时（10 分钟无响应）"
+msgstr "Lynis 审计在 5 分钟后超时"
 
 #: src/core/system_audit.py:1192
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Failed to run Lynis: {error}"
-msgstr "无法保存：{error}"
+msgstr "无法运行 Lynis：{error}"
 
 #: src/core/system_audit.py:1204 src/core/system_audit.py:1332
-#, fuzzy
 msgid "Authentication was cancelled"
-msgstr "已取消扫描"
+msgstr "身份验证已取消"
 
 #: src/core/system_audit.py:1222
 msgid "Hardening Index"
-msgstr ""
+msgstr "加固指数"
 
 #: src/core/system_audit.py:1224
 #, python-brace-format
 msgid "Score: {score}/100"
-msgstr ""
+msgstr "得分：{score}/100"
 
 #: src/core/system_audit.py:1225
 msgid "Run 'sudo lynis audit system' for detailed recommendations"
-msgstr ""
+msgstr "运行“sudo lynis audit system”以获取详细建议"
 
 #: src/core/system_audit.py:1236
 #, python-brace-format
 msgid "Audit completed (exit code {code})"
-msgstr ""
+msgstr "审计已完成（退出代码 {code}）"
 
 #: src/core/system_audit.py:1277 src/ui/audit_view.py:259
 #: src/ui/audit_view.py:291
 msgid "Rootkit Detection"
-msgstr ""
+msgstr "Rootkit 检测"
 
 #: src/core/system_audit.py:1286
 msgid "chkrootkit"
-msgstr ""
+msgstr "chkrootkit"
 
 #: src/core/system_audit.py:1288
-#, fuzzy
 msgid "chkrootkit is not installed"
-msgstr "未安装 freshclam"
+msgstr "未安装 chkrootkit"
 
 #: src/core/system_audit.py:1289
 msgid "Install chkrootkit for rootkit detection"
-msgstr ""
+msgstr "安装 chkrootkit 以检测 rootkit"
 
 #: src/core/system_audit.py:1308 src/core/system_audit.py:1318
 #: src/core/system_audit.py:1330 src/core/system_audit.py:1345
 #: src/core/system_audit.py:1365
-#, fuzzy
 msgid "Rootkit Scan"
-msgstr "开始扫描"
+msgstr "Rootkit 扫描"
 
 #: src/core/system_audit.py:1310
-#, fuzzy
 msgid "Rootkit scan timed out after 5 minutes"
-msgstr "更新超时（10 分钟无响应）"
+msgstr "Rootkit 扫描在 5 分钟后超时"
 
 #: src/core/system_audit.py:1320
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Failed to run chkrootkit: {error}"
-msgstr "无法加载历史记录：{error}"
+msgstr "无法运行 chkrootkit：{error}"
 
 #: src/core/system_audit.py:1347
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{count} potential rootkit(s) detected"
-msgstr "{count} 个引擎检测到威胁"
+msgstr "检测到 {count} 个潜在 rootkit"
 
 #: src/core/system_audit.py:1348
 msgid "Investigate the detected threats immediately"
-msgstr ""
+msgstr "请立即调查检测到的威胁"
 
 #: src/core/system_audit.py:1356
 msgid "Finding"
-msgstr ""
+msgstr "发现"
 
 #: src/core/system_audit.py:1367
-#, fuzzy
 msgid "No rootkits detected"
-msgstr "未检测到威胁"
+msgstr "未检测到 rootkit"
 
 #: src/core/file_manager_integration.py:371
 msgid "Linux Mint / Cinnamon file manager"
@@ -1702,7 +1661,7 @@ msgstr "未知文件管理器：{name}"
 #: src/core/file_manager_integration.py:552
 #, python-brace-format
 msgid "Invalid destination path: {path}"
-msgstr ""
+msgstr "无效的目标路径：{path}"
 
 #: src/core/file_manager_integration.py:481
 #: src/core/file_manager_integration.py:567
@@ -1738,7 +1697,7 @@ msgstr "无效 API 密钥格式（需要64个十六进制字符）"
 msgid ""
 "System keyring is unavailable. To store the API key without a keyring, "
 "enable the plaintext fallback in preferences (less secure)."
-msgstr ""
+msgstr "系统密钥环不可用。要在没有密钥环的情况下存储 API 密钥，请在首选项中启用明文回退方式（安全性较低）。"
 
 #: src/core/keyring_manager.py:136
 msgid "Stored in settings file (keyring unavailable — less secure)"
@@ -1896,26 +1855,25 @@ msgid_plural "{device}: {count} infected files found"
 msgstr[0] "{device}：已发现 {count} 个受感染的文件"
 
 #: src/core/notification_manager.py:392
-#, fuzzy
 msgid "Security Audit Complete"
-msgstr "扫描完成"
+msgstr "安全审计完成"
 
 #: src/core/notification_manager.py:396
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{count} issue"
 msgid_plural "{count} issues"
-msgstr[0] "{count} 项"
+msgstr[0] "{count} 个问题"
 
 #: src/core/notification_manager.py:399
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{count} warning"
 msgid_plural "{count} warnings"
-msgstr[0] "{count} 个目标"
+msgstr[0] "{count} 个警告"
 
 #: src/core/notification_manager.py:401
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Found {details}"
-msgstr "日志详细信息"
+msgstr "找到了 {details}"
 
 #: src/core/quarantine/manager.py:192
 msgid ""
@@ -2379,17 +2337,15 @@ msgstr "_保存"
 
 #: src/ui/audit_view.py:162
 msgid "System Security Audit"
-msgstr ""
+msgstr "系统安全审计"
 
 #: src/ui/audit_view.py:164
-#, fuzzy
 msgid "Check your system security posture and get recommendations"
-msgstr "当前系统安全状况"
+msgstr "检查系统安全状况并获取建议"
 
 #: src/ui/audit_view.py:177
-#, fuzzy
 msgid "Refresh Audit"
-msgstr "刷新大小"
+msgstr "刷新审计"
 
 #: src/ui/audit_view.py:230 src/ui/audit_view.py:754
 #: src/ui/components_view.py:236 src/ui/logs_view.py:509
@@ -2399,45 +2355,41 @@ msgstr "正在检查……"
 
 #: src/ui/audit_view.py:231 src/ui/audit_view.py:755
 msgid "Running security check"
-msgstr ""
+msgstr "正在运行安全检查"
 
 #: src/ui/audit_view.py:246
-#, fuzzy
 msgid "Deep Scans"
-msgstr "设备扫描"
+msgstr "深度扫描"
 
 #: src/ui/audit_view.py:248
-#, fuzzy
 msgid "Require administrator privileges and may take several minutes"
-msgstr "需要管理员权限才能修改"
+msgstr "需要管理员权限，且需要几分钟时间"
 
 #: src/ui/audit_view.py:253 src/ui/audit_view.py:259 src/ui/audit_view.py:288
 #: src/ui/audit_view.py:291
-#, fuzzy
 msgid "Checking availability..."
-msgstr "正在检查服务……"
+msgstr "正在检查是否可用……"
 
 #: src/ui/audit_view.py:318 src/ui/audit_view.py:556
 msgid "Learn more"
-msgstr ""
+msgstr "了解更多"
 
 #: src/ui/audit_view.py:330
-#, fuzzy
 msgid "Run"
-msgstr "正在运行"
+msgstr "运行"
 
 #: src/ui/audit_view.py:346
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{tool} is not installed"
-msgstr "{count} 个已安装"
+msgstr "未安装 {tool}"
 
 #: src/ui/audit_view.py:450
 msgid "Comprehensive system hardening analysis with scoring"
-msgstr ""
+msgstr "包含评分的全面系统加固分析"
 
 #: src/ui/audit_view.py:459
 msgid "Scan for known rootkits using chkrootkit"
-msgstr ""
+msgstr "使用 chkrootkit 扫描已知的 rootkit"
 
 #: src/ui/audit_view.py:547 src/ui/preferences/debug_page.py:151
 msgid "Open"
@@ -2451,22 +2403,21 @@ msgstr "复制到剪贴板"
 #: src/ui/audit_view.py:704
 #, python-brace-format
 msgid "{count} security issues need attention"
-msgstr ""
+msgstr "{count} 个安全问题需要关注"
 
 #: src/ui/audit_view.py:706
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{count} checks need review"
-msgstr "{count} 个成功"
+msgstr "{count} 项检查需要审核"
 
 #: src/ui/audit_view.py:708
 #, python-brace-format
 msgid "{review} · {passed} passed"
-msgstr ""
+msgstr "{review} · 已通过 {passed} 个"
 
 #: src/ui/audit_view.py:712
-#, fuzzy
 msgid "Audit complete"
-msgstr "完全退出"
+msgstr "审计完成"
 
 #: src/ui/components_view.py:32
 msgid "clamscan Installation"
@@ -2518,6 +2469,9 @@ msgid ""
 "still unavailable, verify socket permissions and test with: clamdscan --"
 "config-file=/etc/clamd.d/scan.conf --ping 3"
 msgstr ""
+"在 Fedora 上，ClamUI 使用 `/etc/clamd.d/scan.conf`"
+" 配置文件。如果守护进程正在运行但仍无法使用，请检查套接字权限，并使用以下命令进行测试：`clamdscan"
+" --config-file=/etc/clamd.d/scan.conf --ping 3`"
 
 #: src/ui/components_view.py:154
 msgid "ClamAV Components"
@@ -2656,8 +2610,7 @@ msgstr "<b>未找到病毒数据库</b>"
 msgid ""
 "ClamAV requires a virus database to scan files. The database needs to be "
 "downloaded before you can perform scans."
-msgstr ""
-"ClamAV 需要一个病毒数据库来扫描文件。在执行扫描之前，需要先下载病毒库。"
+msgstr "ClamAV 需要一个病毒数据库来扫描文件。在执行扫描之前，需要先下载病毒库。"
 
 #: src/ui/database_missing_dialog.py:137
 msgid "Download Now"
@@ -3003,14 +2956,12 @@ msgid "Requires administrator privileges to modify"
 msgstr "需要管理员权限才能修改"
 
 #: src/ui/preferences/base.py:534
-#, fuzzy
 msgid "Invalid Path"
-msgstr "包含路径"
+msgstr "路径无效"
 
 #: src/ui/preferences/base.py:535
-#, fuzzy
 msgid "The path is not valid."
-msgstr "路径不是一个文件"
+msgstr "此路径无效。"
 
 #: src/ui/preferences/base.py:551 src/ui/preferences/base.py:570
 msgid "Folder Not Found"
@@ -3412,8 +3363,7 @@ msgstr "日志设置"
 msgid ""
 "Configure debug logging for troubleshooting. Higher levels produce more "
 "detailed logs but use more disk space."
-msgstr ""
-"配置调试日志以进行故障排查。级别越高，日志越详细，但占用的磁盘空间也越多。"
+msgstr "配置调试日志以进行故障排查。级别越高，日志越详细，但占用的磁盘空间也越多。"
 
 #: src/ui/preferences/debug_page.py:118
 msgid "Log Level"
@@ -3915,8 +3865,7 @@ msgstr "需要手动保存"
 msgid ""
 "Database Updates, Scanner, On-Access, Scheduled Scans. When needed, you will "
 "be asked for administrator permission once."
-msgstr ""
-"数据库更新，扫描程序，实时扫描，定期扫描。需要时，将仅请求一次管理员权限。"
+msgstr "数据库更新，扫描程序，实时扫描，定期扫描。需要时，将仅请求一次管理员权限。"
 
 #: src/ui/preferences/save_page.py:234
 msgid "Apply Configuration"
@@ -3976,7 +3925,7 @@ msgstr "已保存配置"
 #: src/ui/preferences/save_page.py:436
 msgid ""
 "Configuration saved. Active ClamAV services were restarted where needed."
-msgstr ""
+msgstr "配置已保存。已在必要时重启了活动的 ClamAV 服务。"
 
 #: src/ui/preferences/save_page.py:441
 msgid "Save Failed"
@@ -4011,8 +3960,7 @@ msgstr "扫描后端"
 msgid ""
 "Select how ClamUI performs scans. Daemon runs on host via flatpak-spawn. "
 "Auto-saved."
-msgstr ""
-"选择 ClamUI 如何实施扫描。守护进程通过 flatpak-spawn 在主机上运行。自动保存。"
+msgstr "选择 ClamUI 如何实施扫描。守护进程通过 flatpak-spawn 在主机上运行。自动保存。"
 
 #: src/ui/preferences/scanner_page.py:292
 msgid "Select how ClamUI performs scans. Auto-saved."
@@ -4403,8 +4351,7 @@ msgstr "删除 API 密钥?"
 msgid ""
 "This will remove your VirusTotal API key. You'll need to enter it again to "
 "use VirusTotal scanning."
-msgstr ""
-"这会移除你的 VirusTotal API 密钥。使用 VirusTotal 扫描时你将需要再输入一次。"
+msgstr "这会移除你的 VirusTotal API 密钥。使用 VirusTotal 扫描时你将需要再输入一次。"
 
 #: src/ui/preferences/virustotal_page.py:369
 msgid "API key deleted"
@@ -5186,49 +5133,42 @@ msgid "Unable to accept dropped files"
 msgstr "无法接受拖入的文件"
 
 #: src/ui/scan_view.py:504 src/ui/scan_view.py:697
-#, fuzzy
 msgid "Scan details"
-msgstr "扫描错误：{detail}"
+msgstr "扫描详情"
 
 #: src/ui/scan_view.py:505
 msgid "Detailed scan output appears here when available"
-msgstr ""
+msgstr "如有可用信息，详细扫描结果将显示在此处。"
 
 #: src/ui/scan_view.py:514
-#, fuzzy
 msgid "Copy details"
-msgstr "日志详细信息"
+msgstr "复制详细信息"
 
 #: src/ui/scan_view.py:522
-#, fuzzy
 msgid "View details fullscreen"
-msgstr "全屏查看"
+msgstr "全屏查看详情"
 
 #: src/ui/scan_view.py:661
-#, fuzzy
 msgid "Error output:"
 msgstr "错误输出："
 
 #: src/ui/scan_view.py:667
-#, fuzzy
 msgid "Scan output:"
-msgstr "扫描完成"
+msgstr "扫描输出："
 
 #: src/ui/scan_view.py:684
-#, fuzzy
 msgid "Scan details copied to clipboard"
-msgstr "已复制结果到剪贴板"
+msgstr "已复制扫描详情到剪贴板"
 
 #: src/ui/scan_view.py:685
-#, fuzzy
 msgid "Failed to copy scan details"
-msgstr "无法复制结果"
+msgstr "无法复制扫描详情"
 
 #: src/ui/scan_view.py:687
 msgid ""
 "Scan details are too large to copy. Use fullscreen to inspect the full "
 "output."
-msgstr ""
+msgstr "扫描详情过大，无法复制。请使用全屏模式查看完整输出。"
 
 #: src/ui/scan_view.py:865
 #, python-brace-format
@@ -5260,14 +5200,14 @@ msgid "Cancel the current scan"
 msgstr "取消当前扫描"
 
 #: src/ui/scan_view.py:1488
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Target {current} of {total} \\u2014 {pct}%{overflow}"
-msgstr "第 {current}/{total} 个目标 — {pct}%"
+msgstr "目标 {current} 个，共 {total} 个 \\u2014 {pct}%{overflow}"
 
 #: src/ui/scan_view.py:1497
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Scanning... {pct}%{overflow}"
-msgstr "正在扫描... {pct}%"
+msgstr "正在扫描... {pct}%{overflow}"
 
 #: src/ui/scan_view.py:1708
 #, python-brace-format
@@ -5305,11 +5245,11 @@ msgstr "扫描错误：{detail}"
 
 #: src/ui/scan_view.py:2256 src/ui/scan_view.py:2305
 msgid "Detailed scan error output"
-msgstr ""
+msgstr "详细扫描错误输出"
 
 #: src/ui/scan_view.py:2257
 msgid "Detailed ClamAV output from the latest failed scan"
-msgstr ""
+msgstr "来自最近一次失败扫描的详细 ClamAV 输出信息"
 
 #: src/ui/scan_view.py:2268
 #, python-brace-format
@@ -5318,7 +5258,7 @@ msgstr "扫描完成，状态：{status}"
 
 #: src/ui/scan_view.py:2306
 msgid "Detailed application error output from the latest failed scan"
-msgstr ""
+msgstr "来自最近一次失败扫描的详细应用程序错误输出"
 
 #: src/ui/scan_view.py:2364
 msgid "Ready to scan"
@@ -5342,7 +5282,7 @@ msgstr "组件"
 
 #: src/ui/sidebar.py:33
 msgid "Audit"
-msgstr ""
+msgstr "审计"
 
 #: src/ui/statistics_view.py:159
 msgid "Protection Status"
@@ -6030,3 +5970,5 @@ msgstr "ClamAV 桌面扫描程序"
 
 #~ msgid "Configuration changes have been applied successfully."
 #~ msgstr "已成功应用配置更改。"
+
+

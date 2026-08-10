@@ -777,10 +777,9 @@ VirusTotal is configured via **Preferences → VirusTotal** (the API key lives i
 [project.scripts]
 clamui = "src.main:main"
 clamui-scheduled-scan = "src.cli.scheduled_scan:main"
-clamui-apply-preferences = "src.cli.apply_preferences:main"
 ```
 
-The `src/cli/` package uses a command router (`router.py`) whose `CLI_SUBCOMMANDS` dispatches 7 subcommands: `scan`, `quarantine`, `profile`, `status`, `history`, `help`, and `install-privileged-helper`. These map to `scan_cmd.py`, `quarantine_cmd.py`, `profile_cmd.py`, `status_cmd.py`, `history_cmd.py`, `help_cmd.py`, and `install_helper.py` (plus `output.py` helpers). `install_helper.py` registers `clamui install-privileged-helper`, which installs the `clamui-apply-preferences` wrapper plus the polkit policy (`io.github.linx_systems.ClamUI.policy`) so system ClamAV config writes can elevate via `pkexec`. To add a subcommand, create a `*_cmd.py` module and register it in `router.py`.
+The `src/cli/` package uses a command router (`router.py`) whose `CLI_SUBCOMMANDS` dispatches 7 subcommands: `scan`, `quarantine`, `profile`, `status`, `history`, `help`, and `install-privileged-helper`. These map to `scan_cmd.py`, `quarantine_cmd.py`, `profile_cmd.py`, `status_cmd.py`, `history_cmd.py`, `help_cmd.py`, and `install_helper.py` (plus `output.py` helpers). `install_helper.py` registers `clamui install-privileged-helper`, which installs the root-owned `/usr/bin/clamui-apply-preferences` wrapper plus the polkit policy (`io.github.linx_systems.ClamUI.policy`) so system ClamAV config writes can elevate via `pkexec`; the privileged wrapper is deliberately not a Python project entry point. To add a subcommand, create a `*_cmd.py` module and register it in `router.py`.
 
 ## Dependencies
 
