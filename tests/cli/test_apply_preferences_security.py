@@ -221,6 +221,40 @@ class TestAtomicityAcrossPairs:
         assert not dest_a.exists()
         assert not dest_b.exists()
 
+    def test_second_pair_missing_source_is_rejected_before_first_write(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        _set_pkexec_env(monkeypatch)
+        staging = _make_staging(tmp_path)
+        src_a = _stage_file(staging, "a.conf", "a-content\n")
+        missing_src = staging / "missing.conf"
+        dest_dir = _make_allowed_dest_dir(tmp_path, "etc_clamav")
+        dest_a = dest_dir / "a.conf"
+        dest_b = dest_dir / "b.conf"
+
+        _patch_allowlist_to_tmp(monkeypatch, dest_dir)
+        monkeypatch.setattr(apply_preferences, "_resolve_staging_root", lambda _uid: staging)
+        monkeypatch.setattr(
+            apply_preferences,
+            "_restart_units_for_destinations",
+            lambda _dests: None,
+        )
+
+        exit_code = apply_preferences.main(
+            [
+                "--protocol=2",
+                str(src_a),
+                str(dest_a),
+                str(missing_src),
+                str(dest_b),
+            ]
+        )
+
+        assert exit_code != 0
+        assert str(missing_src) in capsys.readouterr().err
+        assert not dest_a.exists()
+        assert not dest_b.exists()
+
 
 @pytest.mark.skipif(os.geteuid() != 0, reason="needs root to chown source to a different uid")
 class TestSourceUidMismatchRejected:

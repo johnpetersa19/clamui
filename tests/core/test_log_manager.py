@@ -1094,7 +1094,9 @@ class TestLogManagerDaemonLogs:
         """The tail host helper receives the sanitized environment."""
         clean_env = {"PATH": "/usr/bin:/bin", "HOME": "/home/user"}
         with (
-            mock.patch.object(log_manager, "get_daemon_log_path", return_value="/var/log/clamd.log"),
+            mock.patch.object(
+                log_manager, "get_daemon_log_path", return_value="/var/log/clamd.log"
+            ),
             mock.patch("src.core.log_manager.wrap_host_command", side_effect=lambda cmd: cmd),
             mock.patch("src.core.log_manager.get_clean_env", return_value=clean_env),
             mock.patch(

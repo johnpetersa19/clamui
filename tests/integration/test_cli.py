@@ -102,10 +102,7 @@ def parse_file_arguments(request):
 
     def _is_displaced_module(name: str) -> bool:
         """Match every module this fixture clears or replaces with a mock."""
-        return (
-            name == "gi"
-            or name.startswith(("gi.", "src.", "matplotlib.backends.backend_gtk4"))
-        )
+        return name == "gi" or name.startswith(("gi.", "src.", "matplotlib.backends.backend_gtk4"))
 
     # Snapshot every module the fixture displaces so teardown can restore the
     # exact objects other test modules captured at import/collection time.

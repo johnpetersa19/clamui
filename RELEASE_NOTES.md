@@ -6,8 +6,8 @@ Privileged ClamAV configuration improvements, Flatpak host-config fixes, CLI sca
 
 ### Configuration & Flatpak
 
-- **Privileged helper installer** — `clamui install-privileged-helper` installs the `clamui-apply-preferences` wrapper and polkit policy needed for elevated ClamAV configuration writes. (#143)
-- **Flatpak host configuration persistence** — Flatpak preferences now persist host ClamAV configuration through the privileged helper instead of assuming sandbox-local ClamAV paths. (#136)
+- **Privileged helper installer** — `clamui install-privileged-helper` installs the `clamui-apply-preferences` wrapper and polkit policy needed for elevated ClamAV configuration writes; it runs on the native host only, not inside the Flatpak sandbox. (#143)
+- **Flatpak host configuration persistence** — Flatpak preferences now persist host ClamAV configuration through the privileged helper instead of assuming sandbox-local ClamAV paths; Flatpak users install the matching helper-only `clamui-privileged-helper` `.deb` host companion shipped as a release asset, since the sandbox cannot provision host `/usr`. (#136)
 - **Less unnecessary elevation** — ClamUI skips elevation prompts when it is already running as root and fixes elevation decision/reporting edge cases.
 
 ### Scan & CLI Reliability
@@ -28,7 +28,7 @@ Privileged ClamAV configuration improvements, Flatpak host-config fixes, CLI sca
 - VirusTotal retries now resend the full request body, large uploads are supported, and all engine-result buckets are counted.
 - VirusTotal result flow, stuck spinners, tray resynchronization, and deliberate tray shutdown behavior were repaired.
 - AppImage execution now strips bundled Python/GI environment variables before launching host tools. (#155)
-- Debian packaging accepts `pkexec | policykit-1` for Debian 13 compatibility.
+- Debian packaging accepts `pkexec | policykit-1` for Debian 13 compatibility and now ships the polkit policy correctly for installed wheels.
 - Python, Flatpak, website, and translation assets were refreshed, and a real-GTK construction smoke test now covers all views, preference pages, and dialogs.
 
 ## Install
