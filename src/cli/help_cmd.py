@@ -62,7 +62,9 @@ _COMMANDS: dict[str, dict[str, str | list[str]]] = {
         ],
     },
     "install-privileged-helper": {
-        "summary": N_("Install the polkit helper for saving system ClamAV configs"),
+        "summary": N_(
+            "Install the polkit helper for saving system ClamAV configs (native host only)"
+        ),
         "examples": [
             "sudo clamui install-privileged-helper",
         ],

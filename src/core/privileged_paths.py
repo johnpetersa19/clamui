@@ -18,6 +18,7 @@ boundary of the elevated helper.
 from __future__ import annotations
 
 import os
+import pwd
 import stat
 from pathlib import Path
 
@@ -57,12 +58,32 @@ def is_running_as_root() -> bool:
 
 def staging_root_for_uid(uid: int) -> Path:
     """
-    Return the per-user staging directory under ``/run/user/<uid>``.
+    Return the per-user staging root under the passwd-database home.
 
-    The directory is *not* created here -- the caller is responsible for
-    creating it with mode 0o700 before invoking the helper.  This function
-    is intentionally pure so it can be safely called from the privileged
-    helper before any other validation has run.
+    The canonical root is ``<passwd-home>/.cache/clamui/privileged-staging``::
+
+        pwd.getpwuid(uid).pw_dir / .cache / clamui / privileged-staging
+
+    Native and Flatpak share this single root so the privileged helper --
+    which runs on the host (via ``flatpak-spawn --host`` under Flatpak) and
+    independently recomputes it here -- always reads staged files from the
+    exact directory the caller wrote them to.  The path lives under the
+    host-visible home filesystem that the Flatpak manifest grants with
+    ``--filesystem=host``, so it is reachable from both sides of the
+    sandbox/host boundary.
+
+    The home directory is taken from the passwd database
+    (``pwd.getpwuid``), **never** from ``$HOME``: inside a Flatpak sandbox
+    ``$HOME`` points at ``~/.var/app/<id>`` rather than the real home, so a
+    ``$HOME``-derived root would not match what the host-visible helper
+    computes.  Native and Flatpak therefore agree because both consult the
+    same passwd entry for ``uid``.
+
+    The directory is *not* created here -- the caller (``_make_staging_dir``)
+    is responsible for creating it with mode 0o700 before invoking the
+    helper.  This function is intentionally pure (only a ``getpwuid``
+    lookup; no file I/O or other side effects) so it can be safely called
+    from the privileged helper before any other validation has run.
 
     Args:
         uid: The user ID whose staging root should be returned.
@@ -70,7 +91,7 @@ def staging_root_for_uid(uid: int) -> Path:
     Returns:
         Absolute path to the per-user staging root.
     """
-    return Path("/run/user") / str(uid) / "clamui-staging"
+    return Path(pwd.getpwuid(uid).pw_dir) / ".cache" / "clamui" / "privileged-staging"
 
 
 def validate_destination(destination: Path) -> None:
