@@ -72,11 +72,12 @@ def glob_to_regex(pattern: str) -> str:
         POSIX Extended Regular Expression string with anchors
     """
     regex = fnmatch.translate(pattern)
-    # Strip fnmatch's \Z(?ms) suffix for ClamAV compatibility
-    # fnmatch.translate() adds (?s:...) wrapper and \Z anchor
-    # We need to remove these for ClamAV's regex engine
-    if regex.endswith(r"\Z"):
-        regex = regex[:-2]
+    # Strip fnmatch Python-specific end anchors for ClamAV compatibility.
+    # Python versions before 3.14 use \Z; Python 3.14+ uses \z.
+    for suffix in (r"\Z", r"\z"):
+        if regex.endswith(suffix):
+            regex = regex[: -len(suffix)]
+            break
     # Handle newer Python versions that use (?s:pattern)\Z format
     if regex.startswith("(?s:") and regex.endswith(")"):
         regex = regex[4:-1]
