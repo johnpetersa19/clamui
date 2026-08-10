@@ -4,7 +4,7 @@
 
 # Main dependencies
 psutil==7.2.2
-matplotlib==3.11.0
+matplotlib==3.11.1
 requests==2.34.2
 keyring==25.7.0
 
@@ -21,7 +21,7 @@ python-dateutil==2.9.0.post0
 six==1.17.0
 
 # requests dependencies
-certifi==2026.6.17
+certifi==2026.7.22
 charset-normalizer==3.4.9
 idna==3.18
 urllib3==2.7.0
@@ -29,7 +29,7 @@ urllib3==2.7.0
 # keyring dependencies
 jaraco.classes==3.4.0
 jaraco.context==6.1.2
-jaraco.functools==4.5.0
+jaraco.functools==4.6.0
 jeepney==0.9.0
 more-itertools==11.1.0
 secretstorage==3.5.0
